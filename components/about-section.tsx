@@ -9,7 +9,7 @@ export function AboutSection() {
     {
       icon: Heart,
       title: "Pasión por viajar",
-      description: "Cada destino es una nueva aventura que vivimos con la misma emoción que nuestros clientes.",
+      description: "Cada destino es una nueva aventura que vivimos siempre con la misma emoción que nuestros clientes.",
     },
     {
       icon: Users,
