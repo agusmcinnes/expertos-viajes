@@ -61,6 +61,48 @@ const destinations = {
     heroImage: "/especiales-hero.png",
     code: "especiales",
   },
+  "eeuu-canada": {
+    name: "EEUU / Canadá",
+    description:
+      "Descubrí la grandeza de América del Norte, donde rascacielos icónicos se encuentran con paisajes naturales impresionantes. Desde las luces de Broadway hasta las Montañas Rocosas, una experiencia que combina modernidad, naturaleza y diversidad cultural.",
+    highlights: [
+      "Nueva York: La ciudad que nunca duerme",
+      "San Francisco: Golden Gate y cultura californiana",
+      "Las Vegas: Capital mundial del entretenimiento",
+      "Cataratas del Niágara: Espectáculo natural fronterizo",
+      "Montañas Rocosas: Naturaleza salvaje canadiense",
+    ],
+    heroImage: "/eeuu-canada-hero.png",
+    code: "eeuu-canada",
+  },
+  "europa-clasicos": {
+    name: "Europa y Clásicos",
+    description:
+      "Sumérgete en la historia, arte y cultura de Europa, donde cada ciudad cuenta milenios de civilización. Desde los museos del Louvre hasta las costas mediterráneas, un viaje a través del legado cultural más rico del mundo.",
+    highlights: [
+      "París: La ciudad de la luz y el amor",
+      "Roma: Capital del mundo antiguo",
+      "Londres: Tradición británica y modernidad",
+      "Barcelona: Gaudí y el Mediterráneo catalán",
+      "Venecia: Romance en los canales",
+    ],
+    heroImage: "/europa-clasicos-hero.png",
+    code: "europa-clasicos",
+  },
+  "exoticos-mundo": {
+    name: "Exóticos y Resto del Mundo",
+    description:
+      "Aventúrate hacia destinos remotos y culturas fascinantes que despiertan todos los sentidos. Experiencias auténticas en lugares donde la tradición milenaria se mantiene viva y los paisajes desafían la imaginación.",
+    highlights: [
+      "India: Espiritualidad y colores del subcontinente",
+      "Tailandia: Templos dorados y playas paradisíacas",
+      "Marruecos: Zocos y desierto del Sahara",
+      "Egipto: Misterios de los faraones",
+      "Nepal: Himalaya y cultura budista",
+    ],
+    heroImage: "/exoticos-mundo-hero.png",
+    code: "exoticos-mundo",
+  },
 }
 
 interface PageProps {
