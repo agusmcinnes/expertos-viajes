@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Menu, X, Home, Users, Phone, ChevronDown, ChevronRight, Bus, Plane } from "lucide-react"
+import { Menu, X, Home, Users, Phone, ChevronDown, ChevronRight, Bus, Plane, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
 import { destinationService } from "@/lib/supabase"
 import type { Destination } from "@/lib/supabase"
@@ -14,9 +14,11 @@ export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
+  const [specialSectionTitle, setSpecialSectionTitle] = useState("Sección Especial")
 
   useEffect(() => {
     loadDestinations()
+    loadSpecialSectionTitle()
   }, [])
 
   const loadDestinations = async () => {
@@ -28,9 +30,20 @@ export function Header() {
     }
   }
 
+  const loadSpecialSectionTitle = async () => {
+    try {
+      const { siteConfigService } = await import("@/lib/supabase")
+      const config = await siteConfigService.getConfig('special_section_title')
+      setSpecialSectionTitle(config.config_value)
+    } catch (error) {
+      console.log("Special section title not found, using default")
+    }
+  }
+
   const navigation = [
     { name: "Inicio", href: "/#", icon: Home },
     { name: "Nosotros", href: "/#nosotros", icon: Users },
+    { name: specialSectionTitle, href: "/seccion-especial", icon: Sparkles },
     { name: "Contacto", href: "/contacto", icon: Phone },
   ]
 

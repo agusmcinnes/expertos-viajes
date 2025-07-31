@@ -7,10 +7,13 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
+import { SiteConfigManager } from "./site-config-manager"
 
 export function AdminDashboardSimple() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
@@ -27,6 +30,7 @@ export function AdminDashboardSimple() {
     available_dates: "",
     transport_type: "aereo" as "aereo" | "bus",
     image_url: "",
+    is_special: false,
   })
 
   // Cargar datos desde Supabase
@@ -61,10 +65,11 @@ export function AdminDashboardSimple() {
 
           if (fallbackError) throw fallbackError
 
-          // Add default transport_type for display purposes
-          const packagesWithTransport = (fallbackData || []).map((pkg) => ({
+                    // Add transport_type if missing and set default is_special
+          const packagesWithTransport = (packagesData || []).map((pkg: any) => ({
             ...pkg,
-            transport_type: "aereo" as const,
+            transport_type: pkg.transport_type || "aereo",
+            is_special: pkg.is_special || false,
           }))
 
           setPackages(packagesWithTransport)
@@ -102,6 +107,7 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
+      is_special: false,
     })
   }
 
@@ -116,6 +122,7 @@ export function AdminDashboardSimple() {
       available_dates: pkg.available_dates?.join(", ") || "",
       transport_type: pkg.transport_type || "aereo",
       image_url: pkg.image_url || "",
+      is_special: pkg.is_special || false,
     })
   }
 
@@ -129,6 +136,7 @@ export function AdminDashboardSimple() {
         duration: formData.duration,
         available_dates: formData.available_dates.split(",").map((d) => d.trim()),
         image_url: formData.image_url || `/placeholder.svg?height=300&width=400&query=${encodeURIComponent(formData.name)}`,
+        is_special: formData.is_special,
       }
 
       // Only add transport_type if the form has it and it's not the default
@@ -191,6 +199,7 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
+      is_special: false,
     })
   }
 
@@ -292,22 +301,35 @@ export function AdminDashboardSimple() {
           </Card>
         </motion.div>
 
-        {/* Packages Management */}
+        {/* Tabs para diferentes secciones de administración */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Gestión de Paquetes</CardTitle>
-                <Button
-                  onClick={handleAdd}
-                  className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg text-white"
-                >
-                  <Plus className="w-4 h-4 mr-2text-white" />
-                  Agregar Paquete
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
+          <Tabs defaultValue="packages" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="packages" className="flex items-center space-x-2">
+                <Package className="w-4 h-4" />
+                <span>Gestión de Paquetes</span>
+              </TabsTrigger>
+              <TabsTrigger value="config" className="flex items-center space-x-2">
+                <Settings className="w-4 h-4" />
+                <span>Configuración del Sitio</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="packages">
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <CardTitle>Gestión de Paquetes</CardTitle>
+                    <Button
+                      onClick={handleAdd}
+                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-2text-white" />
+                      Agregar Paquete
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
               {/* Add/Edit Form */}
               {(isAdding || isEditing) && (
                 <motion.div
@@ -417,6 +439,23 @@ export function AdminDashboardSimple() {
                         placeholder="https://ejemplo.com/imagen.jpg (opcional)"
                       />
                     </div>
+                    <div className="md:col-span-2">
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="is_special"
+                          checked={formData.is_special}
+                          onCheckedChange={(checked) => 
+                            setFormData((prev) => ({ ...prev, is_special: checked as boolean }))
+                          }
+                        />
+                        <label
+                          htmlFor="is_special"
+                          className="text-sm font-medium text-gray-700 cursor-pointer"
+                        >
+                          Paquete de la sección especial
+                        </label>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex gap-3 mt-6">
                     <Button
@@ -467,6 +506,9 @@ export function AdminDashboardSimple() {
                             )}
                           </Badge>
                           <Badge className="bg-green-100 text-green-800">${pkg.price}</Badge>
+                          {pkg.is_special && (
+                            <Badge className="bg-purple-100 text-purple-800">Sección Especial</Badge>
+                          )}
                         </div>
                         <p className="text-gray-600 mb-2">{pkg.description}</p>
                         <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -506,8 +548,14 @@ export function AdminDashboardSimple() {
               </div>
             </CardContent>
           </Card>
-        </motion.div>
-      </div>
-    </div>
+        </TabsContent>
+
+        <TabsContent value="config">
+          <SiteConfigManager />
+        </TabsContent>
+      </Tabs>
+    </motion.div>
+  </div>
+</div>
   )
 }
