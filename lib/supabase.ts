@@ -17,6 +17,7 @@ export interface TravelPackage {
   available_dates: string[] | null
   max_capacity: number
   is_active: boolean
+  is_special: boolean
   transport_type?: "aereo" | "bus"
   created_at: string
   updated_at: string
@@ -39,6 +40,15 @@ export interface ContactInquiry {
   package_id?: number | null
   status: "pending" | "contacted" | "closed"
   created_at: string
+}
+
+export interface SiteConfig {
+  id: number
+  config_key: string
+  config_value: string
+  description: string | null
+  created_at: string
+  updated_at: string
 }
 
 // Funciones helper para interactuar con Supabase
@@ -189,6 +199,26 @@ export const packageService = {
 
     if (error) throw error
   },
+
+  // Obtener paquetes especiales
+  async getSpecialPackages() {
+    const { data, error } = await supabase
+      .from("travel_packages")
+      .select(`
+        *,
+        destinations (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("is_active", true)
+      .eq("is_special", true)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
 }
 
 export const destinationService = {
@@ -224,5 +254,61 @@ export const contactService = {
 
     if (error) throw error
     return data
+  },
+}
+
+// Servicio para configuración del sitio
+export const siteConfigService = {
+  // Obtener configuración por clave
+  async getConfig(key: string) {
+    const { data, error } = await supabase
+      .from("site_config")
+      .select("*")
+      .eq("config_key", key)
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Obtener todas las configuraciones
+  async getAllConfigs() {
+    const { data, error } = await supabase
+      .from("site_config")
+      .select("*")
+      .order("config_key")
+
+    if (error) throw error
+    return data
+  },
+
+  // Actualizar configuración
+  async updateConfig(key: string, value: string) {
+    const { data, error } = await supabase
+      .from("site_config")
+      .update({ 
+        config_value: value, 
+        updated_at: new Date().toISOString() 
+      })
+      .eq("config_key", key)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Crear nueva configuración
+  async createConfig(key: string, value: string, description?: string) {
+    const { data, error } = await supabase
+      .from("site_config")
+      .insert([{ 
+        config_key: key, 
+        config_value: value, 
+        description 
+      }])
+      .select()
+
+    if (error) throw error
+    return data[0]
   },
 }

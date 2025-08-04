@@ -58,6 +58,9 @@ export function DestinationsSectionDynamic() {
       brasil: "",
       caribe: "",
       especiales: "",
+      "eeuu-canada": "🏙️",
+      "europa-clasicos": "🏛️", 
+      "exoticos-mundo": "🌍",
     }
     return icons[code] || ""
   }
