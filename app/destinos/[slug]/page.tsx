@@ -114,7 +114,7 @@ const destinations = {
       "Dubrovnik: La perla del Adriático",
       "Malta: Historia milenaria en el centro del mar",
     ],
-    heroImage: "/placeholder.jpg",
+    heroImage: "/tropical-beach-paradise.png",
     code: "mediterráneo",
   },
 }

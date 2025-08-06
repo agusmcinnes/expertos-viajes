@@ -45,8 +45,8 @@ export function DestinationPage({ destination }: DestinationPageProps) {
       let filteredPackages = data
       if (transport && transport !== 'all') {
         filteredPackages = data.filter(pkg => {
-          // Simular filtrado por transporte (en el futuro esto vendrá de la BD)
-          return true // Por ahora mostrar todos, luego implementar filtrado real
+          // Filtrado real por tipo de transporte
+          return pkg.transport_type === transport
         })
       }
       
