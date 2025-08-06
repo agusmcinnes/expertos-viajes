@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, Star } from "lucide-react"
+import { Calendar, Users, Star, Plane, Bus, Ship } from "lucide-react"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { packageService, destinationService } from "@/lib/supabase"
@@ -57,12 +57,24 @@ export function DestinationsSectionDynamic() {
       argentina: "",
       brasil: "",
       caribe: "",
-      especiales: "",
+      grupales: "",
       "eeuu-canada": "🏙️",
       "europa-clasicos": "🏛️", 
       "exoticos-mundo": "🌍",
     }
     return icons[code] || ""
+  }
+
+  const getTransportInfo = (transport_type?: "aereo" | "bus" | "crucero") => {
+    const transportType = transport_type || "aereo"
+    switch (transportType) {
+      case "bus":
+        return { icon: Bus, text: "Bus", className: "bg-bus text-white" }
+      case "crucero":
+        return { icon: Ship, text: "Crucero", className: "bg-blue-600 text-white" }
+      default:
+        return { icon: Plane, text: "Aéreo", className: "bg-primary text-white" }
+    }
   }
 
   return (
@@ -109,7 +121,7 @@ export function DestinationsSectionDynamic() {
                       : "border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white hover:scale-105 shadow-lg hover:shadow-xl"
                   }`}
                 >
-                  <Link href={`/destinos/${destination.code}`}>
+                  <Link href={`/destinos/${destination.code === "mediterráneo" ? "mediterraneo" : destination.code}`}>
                     {destination.name}
                   </Link>
                 </Button>
@@ -177,6 +189,16 @@ export function DestinationsSectionDynamic() {
                           <Users className="w-4 h-4 mr-2" />
                           <span>Grupos reducidos (máx. {pkg.max_capacity} personas)</span>
                         </div>
+                        {(() => {
+                          const transportInfo = getTransportInfo(pkg.transport_type)
+                          const TransportIcon = transportInfo.icon
+                          return (
+                            <div className="flex items-center text-sm text-gray-500">
+                              <TransportIcon className="w-4 h-4 mr-2" />
+                              <span>Transporte: {transportInfo.text}</span>
+                            </div>
+                          )
+                        })()}
                         <div className="flex items-center text-sm text-gray-500">
                           <Star className="w-4 h-4 mr-2 fill-yellow-400 text-yellow-400" />
                           <span>Calificación 4.9/5</span>

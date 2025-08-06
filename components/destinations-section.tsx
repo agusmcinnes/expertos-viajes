@@ -71,7 +71,7 @@ const mockPackages = {
       image: "/costa-rica-volcanoes-beaches.png",
     },
   ],
-  especiales: [
+  grupales: [
     {
       id: 7,
       name: "Japón Tradicional",
@@ -97,7 +97,7 @@ const destinations = [
   { id: "argentina", name: "Argentina", icon: "" },
   { id: "brasil", name: "Brasil", icon: "" },
   { id: "caribe", name: "Caribe & Centroamérica", icon: "" },
-  { id: "especiales", name: "Viajes Especiales", icon: "" },
+  { id: "grupales", name: "Salidas Grupales Acompañadas", icon: "" },
 ]
 
 export function DestinationsSection() {

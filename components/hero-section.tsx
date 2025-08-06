@@ -30,7 +30,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 md:mb-6 leading-tight"
+            className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 md:mb-6 leading-tight"
           >
             Descubrí tu próximo
             <span className="block text-secondary"> destino soñado</span>
@@ -40,7 +40,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-lg sm:text-xl md:text-2xl mb-6 md:mb-8 text-white/90 max-w-2xl mx-auto px-4"
+            className="text-md sm:text-xl md:text-2xl mb-6 md:mb-8 text-white/90 max-w-2xl mx-auto px-4"
           >
             Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales, tu viaje
             perfecto te está esperando.
@@ -76,18 +76,20 @@ export function HeroSection() {
           </motion.div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-secondary mb-2">500+</div>
-              <div className="text-white/80">Viajes realizados</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-secondary mb-2">50+</div>
-              <div className="text-white/80">Destinos únicos</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold text-secondary mb-2">98%</div>
-              <div className="text-white/80">Clientes satisfechos</div>
+          <div className="max-w-2xl mx-auto mt-20 md:mt-0">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-secondary mb-2">500+</div>
+                <div className="text-white/80">Viajes realizados</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-secondary mb-2">50+</div>
+                <div className="text-white/80">Destinos únicos</div>
+              </div>
+              <div className="text-center col-span-2 md:col-span-1">
+                <div className="text-3xl font-bold text-secondary mb-2">98%</div>
+                <div className="text-white/80">Clientes satisfechos</div>
+              </div>
             </div>
           </div>
         </div>

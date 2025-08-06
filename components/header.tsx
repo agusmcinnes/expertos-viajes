@@ -5,7 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Menu, X, Home, Users, Phone, ChevronDown, ChevronRight, Bus, Plane, Sparkles } from "lucide-react"
+import { Menu, X, Home, Users, Phone, ChevronDown, ChevronRight, Bus, Plane, Sparkles, Ship } from "lucide-react"
 import { motion } from "framer-motion"
 import { destinationService } from "@/lib/supabase"
 import type { Destination } from "@/lib/supabase"
@@ -44,20 +44,44 @@ export function Header() {
     { name: "Inicio", href: "/#", icon: Home },
     { name: "Nosotros", href: "/#nosotros", icon: Users },
     { name: specialSectionTitle, href: "/seccion-especial", icon: Sparkles },
-    { name: "Contacto", href: "/contacto", icon: Phone },
+  ]
+
+  // Definir destinos específicos para cada tipo de transporte
+  const destinosAvion = [
+    { code: "argentina", name: "Argentina" },
+    { code: "brasil", name: "Brasil" },
+    { code: "caribe", name: "Caribe y Centro América" },
+    { code: "eeuu-canada", name: "EEUU / Canadá" },
+    { code: "europa-clasicos", name: "Europa y Clásicos" },
+    { code: "exoticos-mundo", name: "Exóticos y Resto del Mundo" },
+    { code: "grupales", name: "Salidas Grupales Acompañadas" },
+  ]
+
+  const destinosBus = [
+    { code: "brasil", name: "Brasil" },
+    { code: "argentina", name: "Argentina" },
+    { code: "grupales", name: "Salidas Especiales" },
+  ]
+
+  const destinosCrucero = [
+    { code: "brasil", name: "Brasil" },
+    { code: "caribe", name: "Caribe" },
+    { code: "mediterraneo", name: "Mediterráneo" },
+    { code: "grupales", name: "Especiales" },
   ]
 
   const getDestinationIcon = (code: string) => {
     const icons: Record<string, string> = {
-      argentina: "",
-      brasil: "",
-      caribe: "",
-      especiales: "",
+      argentina: "🇦🇷",
+      brasil: "🇧🇷",
+      caribe: "🏝️",
+      grupales: "👥",
       "eeuu-canada": "🏙️",
       "europa-clasicos": "🏛️", 
       "exoticos-mundo": "🌍",
+      "mediterraneo": "🚢",
     }
-    return icons[code] || ""
+    return icons[code] || "✈️"
   }
 
   const handleNavigation = (href: string) => {
@@ -95,7 +119,7 @@ export function Header() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="fixed top-0 w-full bg-white/95 backdrop-blur-sm z-50 border-b border-gray-100"
+      className="fixed top-0 w-full bg-white/95 backdrop-blur-sm z-50 border-b border-gray-100 py-4"
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
@@ -162,7 +186,7 @@ export function Header() {
                     href="/#destinos"
                     onClick={(e) => {
                       e.preventDefault()
-                      handleNavigation("/#destinos")
+                      handleNavigation("/avion")
                     }}
                     className="flex items-center space-x-2 w-full"
                   >
@@ -171,8 +195,8 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <div className="border-t my-1"></div>
-                {destinations.map((destination) => (
-                  <DropdownMenuItem key={destination.id} asChild>
+                {destinosAvion.map((destination) => (
+                  <DropdownMenuItem key={destination.code} asChild>
                     <Link
                       href={`/destinos/${destination.code}?transport=aereo`}
                       onClick={() => handleNavigation(`/destinos/${destination.code}?transport=aereo`)}
@@ -219,15 +243,54 @@ export function Header() {
                   </Link>
                 </DropdownMenuItem>
                 <div className="border-t my-1"></div>
-                {destinations.map((destination) => (
-                  <DropdownMenuItem key={destination.id} asChild>
+                {destinosBus.map((destination) => (
+                  <DropdownMenuItem key={destination.code} asChild>
                     <Link
                       href={`/destinos/${destination.code}?transport=bus`}
                       onClick={() => handleNavigation(`/destinos/${destination.code}?transport=bus`)}
                       className="flex items-center space-x-2 w-full"
                     >
                       <span className="text-lg">{getDestinationIcon(destination.code)}</span>
-                      <span>{destination.name} en Bus</span>
+                      <span>{destination.name}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {/* En Crucero */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors duration-200 p-0 h-auto font-normal"
+                >
+                  <Ship className="w-4 h-4" />
+                  <span className="font-semibold">En Crucero</span>
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="w-56">
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/crucero"
+                    onClick={() => handleNavigation("/crucero")}
+                    className="flex items-center space-x-2 w-full"
+                  >
+                    <Ship className="w-4 h-4" />
+                    <span>Ver Todos los Cruceros</span>
+                  </Link>
+                </DropdownMenuItem>
+                <div className="border-t my-1"></div>
+                {destinosCrucero.map((destination) => (
+                  <DropdownMenuItem key={destination.code} asChild>
+                    <Link
+                      href={`/destinos/${destination.code}?transport=crucero`}
+                      onClick={() => handleNavigation(`/destinos/${destination.code}?transport=crucero`)}
+                      className="flex items-center space-x-2 w-full"
+                    >
+                      <span className="text-lg">{getDestinationIcon(destination.code)}</span>
+                      <span>{destination.name}</span>
                     </Link>
                   </DropdownMenuItem>
                 ))}
@@ -245,10 +308,10 @@ export function Header() {
                 href="/#destinos"
                 onClick={(e) => {
                   e.preventDefault()
-                  handleNavigation("/#destinos")
+                  handleNavigation("/contacto")
                 }}
               >
-                Ver Paquetes
+                Contactanos
               </Link>
             </Button>
             <Button
@@ -364,9 +427,9 @@ export function Header() {
                         </div>
                         <span className="text-sm font-medium">Ver Todos los Destinos</span>
                       </Link>
-                      {destinations.map((destination) => (
+                      {destinosAvion.map((destination) => (
                         <Link
-                          key={destination.id}
+                          key={destination.code}
                           href={`/destinos/${destination.code}?transport=aereo`}
                           className="flex items-center space-x-2 text-gray-600 hover:text-primary transition-all duration-200 p-2 rounded-lg hover:bg-primary/5"
                           onClick={() => handleNavigation(`/destinos/${destination.code}?transport=aereo`)}
@@ -426,9 +489,9 @@ export function Header() {
                         </div>
                         <span className="text-sm font-medium">Ver Todos los Viajes en Bus</span>
                       </Link>
-                      {destinations.map((destination) => (
+                      {destinosBus.map((destination) => (
                         <Link
-                          key={destination.id}
+                          key={destination.code}
                           href={`/destinos/${destination.code}?transport=bus`}
                           className="flex items-center space-x-2 text-bus hover:text-bus-600 transition-all duration-200 p-2 rounded-lg hover:bg-bus/5"
                           onClick={() => handleNavigation(`/destinos/${destination.code}?transport=bus`)}
@@ -436,7 +499,66 @@ export function Header() {
                           <div className="w-6 h-6 rounded-full bg-bus/10 flex items-center justify-center">
                             <span className="text-xs">{getDestinationIcon(destination.code)}</span>
                           </div>
-                          <span className="text-sm font-medium">{destination.name} en Bus</span>
+                          <span className="text-sm font-medium">{destination.name}</span>
+                        </Link>
+                      ))}
+                    </motion.div>
+                  )}
+                </motion.div>
+
+                {/* En Crucero Section - Colapsable */}
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.6, duration: 0.3 }}
+                  className="space-y-2"
+                >
+                  <button
+                    onClick={() => toggleSection('crucero')}
+                    className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-blue-600/5 to-cyan-50 rounded-lg hover:from-blue-600/10 hover:to-cyan-100 transition-all duration-200"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-600/20 flex items-center justify-center">
+                        <Ship className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <span className="font-semibold text-blue-600">En Crucero</span>
+                    </div>
+                    <ChevronRight 
+                      className={`w-4 h-4 text-blue-600 transition-transform duration-200 ${
+                        expandedSection === 'crucero' ? 'rotate-90' : ''
+                      }`} 
+                    />
+                  </button>
+                  
+                  {expandedSection === 'crucero' && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="ml-3 space-y-1 overflow-hidden"
+                    >
+                      <Link
+                        href="/crucero"
+                        className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-all duration-200 p-2 rounded-lg hover:bg-blue-600/5"
+                        onClick={() => handleNavigation("/crucero")}
+                      >
+                        <div className="w-6 h-6 rounded-full bg-blue-600/10 flex items-center justify-center">
+                          <Ship className="w-3 h-3 text-blue-600" />
+                        </div>
+                        <span className="text-sm font-medium">Ver Todos los Cruceros</span>
+                      </Link>
+                      {destinosCrucero.map((destination) => (
+                        <Link
+                          key={destination.code}
+                          href={`/destinos/${destination.code}?transport=crucero`}
+                          className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-all duration-200 p-2 rounded-lg hover:bg-blue-600/5"
+                          onClick={() => handleNavigation(`/destinos/${destination.code}?transport=crucero`)}
+                        >
+                          <div className="w-6 h-6 rounded-full bg-blue-600/10 flex items-center justify-center">
+                            <span className="text-xs">{getDestinationIcon(destination.code)}</span>
+                          </div>
+                          <span className="text-sm font-medium">{destination.name}</span>
                         </Link>
                       ))}
                     </motion.div>
@@ -450,7 +572,7 @@ export function Header() {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6, duration: 0.3 }}
+                  transition={{ delay: 0.7, duration: 0.3 }}
                   className="flex flex-col space-y-2 pt-1"
                 >
                   <Button
@@ -461,21 +583,11 @@ export function Header() {
                       href="/#destinos"
                       onClick={(e) => {
                         e.preventDefault()
-                        handleNavigation("/#destinos")
+                        handleNavigation("/contacto")
                       }}
                     >
                       <Plane className="w-4 h-4 mr-2" />
-                      Ver Paquetes
-                    </Link>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    asChild
-                    className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white bg-transparent transition-all duration-300 shadow-sm hover:shadow-md"
-                  >
-                    <Link href="/admin">
-                      <Users className="w-4 h-4 mr-2" />
-                      Admin
+                      Contactanos
                     </Link>
                   </Button>
                 </motion.div>

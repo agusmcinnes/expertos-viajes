@@ -89,7 +89,7 @@ export function Footer() {
               </li>
               <li>
                 <Link href="#" className="text-gray-300 hover:text-secondary transition-colors">
-                  Viajes Especiales
+                  Salidas Grupales Acompañadas
                 </Link>
               </li>
             </ul>

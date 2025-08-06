@@ -18,7 +18,7 @@ export interface TravelPackage {
   max_capacity: number
   is_active: boolean
   is_special: boolean
-  transport_type?: "aereo" | "bus"
+  transport_type?: "aereo" | "bus" | "crucero"
   created_at: string
   updated_at: string
 }
