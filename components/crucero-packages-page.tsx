@@ -263,8 +263,8 @@ export function CruceroPackagesPage() {
                         </div>
                       </div>
 
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                        Ver Detalles del Crucero
+                      <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                        <Link href={`/paquete/${pkg.id}`}>Ver Detalles del Crucero</Link>
                       </Button>
                     </div>
                   </CardContent>

@@ -22,6 +22,9 @@ export function AdminDashboardSimple() {
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState<number | null>(null)
   const [isAdding, setIsAdding] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
+  const [isLoadingRates, setIsLoadingRates] = useState(false)
   const [accommodations, setAccommodations] = useState<any[]>([])
   const [showAccommodations, setShowAccommodations] = useState(false)
   const [showRatesModal, setShowRatesModal] = useState(false)
@@ -148,6 +151,7 @@ export function AdminDashboardSimple() {
   // Función para cargar alojamientos cuando se edita un paquete
   const loadAccommodationsForPackage = async (packageId: number) => {
     try {
+      setIsLoadingAccommodations(true)
       const { data, error } = await supabase
         .from("accommodations")
         .select("*")
@@ -158,6 +162,8 @@ export function AdminDashboardSimple() {
     } catch (error) {
       console.error("Error loading accommodations:", error)
       setAccommodations([])
+    } finally {
+      setIsLoadingAccommodations(false)
     }
   }
 
@@ -204,6 +210,7 @@ export function AdminDashboardSimple() {
   // Función para cargar tarifas de un alojamiento
   const loadRatesForAccommodation = async (accommodationId: number) => {
     try {
+      setIsLoadingRates(true)
       const { data, error } = await supabase
         .from("accommodation_rates")
         .select("*")
@@ -216,6 +223,8 @@ export function AdminDashboardSimple() {
     } catch (error) {
       console.error("Error loading rates:", error)
       setRates([])
+    } finally {
+      setIsLoadingRates(false)
     }
   }
 
@@ -410,6 +419,7 @@ export function AdminDashboardSimple() {
 
   const handleSave = async () => {
     try {
+      setIsSaving(true)
       const packageData = {
         name: formData.name,
         description: formData.description,
@@ -459,6 +469,8 @@ export function AdminDashboardSimple() {
     } catch (error) {
       console.error("Error saving package:", error)
       alert("Error al guardar el paquete: " + (error as Error).message)
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -736,13 +748,18 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Descripción (Markdown soportado)
+                          </label>
                           <Textarea
                             value={formData.description}
                             onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                            placeholder="Descripción del paquete de viaje..."
-                            rows={3}
+                            placeholder="Descripción del paquete de viaje... Puedes usar **negrita**, *cursiva*, listas, etc."
+                            rows={5}
                           />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Tip: Usa **texto** para negrita, *texto* para cursiva, - para listas
+                          </p>
                         </div>
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -865,7 +882,12 @@ export function AdminDashboardSimple() {
                               </div>
 
                               {/* Lista de alojamientos agregados */}
-                              {accommodations.length > 0 && (
+                              {isLoadingAccommodations ? (
+                                <div className="flex items-center justify-center py-8">
+                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                                  <span className="ml-2 text-gray-600">Cargando alojamientos...</span>
+                                </div>
+                              ) : accommodations.length > 0 ? (
                                 <div className="space-y-2">
                                   <h4 className="font-medium">Alojamientos del Paquete ({accommodations.length})</h4>
                                   {accommodations.map((accommodation) => (
@@ -909,7 +931,7 @@ export function AdminDashboardSimple() {
                                     </div>
                                   ))}
                                 </div>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         )}
@@ -918,10 +940,20 @@ export function AdminDashboardSimple() {
                       <div className="flex gap-3 mt-6">
                         <Button
                           onClick={handleSave}
+                          disabled={isSaving}
                           className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg"
                         >
-                          <Save className="w-4 h-4 mr-2" />
-                          Guardar
+                          {isSaving ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Guardando...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="w-4 h-4 mr-2" />
+                              Guardar
+                            </>
+                          )}
                         </Button>
                         <Button onClick={handleCancel} variant="outline">
                           <X className="w-4 h-4 mr-2" />
@@ -1162,7 +1194,12 @@ export function AdminDashboardSimple() {
             </div>
 
             {/* Lista de tarifas existentes */}
-            {rates.length > 0 && (
+            {isLoadingRates ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <span className="ml-2 text-gray-600">Cargando tarifas...</span>
+              </div>
+            ) : rates.length > 0 ? (
               <div>
                 <h3 className="font-medium mb-4">Tarifas Existentes</h3>
                 <div className="space-y-2">
@@ -1199,9 +1236,9 @@ export function AdminDashboardSimple() {
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {rates.length === 0 && (
+            {!isLoadingRates && rates.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No hay tarifas configuradas</p>

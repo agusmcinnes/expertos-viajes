@@ -293,9 +293,9 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                               className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
                             >
                               <Link
-                                href="/contacto"
+                                href={`/paquete/${pkg.id}`}
                               >
-                                Solicitar Información
+                                Ver Detalles
                               </Link>
                             </Button>
                           </div>

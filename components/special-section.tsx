@@ -168,8 +168,8 @@ export function SpecialSection() {
                           asChild
                           className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
                         >
-                          <Link href="/contacto">
-                            Solicitar Información
+                          <Link href={`/paquete/${pkg.id}`}>
+                            Ver Detalles
                           </Link>
                         </Button>
                       </div>

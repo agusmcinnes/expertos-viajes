@@ -231,8 +231,8 @@ export function AvionPackagesPage() {
                           </div>
                         </div>
 
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                          Ver Detalles del Viaje
+                        <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                          <Link href={`/paquete/${pkg.id}`}>Ver Detalles del Viaje</Link>
                         </Button>
                       </div>
                     </CardContent>

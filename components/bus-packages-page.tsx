@@ -236,8 +236,8 @@ export function BusPackagesPage() {
                           </div>
                         </div>
 
-                        <Button className="w-full bg-bus hover:bg-bus-600 text-white">
-                          Ver Detalles del Viaje
+                        <Button asChild className="w-full bg-bus hover:bg-bus-600 text-white">
+                          <Link href={`/paquete/${pkg.id}`}>Ver Detalles del Viaje</Link>
                         </Button>
                       </div>
                     </CardContent>
