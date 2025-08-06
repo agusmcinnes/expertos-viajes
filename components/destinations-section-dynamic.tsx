@@ -57,7 +57,7 @@ export function DestinationsSectionDynamic() {
       argentina: "",
       brasil: "",
       caribe: "",
-      especiales: "",
+      grupales: "",
       "eeuu-canada": "🏙️",
       "europa-clasicos": "🏛️", 
       "exoticos-mundo": "🌍",

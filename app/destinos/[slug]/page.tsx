@@ -47,10 +47,10 @@ const destinations = {
     heroImage: "/caribe-hero.png",
     code: "caribe",
   },
-  especiales: {
-    name: "Viajes Especiales",
+  grupales: {
+    name: "Salidas Grupales Acompañadas",
     description:
-      "Embarcate en aventuras extraordinarias hacia destinos únicos del mundo. Experiencias exclusivas diseñadas para viajeros que buscan algo más allá de lo convencional, desde safaris africanos hasta templos milenarios.",
+      "En nuestras Salidas Grupales Acompañadas no solo visitás destinos increíbles, también compartís el viaje con personas que disfrutan del turismo tanto como vos. Un coordinador experto te acompaña desde el primer momento, ocupándose de cada detalle para que vos solo te dediques a disfrutar.",
     highlights: [
       "Japón: Tradición milenaria y tecnología futurista",
       "Safari Africano: Los Big Five en su hábitat natural",
@@ -58,8 +58,8 @@ const destinations = {
       "Machu Picchu: Ciudadela inca en las nubes",
       "Aurora Boreal: Espectáculo natural único",
     ],
-    heroImage: "/especiales-hero.png",
-    code: "especiales",
+    heroImage: "/grupales-hero.jpg",
+    code: "grupales",
   },
   "eeuu-canada": {
     name: "EEUU / Canadá",
@@ -102,6 +102,20 @@ const destinations = {
     ],
     heroImage: "/exoticos-mundo-hero.png",
     code: "exoticos-mundo",
+  },
+  mediterráneo: {
+    name: "Mediterráneo",
+    description:
+      "Navega por las aguas cristalinas del Mediterráneo y descubre la cuna de la civilización occidental. Desde las islas griegas hasta las costas españolas, un crucero por destinos que han marcado la historia de la humanidad.",
+    highlights: [
+      "Islas Griegas: Santorini y Mykonos",
+      "Costa Amalfitana: Belleza italiana incomparable",
+      "Barcelona: Gaudí y el Mediterráneo catalán",
+      "Dubrovnik: La perla del Adriático",
+      "Malta: Historia milenaria en el centro del mar",
+    ],
+    heroImage: "/placeholder.jpg",
+    code: "mediterráneo",
   },
 }
 

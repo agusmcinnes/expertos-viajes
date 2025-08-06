@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, Star, ArrowLeft, MapPin, CheckCircle } from "lucide-react"
+import { Calendar, Users, Star, ArrowLeft, MapPin, CheckCircle, Plane, Bus, Ship } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -24,6 +25,8 @@ interface DestinationPageProps {
 }
 
 export function DestinationPage({ destination }: DestinationPageProps) {
+  const searchParams = useSearchParams()
+  const transport = searchParams.get('transport') || 'all'
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
@@ -31,18 +34,67 @@ export function DestinationPage({ destination }: DestinationPageProps) {
     loadPackages()
     // Scroll to top when component mounts
     window.scrollTo({ top: 0, behavior: "smooth" })
-  }, [destination.code])
+  }, [destination.code, transport])
 
   const loadPackages = async () => {
     try {
       setIsLoading(true)
       const data = await packageService.getPackagesByDestination(destination.code)
-      setPackages(data)
+      
+      // Filtrar por tipo de transporte si se especifica
+      let filteredPackages = data
+      if (transport && transport !== 'all') {
+        filteredPackages = data.filter(pkg => {
+          // Simular filtrado por transporte (en el futuro esto vendrá de la BD)
+          return true // Por ahora mostrar todos, luego implementar filtrado real
+        })
+      }
+      
+      setPackages(filteredPackages)
     } catch (error) {
       console.error("Error loading packages:", error)
       setPackages([])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const getTransportIcon = (transportType: string) => {
+    switch (transportType) {
+      case 'aereo':
+        return <Plane className="w-4 h-4" />
+      case 'bus':
+        return <Bus className="w-4 h-4" />
+      case 'crucero':
+        return <Ship className="w-4 h-4" />
+      default:
+        return <Plane className="w-4 h-4" />
+    }
+  }
+
+  const getTransportColor = (transportType: string) => {
+    switch (transportType) {
+      case 'aereo':
+        return 'bg-blue-100 text-blue-800'
+      case 'bus':
+        return 'bg-orange-100 text-orange-800'
+      case 'crucero':
+        return 'bg-cyan-100 text-cyan-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const getTransportName = (transportType: string) => {
+    switch (transportType) {
+      case 'aereo':
+        return 'En Avión'
+      case 'bus':
+        return 'En Bus'
+      case 'crucero':
+        return 'En Crucero'
+      default:
+        return 'Transporte'
     }
   }
 
@@ -71,7 +123,7 @@ export function DestinationPage({ destination }: DestinationPageProps) {
             backgroundImage: `url('${destination.heroImage}')`,
           }}
         >
-          <div className="absolute inset-0 bg-primary/70"></div>
+          <div className="absolute inset-0 bg-primary/80"></div>
         </div>
 
         <motion.div
@@ -100,20 +152,28 @@ export function DestinationPage({ destination }: DestinationPageProps) {
               </Link>
             </motion.div>
 
-            <motion.h1
+            <motion.h2
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight"
+              className="text-2xl md:text-3xl lg:text-5xl font-bold mb-6 leading-tight"
             >
               {destination.name}
-            </motion.h1>
+              {transport && transport !== 'all' && (
+                <div className="flex items-center justify-center gap-3 mt-4">
+                  <Badge className={`text-lg px-4 py-2 ${getTransportColor(transport)}`}>
+                    {getTransportIcon(transport)}
+                    <span className="ml-2">{getTransportName(transport)}</span>
+                  </Badge>
+                </div>
+              )}
+            </motion.h2>
 
             <motion.p
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.5 }}
-              className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto"
+              className="text-lg md:text-xl text-white/90 max-w-5xl mx-auto"
             >
               {destination.description}
             </motion.p>
@@ -195,10 +255,16 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                               ${pkg.price}
                             </Badge>
                           </div>
-                          <div className="absolute top-4 left-4">
-                            <Badge variant="outline" className="bg-white/90 text-gray-900 border-white">
+                          <div className="absolute top-4 left-4 space-y-2">
+                            <Badge variant="outline" className="bg-white/90 text-gray-900 border-white block">
                               {pkg.duration}
                             </Badge>
+                            {transport && transport !== 'all' && (
+                              <Badge className={`${getTransportColor(transport)} block`}>
+                                {getTransportIcon(transport)}
+                                <span className="ml-1">{getTransportName(transport)}</span>
+                              </Badge>
+                            )}
                           </div>
                         </div>
 
@@ -246,9 +312,23 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                   animate={{ opacity: 1 }}
                   className="text-center py-12 text-gray-500"
                 >
-                  <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">No hay paquetes disponibles para este destino</p>
-                  <p className="text-sm">Pronto agregaremos nuevas opciones</p>
+                  {transport && transport !== 'all' ? (
+                    <>
+                      <div className="w-16 h-16 mx-auto mb-4 opacity-50 flex items-center justify-center bg-gray-100 rounded-full">
+                        {getTransportIcon(transport)}
+                      </div>
+                      <p className="text-lg">
+                        No hay paquetes disponibles {getTransportName(transport).toLowerCase()} para {destination.name}
+                      </p>
+                      <p className="text-sm">Pronto agregaremos nuevas opciones para este tipo de transporte</p>
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                      <p className="text-lg">No hay paquetes disponibles para este destino</p>
+                      <p className="text-sm">Pronto agregaremos nuevas opciones</p>
+                    </>
+                  )}
                 </motion.div>
               )}
             </motion.div>

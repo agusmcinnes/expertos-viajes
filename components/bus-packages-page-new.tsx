@@ -229,6 +229,11 @@ export function BusPackagesPage() {
                       <div className="border-t pt-4">
                         <div className="flex items-center justify-between mb-4">
                           <div>
+                            {pkg.original_price && (
+                              <p className="text-sm text-gray-500 line-through">
+                                ${pkg.original_price.toLocaleString()}
+                              </p>
+                            )}
                             <p className="text-2xl font-bold text-bus">
                               ${pkg.price.toLocaleString()}
                               <span className="text-sm font-normal text-gray-500"> por persona</span>
