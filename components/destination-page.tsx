@@ -132,7 +132,7 @@ export function DestinationPage({ destination }: DestinationPageProps) {
           transition={{ duration: 0.8 }}
           className="relative z-10 container mx-auto px-4 text-center text-white"
         >
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-4xl mx-auto mt-16">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -186,7 +186,8 @@ export function DestinationPage({ destination }: DestinationPageProps) {
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             {/* Highlights */}
-            <motion.div
+            {destination.highlights && destination.highlights.length > 0 && (
+              <motion.div
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -211,7 +212,8 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                   </motion.div>
                 ))}
               </div>
-            </motion.div>
+            </motion.div>)}
+            
 
             {/* Packages Section */}
             <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
@@ -252,15 +254,15 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                           />
                           <div className="absolute top-4 right-4">
                             <Badge className="bg-gradient-to-r from-secondary to-secondary/80 text-gray-900 font-semibold shadow-lg">
-                              ${pkg.price}
+                              Desde ${pkg.price}
                             </Badge>
                           </div>
                           <div className="absolute top-4 left-4 space-y-2">
-                            <Badge variant="outline" className="bg-white/90 text-gray-900 border-white block">
+                            <Badge variant="outline" className="bg-white/90 text-gray-900 border-white flex justify-center">
                               {pkg.duration}
                             </Badge>
                             {transport && transport !== 'all' && (
-                              <Badge className={`${getTransportColor(transport)} block`}>
+                              <Badge className={`${getTransportColor(transport)} flex`}>
                                 {getTransportIcon(transport)}
                                 <span className="ml-1">{getTransportName(transport)}</span>
                               </Badge>
@@ -282,10 +284,6 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                             <div className="flex items-center text-sm text-gray-500">
                               <Users className="w-4 h-4 mr-2" />
                               <span>Grupos reducidos (máx. {pkg.max_capacity} personas)</span>
-                            </div>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Star className="w-4 h-4 mr-2 fill-yellow-400 text-yellow-400" />
-                              <span>Calificación 4.9/5</span>
                             </div>
                           </div>
 

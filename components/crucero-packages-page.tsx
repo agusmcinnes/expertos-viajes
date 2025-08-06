@@ -215,7 +215,7 @@ export function CruceroPackagesPage() {
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Users className="w-4 h-4 text-green-500" />
-                        <span>Hasta {pkg.maxPassengers.toLocaleString()} pasajeros</span>
+                        <span>Hasta {pkg.maxPassengers} pasajeros</span>
                       </div>
                       <div className="flex items-start gap-2 text-sm text-gray-600">
                         <MapPin className="w-4 h-4 text-red-500 mt-0.5" />

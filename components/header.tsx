@@ -186,7 +186,7 @@ export function Header() {
                     href="/#destinos"
                     onClick={(e) => {
                       e.preventDefault()
-                      handleNavigation("/#destinos")
+                      handleNavigation("/avion")
                     }}
                     className="flex items-center space-x-2 w-full"
                   >

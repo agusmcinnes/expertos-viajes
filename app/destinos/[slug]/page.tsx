@@ -72,7 +72,7 @@ const destinations = {
       "Cataratas del Niágara: Espectáculo natural fronterizo",
       "Montañas Rocosas: Naturaleza salvaje canadiense",
     ],
-    heroImage: "/eeuu-canada-hero.png",
+    heroImage: "/hero-ee-uu.webp",
     code: "eeuu-canada",
   },
   "europa-clasicos": {
@@ -86,24 +86,18 @@ const destinations = {
       "Barcelona: Gaudí y el Mediterráneo catalán",
       "Venecia: Romance en los canales",
     ],
-    heroImage: "/europa-clasicos-hero.png",
+    heroImage: "/hero-europa.webp",
     code: "europa-clasicos",
   },
   "exoticos-mundo": {
     name: "Exóticos y Resto del Mundo",
     description:
       "Aventúrate hacia destinos remotos y culturas fascinantes que despiertan todos los sentidos. Experiencias auténticas en lugares donde la tradición milenaria se mantiene viva y los paisajes desafían la imaginación.",
-    highlights: [
-      "India: Espiritualidad y colores del subcontinente",
-      "Tailandia: Templos dorados y playas paradisíacas",
-      "Marruecos: Zocos y desierto del Sahara",
-      "Egipto: Misterios de los faraones",
-      "Nepal: Himalaya y cultura budista",
-    ],
-    heroImage: "/exoticos-mundo-hero.png",
+    highlights: [],
+    heroImage: "/hero-japon.webp",
     code: "exoticos-mundo",
   },
-  mediterráneo: {
+  "mediterraneo": {
     name: "Mediterráneo",
     description:
       "Navega por las aguas cristalinas del Mediterráneo y descubre la cuna de la civilización occidental. Desde las islas griegas hasta las costas españolas, un crucero por destinos que han marcado la historia de la humanidad.",
@@ -115,7 +109,7 @@ const destinations = {
       "Malta: Historia milenaria en el centro del mar",
     ],
     heroImage: "/tropical-beach-paradise.png",
-    code: "mediterráneo",
+    code: "mediterraneo",
   },
 }
 

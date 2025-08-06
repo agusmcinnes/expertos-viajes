@@ -13,10 +13,10 @@ export default function HomePage() {
       <Header />
       <main>
         <HeroSection />
-        <AboutSection />
-        <WhyChooseUsSection />
         <DestinationsSectionDynamic />
         <SpecialSection />
+        <AboutSection />
+        <WhyChooseUsSection />
         <ContactSection />
       </main>
       <Footer />
