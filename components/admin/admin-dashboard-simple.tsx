@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings } from "lucide-react"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -28,7 +28,7 @@ export function AdminDashboardSimple() {
     destination_id: "",
     duration: "",
     available_dates: "",
-    transport_type: "aereo" as "aereo" | "bus",
+    transport_type: "aereo" as "aereo" | "bus" | "crucero",
     image_url: "",
     is_special: false,
   })
@@ -219,7 +219,7 @@ export function AdminDashboardSimple() {
     }
   }
 
-  const getPackagesByTransport = (transport: "aereo" | "bus") => {
+  const getPackagesByTransport = (transport: "aereo" | "bus" | "crucero") => {
     return packages.filter((pkg) => {
       // Si transport_type no existe o es undefined, considerarlo como "aereo" por defecto
       const packageTransport = pkg.transport_type || "aereo"
@@ -262,7 +262,7 @@ export function AdminDashboardSimple() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="grid md:grid-cols-3 gap-6 mb-8"
+          className="grid md:grid-cols-4 gap-6 mb-8"
         >
           <Card>
             <CardContent className="p-6">
@@ -296,6 +296,18 @@ export function AdminDashboardSimple() {
                   <p className="text-3xl font-bold text-bus">{getPackagesByTransport("bus").length}</p>
                 </div>
                 <Bus className="w-8 h-8 text-bus" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Cruceros</p>
+                  <p className="text-3xl font-bold text-blue-600">{getPackagesByTransport("crucero").length}</p>
+                </div>
+                <Ship className="w-8 h-8 text-blue-600" />
               </div>
             </CardContent>
           </Card>
@@ -381,7 +393,7 @@ export function AdminDashboardSimple() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Transporte</label>
                       <Select
                         value={formData.transport_type}
-                        onValueChange={(value: "aereo" | "bus") =>
+                        onValueChange={(value: "aereo" | "bus" | "crucero") =>
                           setFormData((prev) => ({ ...prev, transport_type: value }))
                         }
                       >
@@ -399,6 +411,12 @@ export function AdminDashboardSimple() {
                             <div className="flex items-center space-x-2">
                               <Bus className="w-4 h-4" />
                               <span>Bus</span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="crucero">
+                            <div className="flex items-center space-x-2">
+                              <Ship className="w-4 h-4" />
+                              <span>Crucero</span>
                             </div>
                           </SelectItem>
                         </SelectContent>
@@ -490,13 +508,22 @@ export function AdminDashboardSimple() {
                           <Badge variant="outline">{destinations.find((d) => d.id === pkg.destination_id)?.name}</Badge>
                           <Badge
                             className={
-                              (pkg.transport_type || "aereo") === "bus" ? "bg-bus text-white" : "bg-secondary text-gray-900"
+                              (pkg.transport_type || "aereo") === "bus" 
+                                ? "bg-bus text-white" 
+                                : (pkg.transport_type || "aereo") === "crucero"
+                                ? "bg-blue-600 text-white"
+                                : "bg-secondary text-gray-900"
                             }
                           >
                             {(pkg.transport_type || "aereo") === "bus" ? (
                               <>
                                 <Bus className="w-3 h-3 mr-1" />
                                 Bus
+                              </>
+                            ) : (pkg.transport_type || "aereo") === "crucero" ? (
+                              <>
+                                <Ship className="w-3 h-3 mr-1" />
+                                Crucero
                               </>
                             ) : (
                               <>
