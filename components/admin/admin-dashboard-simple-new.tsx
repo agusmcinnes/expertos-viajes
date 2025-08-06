@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -23,6 +24,17 @@ export function AdminDashboardSimple() {
   const [isAdding, setIsAdding] = useState(false)
   const [accommodations, setAccommodations] = useState<any[]>([])
   const [showAccommodations, setShowAccommodations] = useState(false)
+  const [showRatesModal, setShowRatesModal] = useState(false)
+  const [selectedAccommodationForRates, setSelectedAccommodationForRates] = useState<any>(null)
+  const [rates, setRates] = useState<any[]>([])
+  const [rateFormData, setRateFormData] = useState({
+    mes: "",
+    anio: "2025",
+    tarifa_dbl: "",
+    tarifa_tpl: "",
+    tarifa_cpl: "",
+    tarifa_menor: "",
+  })
 
   const [formData, setFormData] = useState({
     name: "",
@@ -172,6 +184,136 @@ export function AdminDashboardSimple() {
     setAccommodations(prev => prev.filter(acc => acc.id !== id))
   }
 
+  // Función para abrir modal de tarifas
+  const handleManageRates = async (accommodation: any) => {
+    setSelectedAccommodationForRates(accommodation)
+    setShowRatesModal(true)
+    
+    // Si es un alojamiento existente (no nuevo), cargar sus tarifas
+    if (!accommodation.isNew) {
+      await loadRatesForAccommodation(accommodation.id)
+    } else {
+      setRates([])
+    }
+  }
+
+  // Función para cargar tarifas de un alojamiento
+  const loadRatesForAccommodation = async (accommodationId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from("accommodation_rates")
+        .select("*")
+        .eq("accommodation_id", accommodationId)
+        .order("anio", { ascending: true })
+        .order("mes", { ascending: true })
+
+      if (error) throw error
+      setRates(data || [])
+    } catch (error) {
+      console.error("Error loading rates:", error)
+      setRates([])
+    }
+  }
+
+  // Función para agregar/actualizar tarifa
+  const handleSaveRate = async () => {
+    if (!rateFormData.mes || !rateFormData.anio) {
+      alert("Por favor selecciona mes y año")
+      return
+    }
+
+    const rateData = {
+      mes: parseInt(rateFormData.mes),
+      anio: parseInt(rateFormData.anio),
+      tarifa_dbl: parseFloat(rateFormData.tarifa_dbl) || 0,
+      tarifa_tpl: parseFloat(rateFormData.tarifa_tpl) || 0,
+      tarifa_cpl: parseFloat(rateFormData.tarifa_cpl) || 0,
+      tarifa_menor: parseFloat(rateFormData.tarifa_menor) || 0,
+    }
+
+    // Si es un alojamiento nuevo, agregar a lista temporal
+    if (selectedAccommodationForRates.isNew) {
+      const newRate = {
+        id: Date.now(),
+        ...rateData,
+        accommodation_id: selectedAccommodationForRates.id,
+        isNew: true,
+      }
+      setRates(prev => {
+        // Eliminar tarifa existente para el mismo mes/año si existe
+        const filtered = prev.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        return [...filtered, newRate]
+      })
+    } else {
+      // Si es un alojamiento existente, guardar en base de datos
+      try {
+        const { error } = await supabase
+          .from("accommodation_rates")
+          .upsert({
+            ...rateData,
+            accommodation_id: selectedAccommodationForRates.id,
+          })
+
+        if (error) throw error
+        await loadRatesForAccommodation(selectedAccommodationForRates.id)
+        alert("Tarifa guardada exitosamente")
+      } catch (error) {
+        console.error("Error saving rate:", error)
+        alert("Error al guardar la tarifa")
+      }
+    }
+
+    // Limpiar formulario
+    setRateFormData({
+      mes: "",
+      anio: "2025",
+      tarifa_dbl: "",
+      tarifa_tpl: "",
+      tarifa_cpl: "",
+      tarifa_menor: "",
+    })
+  }
+
+  // Función para eliminar tarifa
+  const handleDeleteRate = async (rateId: number) => {
+    if (!confirm("¿Estás seguro de eliminar esta tarifa?")) return
+
+    if (selectedAccommodationForRates.isNew) {
+      // Eliminar de lista temporal
+      setRates(prev => prev.filter(r => r.id !== rateId))
+    } else {
+      // Eliminar de base de datos
+      try {
+        const { error } = await supabase
+          .from("accommodation_rates")
+          .delete()
+          .eq("id", rateId)
+
+        if (error) throw error
+        await loadRatesForAccommodation(selectedAccommodationForRates.id)
+        alert("Tarifa eliminada exitosamente")
+      } catch (error) {
+        console.error("Error deleting rate:", error)
+        alert("Error al eliminar la tarifa")
+      }
+    }
+  }
+
+  // Función para cerrar modal de tarifas
+  const handleCloseRatesModal = () => {
+    setShowRatesModal(false)
+    setSelectedAccommodationForRates(null)
+    setRates([])
+    setRateFormData({
+      mes: "",
+      anio: "2025",
+      tarifa_dbl: "",
+      tarifa_tpl: "",
+      tarifa_cpl: "",
+      tarifa_menor: "",
+    })
+  }
+
   // Función para guardar alojamientos en la base de datos
   const saveAccommodationsForPackage = async (packageId: number) => {
     try {
@@ -189,11 +331,38 @@ export function AdminDashboardSimple() {
       }))
 
       if (accommodationsToSave.length > 0) {
-        const { error } = await supabase
+        const { data: savedAccommodations, error } = await supabase
           .from("accommodations")
           .insert(accommodationsToSave)
+          .select()
 
         if (error) throw error
+
+        // Guardar tarifas para alojamientos que las tengan
+        for (let i = 0; i < accommodations.length; i++) {
+          const originalAcc = accommodations[i]
+          const savedAcc = savedAccommodations[i]
+          
+          // Si este alojamiento tenía tarifas temporales, guardarlas
+          const tempRates = rates.filter(rate => rate.accommodation_id === originalAcc.id && rate.isNew)
+          if (tempRates.length > 0) {
+            const ratesToSave = tempRates.map(rate => ({
+              accommodation_id: savedAcc.id,
+              mes: rate.mes,
+              anio: rate.anio,
+              tarifa_dbl: rate.tarifa_dbl,
+              tarifa_tpl: rate.tarifa_tpl,
+              tarifa_cpl: rate.tarifa_cpl,
+              tarifa_menor: rate.tarifa_menor,
+            }))
+
+            const { error: rateError } = await supabase
+              .from("accommodation_rates")
+              .insert(ratesToSave)
+
+            if (rateError) throw rateError
+          }
+        }
       }
     } catch (error) {
       console.error("Error saving accommodations:", error)
@@ -260,6 +429,9 @@ export function AdminDashboardSimple() {
     setIsEditing(null)
     setShowAccommodations(false)
     setAccommodations([])
+    setRates([])
+    setShowRatesModal(false)
+    setSelectedAccommodationForRates(null)
     setFormData({
       name: "",
       description: "",
@@ -277,6 +449,14 @@ export function AdminDashboardSimple() {
       name: "",
       stars: "3",
       enlace_web: "",
+    })
+    setRateFormData({
+      mes: "",
+      anio: "2025",
+      tarifa_dbl: "",
+      tarifa_tpl: "",
+      tarifa_cpl: "",
+      tarifa_menor: "",
     })
   }
 
@@ -667,15 +847,26 @@ export function AdminDashboardSimple() {
                                           )}
                                         </div>
                                       </div>
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleRemoveAccommodation(accommodation.id)}
-                                        className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </Button>
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleManageRates(accommodation)}
+                                          className="border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
+                                        >
+                                          <DollarSign className="w-4 h-4" />
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleRemoveAccommodation(accommodation.id)}
+                                          className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                                        >
+                                          <X className="w-4 h-4" />
+                                        </Button>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -810,6 +1001,177 @@ export function AdminDashboardSimple() {
           </Tabs>
         </motion.div>
       </div>
+
+      {/* Modal de Tarifas */}
+      {showRatesModal && selectedAccommodationForRates && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">
+                Gestionar Tarifas - {selectedAccommodationForRates.name}
+              </h2>
+              <Button variant="outline" onClick={handleCloseRatesModal}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Formulario para agregar/editar tarifa */}
+            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+              <h3 className="font-medium mb-4">Agregar/Actualizar Tarifa</h3>
+              <div className="grid md:grid-cols-6 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
+                  <Select
+                    value={rateFormData.mes}
+                    onValueChange={(value) => setRateFormData(prev => ({...prev, mes: value}))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Mes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[
+                        { value: "1", label: "Enero" },
+                        { value: "2", label: "Febrero" },
+                        { value: "3", label: "Marzo" },
+                        { value: "4", label: "Abril" },
+                        { value: "5", label: "Mayo" },
+                        { value: "6", label: "Junio" },
+                        { value: "7", label: "Julio" },
+                        { value: "8", label: "Agosto" },
+                        { value: "9", label: "Septiembre" },
+                        { value: "10", label: "Octubre" },
+                        { value: "11", label: "Noviembre" },
+                        { value: "12", label: "Diciembre" },
+                      ].map((month) => (
+                        <SelectItem key={month.value} value={month.value}>
+                          {month.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
+                  <Select
+                    value={rateFormData.anio}
+                    onValueChange={(value) => setRateFormData(prev => ({...prev, anio: value}))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[2024, 2025, 2026, 2027].map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">DBL (USD)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rateFormData.tarifa_dbl}
+                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_dbl: e.target.value}))}
+                    placeholder="150.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">TPL (USD)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rateFormData.tarifa_tpl}
+                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_tpl: e.target.value}))}
+                    placeholder="120.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CPL (USD)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rateFormData.tarifa_cpl}
+                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_cpl: e.target.value}))}
+                    placeholder="100.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">MENOR (USD)</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={rateFormData.tarifa_menor}
+                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_menor: e.target.value}))}
+                    placeholder="75.00"
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleSaveRate}
+                className="mt-4 bg-green-600 hover:bg-green-700"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                Guardar Tarifa
+              </Button>
+            </div>
+
+            {/* Lista de tarifas existentes */}
+            {rates.length > 0 && (
+              <div>
+                <h3 className="font-medium mb-4">Tarifas Existentes</h3>
+                <div className="space-y-2">
+                  {rates.map((rate) => (
+                    <div key={rate.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                      <div className="grid grid-cols-6 gap-4 flex-1">
+                        <div className="font-medium">
+                          {new Date(2024, rate.mes - 1).toLocaleDateString('es-ES', { month: 'long' })} {rate.anio}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">DBL:</span> ${rate.tarifa_dbl}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">TPL:</span> ${rate.tarifa_tpl}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">CPL:</span> ${rate.tarifa_cpl}
+                        </div>
+                        <div className="text-sm">
+                          <span className="font-medium">MENOR:</span> ${rate.tarifa_menor}
+                        </div>
+                        <div className="flex justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteRate(rate.id)}
+                            className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {rates.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No hay tarifas configuradas</p>
+                <p className="text-sm">Agrega la primera tarifa para este alojamiento</p>
+              </div>
+            )}
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
