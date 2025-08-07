@@ -18,9 +18,38 @@ export interface TravelPackage {
   max_capacity: number
   is_active: boolean
   is_special: boolean
-  transport_type?: "aereo" | "bus"
+  transport_type?: "aereo" | "bus" | "crucero"
+  servicios_incluidos?: string[] | null
+  servicios_adicionales?: string[] | null
   created_at: string
   updated_at: string
+}
+
+export interface Accommodation {
+  id: number
+  name: string
+  stars: number
+  enlace_web?: string | null
+  paquete_id: number
+  created_at: string
+  updated_at: string
+}
+
+export interface AccommodationRate {
+  id: number
+  accommodation_id: number
+  mes: number
+  anio: number
+  tarifa_dbl: number
+  tarifa_tpl: number
+  tarifa_cpl: number
+  tarifa_menor: number
+  created_at: string
+  updated_at: string
+}
+
+export interface TravelPackageWithAccommodations extends TravelPackage {
+  accommodations?: (Accommodation & { rates?: AccommodationRate[] })[]
 }
 
 export interface Destination {
@@ -173,6 +202,37 @@ export const packageService = {
     }
   },
 
+  // Obtener paquete con alojamientos
+  async getPackageWithAccommodations(packageId: number) {
+    const { data: packageData, error: packageError } = await supabase
+      .from("travel_packages")
+      .select(`
+        *,
+        destinations (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("id", packageId)
+      .single()
+
+    if (packageError) throw packageError
+
+    const { data: accommodations, error: accommodationsError } = await supabase
+      .from("accommodations")
+      .select(`
+        *,
+        accommodation_rates (*)
+      `)
+      .eq("paquete_id", packageId)
+      .order("created_at", { ascending: false })
+
+    if (accommodationsError) throw accommodationsError
+
+    return { ...packageData, accommodations: accommodations || [] }
+  },
+
   // Crear nuevo paquete
   async createPackage(packageData: Omit<TravelPackage, "id" | "created_at" | "updated_at">) {
     const { data, error } = await supabase.from("travel_packages").insert([packageData]).select()
@@ -310,5 +370,149 @@ export const siteConfigService = {
 
     if (error) throw error
     return data[0]
+  },
+}
+
+// Servicio para alojamientos
+export const accommodationService = {
+  // Obtener alojamientos por paquete
+  async getAccommodationsByPackage(packageId: number) {
+    const { data, error } = await supabase
+      .from("accommodations")
+      .select("*")
+      .eq("paquete_id", packageId)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Obtener alojamiento con tarifas
+  async getAccommodationWithRates(accommodationId: number) {
+    const { data: accommodation, error: accommodationError } = await supabase
+      .from("accommodations")
+      .select("*")
+      .eq("id", accommodationId)
+      .single()
+
+    if (accommodationError) throw accommodationError
+
+    const { data: rates, error: ratesError } = await supabase
+      .from("accommodation_rates")
+      .select("*")
+      .eq("accommodation_id", accommodationId)
+      .order("anio", { ascending: true })
+      .order("mes", { ascending: true })
+
+    if (ratesError) throw ratesError
+
+    return { ...accommodation, rates: rates || [] }
+  },
+
+  // Crear nuevo alojamiento
+  async createAccommodation(accommodationData: Omit<Accommodation, "id" | "created_at" | "updated_at">) {
+    const { data, error } = await supabase
+      .from("accommodations")
+      .insert([accommodationData])
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Actualizar alojamiento
+  async updateAccommodation(id: number, accommodationData: Partial<Accommodation>) {
+    const { data, error } = await supabase
+      .from("accommodations")
+      .update({ ...accommodationData, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Eliminar alojamiento
+  async deleteAccommodation(id: number) {
+    const { error } = await supabase
+      .from("accommodations")
+      .delete()
+      .eq("id", id)
+
+    if (error) throw error
+  },
+}
+
+// Servicio para tarifas de alojamientos
+export const accommodationRateService = {
+  // Obtener tarifas por alojamiento
+  async getRatesByAccommodation(accommodationId: number) {
+    const { data, error } = await supabase
+      .from("accommodation_rates")
+      .select("*")
+      .eq("accommodation_id", accommodationId)
+      .order("anio", { ascending: true })
+      .order("mes", { ascending: true })
+
+    if (error) throw error
+    return data
+  },
+
+  // Obtener tarifas por mes y año
+  async getRatesByMonthYear(accommodationId: number, mes: number, anio: number) {
+    const { data, error } = await supabase
+      .from("accommodation_rates")
+      .select("*")
+      .eq("accommodation_id", accommodationId)
+      .eq("mes", mes)
+      .eq("anio", anio)
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
+  // Crear o actualizar tarifas
+  async upsertRate(rateData: Omit<AccommodationRate, "id" | "created_at" | "updated_at">) {
+    const { data, error } = await supabase
+      .from("accommodation_rates")
+      .upsert([rateData], { 
+        onConflict: "accommodation_id,mes,anio" 
+      })
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Crear múltiples tarifas
+  async createMultipleRates(rates: Omit<AccommodationRate, "id" | "created_at" | "updated_at">[]) {
+    const { data, error } = await supabase
+      .from("accommodation_rates")
+      .insert(rates)
+      .select()
+
+    if (error) throw error
+    return data
+  },
+
+  // Eliminar tarifa
+  async deleteRate(id: number) {
+    const { error } = await supabase
+      .from("accommodation_rates")
+      .delete()
+      .eq("id", id)
+
+    if (error) throw error
+  },
+
+  // Eliminar todas las tarifas de un alojamiento
+  async deleteRatesByAccommodation(accommodationId: number) {
+    const { error } = await supabase
+      .from("accommodation_rates")
+      .delete()
+      .eq("accommodation_id", accommodationId)
+
+    if (error) throw error
   },
 }

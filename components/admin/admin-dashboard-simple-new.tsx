@@ -22,15 +22,11 @@ export function AdminDashboardSimple() {
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState<number | null>(null)
   const [isAdding, setIsAdding] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
-  const [isLoadingRates, setIsLoadingRates] = useState(false)
   const [accommodations, setAccommodations] = useState<any[]>([])
   const [showAccommodations, setShowAccommodations] = useState(false)
   const [showRatesModal, setShowRatesModal] = useState(false)
   const [selectedAccommodationForRates, setSelectedAccommodationForRates] = useState<any>(null)
   const [rates, setRates] = useState<any[]>([])
-  const [accommodationRates, setAccommodationRates] = useState<{[key: number]: any[]}>({}) // Nuevo estado para tarifas por alojamiento
   const [rateFormData, setRateFormData] = useState({
     mes: "",
     anio: "2025",
@@ -111,7 +107,6 @@ export function AdminDashboardSimple() {
     setIsAdding(true)
     setShowAccommodations(true)
     setAccommodations([])
-    setAccommodationRates({}) // Limpiar tarifas temporales
     setFormData({
       name: "",
       description: "",
@@ -151,7 +146,6 @@ export function AdminDashboardSimple() {
   // Función para cargar alojamientos cuando se edita un paquete
   const loadAccommodationsForPackage = async (packageId: number) => {
     try {
-      setIsLoadingAccommodations(true)
       const { data, error } = await supabase
         .from("accommodations")
         .select("*")
@@ -162,8 +156,6 @@ export function AdminDashboardSimple() {
     } catch (error) {
       console.error("Error loading accommodations:", error)
       setAccommodations([])
-    } finally {
-      setIsLoadingAccommodations(false)
     }
   }
 
@@ -201,16 +193,13 @@ export function AdminDashboardSimple() {
     if (!accommodation.isNew) {
       await loadRatesForAccommodation(accommodation.id)
     } else {
-      // Si es nuevo, cargar tarifas temporales si existen
-      const tempRates = accommodationRates[accommodation.id] || []
-      setRates(tempRates)
+      setRates([])
     }
   }
 
   // Función para cargar tarifas de un alojamiento
   const loadRatesForAccommodation = async (accommodationId: number) => {
     try {
-      setIsLoadingRates(true)
       const { data, error } = await supabase
         .from("accommodation_rates")
         .select("*")
@@ -223,8 +212,6 @@ export function AdminDashboardSimple() {
     } catch (error) {
       console.error("Error loading rates:", error)
       setRates([])
-    } finally {
-      setIsLoadingRates(false)
     }
   }
 
@@ -252,24 +239,11 @@ export function AdminDashboardSimple() {
         accommodation_id: selectedAccommodationForRates.id,
         isNew: true,
       }
-      
-      // Actualizar las tarifas para este alojamiento específico
-      setAccommodationRates(prev => {
-        const currentRates = prev[selectedAccommodationForRates.id] || []
-        const filteredRates = currentRates.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
-        return {
-          ...prev,
-          [selectedAccommodationForRates.id]: [...filteredRates, newRate]
-        }
-      })
-      
-      // También actualizar el estado rates para el modal
       setRates(prev => {
+        // Eliminar tarifa existente para el mismo mes/año si existe
         const filtered = prev.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
         return [...filtered, newRate]
       })
-      
-      alert("Tarifa agregada (se guardará al guardar el paquete)")
     } else {
       // Si es un alojamiento existente, guardar en base de datos
       try {
@@ -305,15 +279,7 @@ export function AdminDashboardSimple() {
     if (!confirm("¿Estás seguro de eliminar esta tarifa?")) return
 
     if (selectedAccommodationForRates.isNew) {
-      // Eliminar de lista temporal y del estado del modal
-      setAccommodationRates(prev => {
-        const currentRates = prev[selectedAccommodationForRates.id] || []
-        const filteredRates = currentRates.filter(r => r.id !== rateId)
-        return {
-          ...prev,
-          [selectedAccommodationForRates.id]: filteredRates
-        }
-      })
+      // Eliminar de lista temporal
       setRates(prev => prev.filter(r => r.id !== rateId))
     } else {
       // Eliminar de base de datos
@@ -351,34 +317,9 @@ export function AdminDashboardSimple() {
   // Función para guardar alojamientos en la base de datos
   const saveAccommodationsForPackage = async (packageId: number) => {
     try {
-      // Solo eliminar alojamientos existentes si estamos editando Y hay cambios
+      // Eliminar alojamientos existentes si estamos editando
       if (isEditing) {
-        // Primero, obtener las tarifas existentes antes de eliminar los alojamientos
-        const { data: existingAccommodations } = await supabase
-          .from("accommodations")
-          .select(`
-            *,
-            accommodation_rates (*)
-          `)
-          .eq("paquete_id", packageId)
-
-        // Crear un mapa de tarifas existentes por nombre de alojamiento
-        const existingRatesMap: {[key: string]: any[]} = {}
-        if (existingAccommodations) {
-          existingAccommodations.forEach(acc => {
-            existingRatesMap[acc.name] = acc.accommodation_rates || []
-          })
-        }
-
-        // Eliminar alojamientos existentes
         await supabase.from("accommodations").delete().eq("paquete_id", packageId)
-
-        // Preservar las tarifas existentes en accommodationRates para alojamientos que ya existían
-        accommodations.forEach(acc => {
-          if (!acc.isNew && existingRatesMap[acc.name]) {
-            accommodationRates[acc.id] = existingRatesMap[acc.name]
-          }
-        })
       }
 
       // Guardar nuevos alojamientos
@@ -397,33 +338,29 @@ export function AdminDashboardSimple() {
 
         if (error) throw error
 
-        // Guardar tarifas para cada alojamiento
+        // Guardar tarifas para alojamientos que las tengan
         for (let i = 0; i < accommodations.length; i++) {
           const originalAcc = accommodations[i]
           const savedAcc = savedAccommodations[i]
           
-          // Obtener tarifas para este alojamiento específico
-          const ratesToSave = (accommodationRates[originalAcc.id] || []).map(rate => ({
-            accommodation_id: savedAcc.id,
-            mes: rate.mes,
-            anio: rate.anio,
-            tarifa_dbl: rate.tarifa_dbl,
-            tarifa_tpl: rate.tarifa_tpl,
-            tarifa_cpl: rate.tarifa_cpl,
-            tarifa_menor: rate.tarifa_menor,
-          }))
+          // Si este alojamiento tenía tarifas temporales, guardarlas
+          const tempRates = rates.filter(rate => rate.accommodation_id === originalAcc.id && rate.isNew)
+          if (tempRates.length > 0) {
+            const ratesToSave = tempRates.map(rate => ({
+              accommodation_id: savedAcc.id,
+              mes: rate.mes,
+              anio: rate.anio,
+              tarifa_dbl: rate.tarifa_dbl,
+              tarifa_tpl: rate.tarifa_tpl,
+              tarifa_cpl: rate.tarifa_cpl,
+              tarifa_menor: rate.tarifa_menor,
+            }))
 
-          if (ratesToSave.length > 0) {
-            console.log(`Guardando ${ratesToSave.length} tarifas para alojamiento ${savedAcc.name}:`, ratesToSave)
-            
             const { error: rateError } = await supabase
               .from("accommodation_rates")
               .insert(ratesToSave)
 
-            if (rateError) {
-              console.error("Error saving rates:", rateError)
-              throw rateError
-            }
+            if (rateError) throw rateError
           }
         }
       }
@@ -435,7 +372,6 @@ export function AdminDashboardSimple() {
 
   const handleSave = async () => {
     try {
-      setIsSaving(true)
       const packageData = {
         name: formData.name,
         description: formData.description,
@@ -485,8 +421,6 @@ export function AdminDashboardSimple() {
     } catch (error) {
       console.error("Error saving package:", error)
       alert("Error al guardar el paquete: " + (error as Error).message)
-    } finally {
-      setIsSaving(false)
     }
   }
 
@@ -496,7 +430,6 @@ export function AdminDashboardSimple() {
     setShowAccommodations(false)
     setAccommodations([])
     setRates([])
-    setAccommodationRates({}) // Limpiar tarifas temporales
     setShowRatesModal(false)
     setSelectedAccommodationForRates(null)
     setFormData({
@@ -764,18 +697,13 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Descripción (Markdown soportado)
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
                           <Textarea
                             value={formData.description}
                             onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                            placeholder="Descripción del paquete de viaje... Puedes usar **negrita**, *cursiva*, listas, etc."
-                            rows={5}
+                            placeholder="Descripción del paquete de viaje..."
+                            rows={3}
                           />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Tip: Usa **texto** para negrita, *texto* para cursiva, - para listas
-                          </p>
                         </div>
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -898,12 +826,7 @@ export function AdminDashboardSimple() {
                               </div>
 
                               {/* Lista de alojamientos agregados */}
-                              {isLoadingAccommodations ? (
-                                <div className="flex items-center justify-center py-8">
-                                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                                  <span className="ml-2 text-gray-600">Cargando alojamientos...</span>
-                                </div>
-                              ) : accommodations.length > 0 ? (
+                              {accommodations.length > 0 && (
                                 <div className="space-y-2">
                                   <h4 className="font-medium">Alojamientos del Paquete ({accommodations.length})</h4>
                                   {accommodations.map((accommodation) => (
@@ -947,7 +870,7 @@ export function AdminDashboardSimple() {
                                     </div>
                                   ))}
                                 </div>
-                              ) : null}
+                              )}
                             </div>
                           </div>
                         )}
@@ -956,20 +879,10 @@ export function AdminDashboardSimple() {
                       <div className="flex gap-3 mt-6">
                         <Button
                           onClick={handleSave}
-                          disabled={isSaving}
                           className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg"
                         >
-                          {isSaving ? (
-                            <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                              Guardando...
-                            </>
-                          ) : (
-                            <>
-                              <Save className="w-4 h-4 mr-2" />
-                              Guardar
-                            </>
-                          )}
+                          <Save className="w-4 h-4 mr-2" />
+                          Guardar
                         </Button>
                         <Button onClick={handleCancel} variant="outline">
                           <X className="w-4 h-4 mr-2" />
@@ -1210,12 +1123,7 @@ export function AdminDashboardSimple() {
             </div>
 
             {/* Lista de tarifas existentes */}
-            {isLoadingRates ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <span className="ml-2 text-gray-600">Cargando tarifas...</span>
-              </div>
-            ) : rates.length > 0 ? (
+            {rates.length > 0 && (
               <div>
                 <h3 className="font-medium mb-4">Tarifas Existentes</h3>
                 <div className="space-y-2">
@@ -1252,9 +1160,9 @@ export function AdminDashboardSimple() {
                   ))}
                 </div>
               </div>
-            ) : null}
+            )}
 
-            {!isLoadingRates && rates.length === 0 && (
+            {rates.length === 0 && (
               <div className="text-center py-8 text-gray-500">
                 <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No hay tarifas configuradas</p>
