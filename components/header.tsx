@@ -202,7 +202,7 @@ export function Header() {
                       onClick={() => handleNavigation(`/destinos/${destination.code}?transport=aereo`)}
                       className="flex items-center space-x-2 w-full"
                     >
-                      <span className="text-lg">{getDestinationIcon(destination.code)}</span>
+                      <span className="text-lg ml-3">{getDestinationIcon(destination.code)}</span>
                       <span>{destination.name}</span>
                     </Link>
                   </DropdownMenuItem>

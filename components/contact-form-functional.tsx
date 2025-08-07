@@ -10,12 +10,18 @@ import { Send } from "lucide-react"
 import { contactService } from "@/lib/supabase"
 import { motion } from "framer-motion"
 
-export function ContactFormFunctional() {
+interface ContactFormFunctionalProps {
+  packageName?: string
+  onSuccess?: () => void
+  className?: string
+}
+
+export function ContactFormFunctional({ packageName, onSuccess, className = "" }: ContactFormFunctionalProps) {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    message: "",
+    message: packageName ? `Hola, me interesa obtener más información sobre el paquete "${packageName}". ` : "",
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
@@ -34,7 +40,19 @@ export function ContactFormFunctional() {
       })
 
       setIsSuccess(true)
-      setFormData({ name: "", email: "", phone: "", message: "" })
+      setFormData({ 
+        name: "", 
+        email: "", 
+        phone: "", 
+        message: packageName ? `Hola, me interesa obtener más información sobre el paquete "${packageName}". ` : ""
+      })
+
+      // Llamar callback de éxito si existe
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess()
+        }, 2000)
+      }
 
       // Resetear el estado de éxito después de 5 segundos
       setTimeout(() => setIsSuccess(false), 5000)
@@ -55,11 +73,12 @@ export function ContactFormFunctional() {
 
   if (isSuccess) {
     return (
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="text-center p-8 bg-green-50 rounded-lg border border-green-200"
-      >
+      <div className={className}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center p-8 bg-green-50 rounded-lg border border-green-200"
+        >
         <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -67,12 +86,14 @@ export function ContactFormFunctional() {
         </div>
         <h3 className="text-xl font-semibold text-green-800 mb-2">¡Consulta enviada!</h3>
         <p className="text-green-600">Te contactaremos pronto para ayudarte con tu viaje soñado.</p>
-      </motion.div>
+        </motion.div>
+      </div>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className={className}>
+      <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid md:grid-cols-2 gap-4">
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -181,6 +202,7 @@ export function ContactFormFunctional() {
           )}
         </Button>
       </motion.div>
-    </form>
+      </form>
+    </div>
   )
 }

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation"
+import { Suspense } from "react"
 import { DestinationPage } from "@/components/destination-page"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
@@ -130,7 +131,9 @@ export default async function DestinationPageRoute({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-white">
       <Header />
-      <DestinationPage destination={destination} />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Cargando...</div>}>
+        <DestinationPage destination={destination} />
+      </Suspense>
       <Footer />
     </div>
   )

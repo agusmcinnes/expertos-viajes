@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Ship, MapPin, Calendar, Users, Clock, Star } from "lucide-react"
 import { motion } from "framer-motion"
+import { NavigationButton } from "@/components/navigation-button"
 
 // Datos de ejemplo para cruceros
 const mockCruceroPackages = [
@@ -263,9 +264,13 @@ export function CruceroPackagesPage() {
                         </div>
                       </div>
 
-                      <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                      <NavigationButton 
+                        href={`/paquete/${pkg.id}`}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        loadingText="Cargando..."
+                      >
                         Ver Detalles del Crucero
-                      </Button>
+                      </NavigationButton>
                     </div>
                   </CardContent>
                 </Card>
