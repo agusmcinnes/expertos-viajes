@@ -10,6 +10,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { siteConfigService, packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
+import { NavigationButton } from "@/components/navigation-button"
 
 export function SpecialSection() {
   const [sectionTitle, setSectionTitle] = useState("Verano 2026") // Default fallback
@@ -164,14 +165,13 @@ export function SpecialSection() {
                       </div>
 
                       <div className="flex gap-3 mt-auto">
-                        <Button 
-                          asChild
+                        <NavigationButton 
+                          href={`/paquete/${pkg.id}`}
                           className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
+                          loadingText="Cargando..."
                         >
-                          <Link href={`/paquete/${pkg.id}`}>
-                            Ver Detalles
-                          </Link>
-                        </Button>
+                          Ver Detalles
+                        </NavigationButton>
                       </div>
                     </CardContent>
                   </Card>

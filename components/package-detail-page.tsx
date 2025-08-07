@@ -11,6 +11,7 @@ import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import rehypeRaw from "rehype-raw"
 import { ContactFormFunctional } from "./contact-form-functional"
 
 interface PackageDetailPageProps {
@@ -227,7 +228,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
 
                 <Badge variant="secondary" className="bg-green-500/80 text-white border-green-400/30 text-lg px-3 py-1">
                   <DollarSign className="w-5 h-5 mr-1" />
-                  {formatCurrency(package_.price)}
+                  Desde {formatCurrency(package_.price)}
                 </Badge>
               </div>
 
@@ -256,8 +257,21 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                   <CardTitle>Descripción del Viaje</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="prose prose-gray max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <div className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700">
+                    <ReactMarkdown 
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw]}
+                      components={{
+                        h1: ({ children }) => <h1 className="text-2xl font-bold text-gray-900 mb-4">{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-xl font-semibold text-gray-900 mb-3">{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-lg font-medium text-gray-900 mb-2">{children}</h3>,
+                        p: ({ children }) => <p className="text-gray-700 mb-4 leading-relaxed">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc list-inside text-gray-700 mb-4 space-y-1">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-inside text-gray-700 mb-4 space-y-1">{children}</ol>,
+                        strong: ({ children }) => <strong className="font-semibold text-gray-900">{children}</strong>,
+                        em: ({ children }) => <em className="italic text-gray-800">{children}</em>
+                      }}
+                    >
                       {package_.description}
                     </ReactMarkdown>
                   </div>
@@ -407,7 +421,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 <CardContent className="space-y-4">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-primary mb-2">
-                      {formatCurrency(package_.price)}
+                      Desde {formatCurrency(package_.price)}
                     </div>
                     <p className="text-sm text-gray-600">Precio por persona</p>
                   </div>

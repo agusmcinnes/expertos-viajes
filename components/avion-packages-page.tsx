@@ -10,6 +10,7 @@ import { Plane, MapPin, Calendar, Users, Clock, Star } from "lucide-react"
 import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
+import { NavigationButton } from "@/components/navigation-button"
 
 export function AvionPackagesPage() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
@@ -231,9 +232,13 @@ export function AvionPackagesPage() {
                           </div>
                         </div>
 
-                        <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                          <Link href={`/paquete/${pkg.id}`}>Ver Detalles del Viaje</Link>
-                        </Button>
+                        <NavigationButton 
+                          href={`/paquete/${pkg.id}`}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          loadingText="Cargando..."
+                        >
+                          Ver Detalles del Viaje
+                        </NavigationButton>
                       </div>
                     </CardContent>
                   </Card>

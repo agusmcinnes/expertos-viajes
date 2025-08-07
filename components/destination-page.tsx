@@ -11,6 +11,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
+import { NavigationButton } from "@/components/navigation-button"
 
 interface DestinationData {
   name: string
@@ -288,16 +289,13 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                           </div>
 
                           <div className="flex gap-3">
-                            <Button 
-                              asChild
+                            <NavigationButton 
+                              href={`/paquete/${pkg.id}`}
                               className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
+                              loadingText="Cargando..."
                             >
-                              <Link
-                                href={`/paquete/${pkg.id}`}
-                              >
-                                Ver Detalles
-                              </Link>
-                            </Button>
+                              Ver Detalles
+                            </NavigationButton>
                           </div>
                         </CardContent>
                       </Card>

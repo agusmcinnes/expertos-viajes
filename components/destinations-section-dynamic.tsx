@@ -10,6 +10,7 @@ import { motion } from "framer-motion"
 import { packageService, destinationService } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import Link from "next/link"
+import { NavigationButton } from "@/components/navigation-button"
 
 export function DestinationsSectionDynamic() {
   const [activeDestination, setActiveDestination] = useState("argentina")
@@ -206,16 +207,13 @@ export function DestinationsSectionDynamic() {
                       </div>
 
                       <div className="flex gap-3 mt-auto">
-                        <Button 
-                          asChild
+                        <NavigationButton 
+                          href={`/paquete/${pkg.id}`}
                           className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
+                          loadingText="Cargando..."
                         >
-                          <Link
-                            href={`/paquete/${pkg.id}`}
-                          >
-                            Ver Detalles
-                          </Link>
-                        </Button>
+                          Ver Detalles
+                        </NavigationButton>
 
                       </div>
                     </CardContent>

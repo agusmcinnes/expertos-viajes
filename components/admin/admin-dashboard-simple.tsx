@@ -351,9 +351,34 @@ export function AdminDashboardSimple() {
   // Función para guardar alojamientos en la base de datos
   const saveAccommodationsForPackage = async (packageId: number) => {
     try {
-      // Eliminar alojamientos existentes si estamos editando
+      // Solo eliminar alojamientos existentes si estamos editando Y hay cambios
       if (isEditing) {
+        // Primero, obtener las tarifas existentes antes de eliminar los alojamientos
+        const { data: existingAccommodations } = await supabase
+          .from("accommodations")
+          .select(`
+            *,
+            accommodation_rates (*)
+          `)
+          .eq("paquete_id", packageId)
+
+        // Crear un mapa de tarifas existentes por nombre de alojamiento
+        const existingRatesMap: {[key: string]: any[]} = {}
+        if (existingAccommodations) {
+          existingAccommodations.forEach(acc => {
+            existingRatesMap[acc.name] = acc.accommodation_rates || []
+          })
+        }
+
+        // Eliminar alojamientos existentes
         await supabase.from("accommodations").delete().eq("paquete_id", packageId)
+
+        // Preservar las tarifas existentes en accommodationRates para alojamientos que ya existían
+        accommodations.forEach(acc => {
+          if (!acc.isNew && existingRatesMap[acc.name]) {
+            accommodationRates[acc.id] = existingRatesMap[acc.name]
+          }
+        })
       }
 
       // Guardar nuevos alojamientos
@@ -378,24 +403,15 @@ export function AdminDashboardSimple() {
           const savedAcc = savedAccommodations[i]
           
           // Obtener tarifas para este alojamiento específico
-          let ratesToSave: any[] = []
-          
-          if (originalAcc.isNew) {
-            // Si es un alojamiento nuevo, usar las tarifas temporales
-            const tempRates = accommodationRates[originalAcc.id] || []
-            ratesToSave = tempRates.map(rate => ({
-              accommodation_id: savedAcc.id,
-              mes: rate.mes,
-              anio: rate.anio,
-              tarifa_dbl: rate.tarifa_dbl,
-              tarifa_tpl: rate.tarifa_tpl,
-              tarifa_cpl: rate.tarifa_cpl,
-              tarifa_menor: rate.tarifa_menor,
-            }))
-          } else {
-            // Si es un alojamiento existente, las tarifas ya están en la BD
-            // No necesitamos hacer nada aquí porque las tarifas se mantienen
-          }
+          const ratesToSave = (accommodationRates[originalAcc.id] || []).map(rate => ({
+            accommodation_id: savedAcc.id,
+            mes: rate.mes,
+            anio: rate.anio,
+            tarifa_dbl: rate.tarifa_dbl,
+            tarifa_tpl: rate.tarifa_tpl,
+            tarifa_cpl: rate.tarifa_cpl,
+            tarifa_menor: rate.tarifa_menor,
+          }))
 
           if (ratesToSave.length > 0) {
             console.log(`Guardando ${ratesToSave.length} tarifas para alojamiento ${savedAcc.name}:`, ratesToSave)
