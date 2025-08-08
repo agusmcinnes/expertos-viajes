@@ -11,6 +11,7 @@ import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
+import { Breadcrumbs, BreadcrumbJsonLd } from "@/components/breadcrumbs"
 
 export function AvionPackagesPage() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
@@ -64,8 +65,13 @@ export function AvionPackagesPage() {
     setSelectedDestination(destination)
   }
 
+  const breadcrumbItems = [
+    { label: "Viajes en Avión" }
+  ]
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-sky-50">
+    <div className="min-h-screen">
+      <BreadcrumbJsonLd items={breadcrumbItems} />
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 overflow-hidden">
         <div
@@ -136,6 +142,11 @@ export function AvionPackagesPage() {
       {/* Paquetes */}
       <section className="py-16">
         <div className="container mx-auto px-4">
+          {/* Breadcrumbs */}
+          <div className="mb-8">
+            <Breadcrumbs items={breadcrumbItems} />
+          </div>
+          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
