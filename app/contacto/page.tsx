@@ -13,17 +13,8 @@ export default function ContactPage() {
       <main>
         {/* Hero Section */}
         <section className="relative bg-gradient-to-r from-primary via-primary/90 to-primary/80 py-20">
-          <div className="container mx-auto px-4">
+          <div className="container mx-auto px-4 mt-20">
             <div className="max-w-4xl mx-auto text-center text-white">
-              <div className="mb-6 py-12">
-                <Link
-                  href="/"
-                  className="inline-flex items-center text-white/80 hover:text-white transition-colors duration-200"
-                >
-                  <ArrowLeft className="w-5 h-5 mr-2" />
-                  Volver al Inicio
-                </Link>
-              </div>
               
               <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
                 Contacto

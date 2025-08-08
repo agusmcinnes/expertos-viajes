@@ -1,6 +1,6 @@
 "use client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Phone, Mail, Clock, MapPin } from "lucide-react"
+import { Phone, Mail, Clock, MapPin, Facebook, Instagram } from "lucide-react"
 import { ContactFormFunctional } from "./contact-form-functional"
 import { motion } from "framer-motion"
 
@@ -135,10 +135,13 @@ export function ContactFormSection({
           >
             <h3 className="text-xl font-semibold text-gray-900 mb-6">Seguinos en redes sociales</h3>
             <div className="flex justify-center space-x-6">
-              {["Facebook", "Instagram"].map((social, index) => (
+              {[
+                { name: "Facebook", icon: Facebook, url: "#" },
+                { name: "Instagram", icon: Instagram, url: "#" }
+              ].map((social, index) => (
                 <motion.a
-                  key={social}
-                  href="#"
+                  key={social.name}
+                  href={social.url}
                   initial={{ opacity: 0, scale: 0.8 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
@@ -146,7 +149,7 @@ export function ContactFormSection({
                   whileHover={{ scale: 1.1 }}
                   className="w-12 h-12 bg-gradient-to-r from-primary to-primary/80 rounded-full flex items-center justify-center text-white hover:from-primary/90 hover:to-primary/70 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
-                  <span className="text-sm font-semibold">{social[0]}</span>
+                  <social.icon className="w-5 h-5" />
                 </motion.a>
               ))}
             </div>

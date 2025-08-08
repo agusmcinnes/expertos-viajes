@@ -60,11 +60,6 @@ export function Footer() {
                   Contacto
                 </Link>
               </li>
-              <li>
-                <Link href="/admin" className="text-gray-300 hover:text-secondary transition-colors">
-                  Admin
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -98,14 +93,6 @@ export function Footer() {
 
         <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400 text-sm">© {currentYear} Expertos Viajes. Todos los derechos reservados.</p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
-            <Link href="#" className="text-gray-400 hover:text-secondary text-sm transition-colors">
-              Términos y Condiciones
-            </Link>
-            <Link href="#" className="text-gray-400 hover:text-secondary text-sm transition-colors">
-              Política de Privacidad
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
