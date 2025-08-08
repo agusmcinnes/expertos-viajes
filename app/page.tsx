@@ -6,6 +6,7 @@ import { SpecialSection } from "@/components/special-section"
 import { ContactSection } from "@/components/contact-section"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
+import { WhatsAppButton } from "@/components/whatsapp-button"
 
 export default function HomePage() {
   return (
@@ -18,6 +19,7 @@ export default function HomePage() {
         <AboutSection />
         <WhyChooseUsSection />
         <ContactSection />
+        <WhatsAppButton />
       </main>
       <Footer />
     </div>
