@@ -154,11 +154,45 @@ export async function generateMetadata({ params }: PageProps) {
   if (!destination) {
     return {
       title: "Destino no encontrado - Expertos Viajes",
+      description: "El destino que buscas no está disponible.",
     }
   }
+
+  const keywords = [
+    destination.name.toLowerCase(),
+    "viajes",
+    "turismo",
+    "paquetes turísticos",
+    "destinos",
+    ...destination.highlights.slice(0, 3).map(h => h.split(':')[0].toLowerCase())
+  ]
 
   return {
     title: `${destination.name} - Expertos Viajes`,
     description: destination.description,
+    keywords: keywords.join(", "),
+    openGraph: {
+      title: `${destination.name} - Expertos Viajes`,
+      description: destination.description,
+      url: `https://expertos-viajes.vercel.app/destinos/${slug}`,
+      type: "website",
+      images: [
+        {
+          url: destination.heroImage,
+          width: 1200,
+          height: 630,
+          alt: `${destination.name} - Viajes y Turismo`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${destination.name} - Expertos Viajes`,
+      description: destination.description,
+      images: [destination.heroImage],
+    },
+    alternates: {
+      canonical: `https://expertos-viajes.vercel.app/destinos/${slug}`,
+    },
   }
 }

@@ -12,6 +12,7 @@ import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
+import { Breadcrumbs, BreadcrumbJsonLd } from "@/components/breadcrumbs"
 
 interface DestinationData {
   name: string
@@ -114,8 +115,15 @@ export function DestinationPage({ destination }: DestinationPageProps) {
     }
   }
 
+  const breadcrumbItems = [
+    { label: "Destinos", href: "/#destinos" },
+    { label: destination.name }
+  ]
+
   return (
     <div className="min-h-screen">
+      <BreadcrumbJsonLd items={breadcrumbItems} />
+      
       {/* Hero Section */}
       <section className="relative h-[60vh] md:h-[70vh] flex items-center justify-center overflow-hidden">
         <div
@@ -185,6 +193,11 @@ export function DestinationPage({ destination }: DestinationPageProps) {
       {/* Content Section */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
+          {/* Breadcrumbs */}
+          <div className="max-w-6xl mx-auto mb-8">
+            <Breadcrumbs items={breadcrumbItems} />
+          </div>
+          
           <div className="max-w-6xl mx-auto">
             {/* Highlights */}
             {destination.highlights && destination.highlights.length > 0 && (

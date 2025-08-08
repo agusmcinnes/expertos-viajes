@@ -1,6 +1,26 @@
 import { Suspense } from "react"
 import { PackageDetailPage } from "@/components/package-detail-page"
 import { Header } from "@/components/header"
+import type { Metadata } from "next"
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const { id } = await params
+  
+  return {
+    title: "Detalle del Paquete - Expertos Viajes",
+    description: "Descubrí todos los detalles de este increíble paquete turístico. Itinerario completo, precios, servicios incluidos y más información.",
+    keywords: ["paquete turístico", "itinerario de viaje", "detalles del viaje", "precios de viajes"],
+    openGraph: {
+      title: "Detalle del Paquete - Expertos Viajes",
+      description: "Descubrí todos los detalles de este increíble paquete turístico.",
+      url: `https://expertos-viajes.vercel.app/paquete/${id}`,
+      type: "website",
+    },
+    alternates: {
+      canonical: `https://expertos-viajes.vercel.app/paquete/${id}`,
+    },
+  }
+}
 
 export default async function PaquetePage({ params }: { params: { id: string } }) {
   const { id } = await params
