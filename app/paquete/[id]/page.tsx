@@ -1,10 +1,12 @@
 import { Suspense } from "react"
 import { PackageDetailPage } from "@/components/package-detail-page"
+import { Header } from "@/components/header"
 
 export default async function PaquetePage({ params }: { params: { id: string } }) {
   const { id } = await params
   
   return (
+
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -17,6 +19,7 @@ export default async function PaquetePage({ params }: { params: { id: string } }
         </div>
       </div>
     }>
+      <Header position="sticky" />
       <PackageDetailPage packageId={id} />
     </Suspense>
   )

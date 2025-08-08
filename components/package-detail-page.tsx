@@ -181,7 +181,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Header con imagen de fondo */}
       <div 
-        className="relative h-96 bg-cover bg-center bg-gray-800"
+        className="relative h-64 sm:h-80 md:h-96 bg-cover bg-center bg-gray-800"
         style={{
           backgroundImage: package_.image_url 
             ? `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${package_.image_url})`
@@ -193,7 +193,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
             <Button 
               onClick={() => router.back()} 
               variant="secondary" 
-              className="mb-6 bg-white/90 hover:bg-white"
+              className="mb-4 sm:mb-6 bg-white/90 hover:bg-white"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Volver
@@ -204,36 +204,36 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
               animate={{ opacity: 1, y: 0 }}
               className="text-white"
             >
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">{package_.name}</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 leading-tight">{package_.name}</h1>
               
-              <div className="flex flex-wrap gap-4 mb-6">
+              <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
                 {destination && (
-                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                    <MapPin className="w-4 h-4 mr-1" />
+                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-xs sm:text-sm">
+                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                     {destination.name}
                   </Badge>
                 )}
                 
-                <Badge className={`${getTransportColor(package_.transport_type || 'aereo')} bg-white/20 text-white border-white/30`}>
+                <Badge className={`${getTransportColor(package_.transport_type || 'aereo')} bg-white/20 text-white border-white/30 text-xs sm:text-sm`}>
                   {getTransportIcon(package_.transport_type || 'aereo')}
                   <span className="ml-1 capitalize">{package_.transport_type || 'aereo'}</span>
                 </Badge>
 
                 {package_.duration && (
-                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30">
-                    <Clock className="w-4 h-4 mr-1" />
+                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-xs sm:text-sm">
+                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                     {package_.duration}
                   </Badge>
                 )}
 
-                <Badge variant="secondary" className="bg-green-500/80 text-white border-green-400/30 text-lg px-3 py-1">
-                  <DollarSign className="w-5 h-5 mr-1" />
+                <Badge variant="secondary" className="bg-green-500/80 text-white border-green-400/30 text-sm sm:text-base md:text-lg px-2 sm:px-3 py-1">
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
                   Desde {formatCurrency(package_.price)}
                 </Badge>
               </div>
 
               {package_.is_special && (
-                <Badge className="bg-purple-500/80 text-white border-purple-400/30">
+                <Badge className="bg-purple-500/80 text-white border-purple-400/30 text-xs sm:text-sm">
                   ✨ Paquete Especial
                 </Badge>
               )}
@@ -242,8 +242,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-3 gap-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
           {/* Columna principal */}
           <div className="lg:col-span-2">
             {/* Descripción */}
@@ -286,19 +286,19 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <Card className="mb-8">
+                <Card className="mb-6 sm:mb-8">
                   <CardHeader>
                     <CardTitle>Servicios</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2">
                       {package_.servicios_incluidos && package_.servicios_incluidos.length > 0 && (
                         <div>
                           <h3 className="text-lg font-semibold text-green-700 mb-3">✅ Incluido</h3>
                           <ul className="space-y-2">
                             {package_.servicios_incluidos.map((service, index) => (
-                              <li key={index} className="flex items-start">
-                                <span className="text-green-500 mr-2">•</span>
+                              <li key={index} className="flex items-start text-sm sm:text-base">
+                                <span className="text-green-500 mr-2 flex-shrink-0">•</span>
                                 <span>{service}</span>
                               </li>
                             ))}
@@ -311,8 +311,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                           <h3 className="text-lg font-semibold text-blue-700 mb-3">➕ Adicionales</h3>
                           <ul className="space-y-2">
                             {package_.servicios_adicionales.map((service, index) => (
-                              <li key={index} className="flex items-start">
-                                <span className="text-blue-500 mr-2">•</span>
+                              <li key={index} className="flex items-start text-sm sm:text-base">
+                                <span className="text-blue-500 mr-2 flex-shrink-0">•</span>
                                 <span>{service}</span>
                               </li>
                             ))}
@@ -332,20 +332,20 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <Card className="mb-8">
+                <Card className="mb-6 sm:mb-8">
                   <CardHeader>
-                    <CardTitle className="flex items-center">
+                    <CardTitle className="flex items-center text-lg sm:text-xl">
                       <Hotel className="w-5 h-5 mr-2" />
                       Alojamientos
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-8">
+                    <div className="space-y-6 sm:space-y-8">
                       {accommodations.map((accommodation) => (
-                        <div key={accommodation.id} className="border rounded-lg p-6 bg-gray-50">
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <h3 className="text-xl font-semibold mb-2">{accommodation.name}</h3>
+                        <div key={accommodation.id} className="border rounded-lg p-4 sm:p-6 bg-gray-50">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+                            <div className="mb-2 sm:mb-0">
+                              <h3 className="text-lg sm:text-xl font-semibold mb-2">{accommodation.name}</h3>
                               <div className="flex items-center space-x-2">
                                 {renderStars(accommodation.stars)}
                                 <span className="text-sm text-gray-600">({accommodation.stars} estrellas)</span>
@@ -367,7 +367,9 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                           {accommodation.rates && accommodation.rates.length > 0 && (
                             <div>
                               <h4 className="font-semibold mb-3">Tarifas por Mes</h4>
-                              <div className="overflow-x-auto">
+                              
+                              {/* Vista de tabla para pantallas grandes */}
+                              <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-sm">
                                   <thead>
                                     <tr className="border-b">
@@ -395,6 +397,37 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                                   </tbody>
                                 </table>
                               </div>
+
+                              {/* Vista de tarjetas para móviles */}
+                              <div className="md:hidden space-y-4">
+                                {accommodation.rates
+                                  .sort((a, b) => a.anio - b.anio || a.mes - b.mes)
+                                  .map((rate) => (
+                                  <div key={rate.id} className="bg-white rounded-lg border p-4 shadow-sm">
+                                    <div className="flex justify-between items-center mb-3">
+                                      <h5 className="font-semibold text-lg">{getMonthName(rate.mes)} {rate.anio}</h5>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600">Doble:</span>
+                                        <span className="font-medium">{formatCurrency(rate.tarifa_dbl)}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600">Triple:</span>
+                                        <span className="font-medium">{formatCurrency(rate.tarifa_tpl)}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600">Cuádruple:</span>
+                                        <span className="font-medium">{formatCurrency(rate.tarifa_cpl)}</span>
+                                      </div>
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600">Menor:</span>
+                                        <span className="font-medium">{formatCurrency(rate.tarifa_menor)}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -414,13 +447,13 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <Card className="mb-6 sticky top-4">
+              <Card className="mb-6 lg:sticky lg:top-4">
                 <CardHeader>
                   <CardTitle>Información del Viaje</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-primary mb-2">
+                    <div className="text-2xl sm:text-3xl font-bold text-primary mb-2">
                       Desde {formatCurrency(package_.price)}
                     </div>
                     <p className="text-sm text-gray-600">Precio por persona</p>
@@ -428,13 +461,13 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
 
                   {package_.available_dates && package_.available_dates.length > 0 && (
                     <div>
-                      <h4 className="font-semibold mb-2 flex items-center">
+                      <h4 className="font-semibold mb-2 flex items-center text-sm sm:text-base">
                         <Calendar className="w-4 h-4 mr-2" />
                         Fechas Disponibles
                       </h4>
                       <div className="space-y-1">
                         {package_.available_dates.slice(0, 5).map((date, index) => (
-                          <div key={index} className="text-sm bg-gray-50 rounded px-2 py-1">
+                          <div key={index} className="text-xs sm:text-sm bg-gray-50 rounded px-2 py-1">
                             {date}
                           </div>
                         ))}
@@ -450,7 +483,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                   <div className="pt-4 border-t">
                     <Button 
                       onClick={() => setShowContactForm(true)}
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white text-sm sm:text-base"
                       size="lg"
                     >
                       <Mail className="w-4 h-4 mr-2" />
@@ -458,7 +491,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                     </Button>
                   </div>
 
-                  <div className="text-center text-sm text-gray-600">
+                  <div className="text-center text-xs sm:text-sm text-gray-600">
                     <p className="flex items-center justify-center mb-1">
                       <Phone className="w-4 h-4 mr-1" />
                       O llámanos directamente
@@ -478,14 +511,15 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-lg p-4 sm:p-6 max-w-sm sm:max-w-md w-full max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Consultar sobre {package_.name}</h2>
+              <h2 className="text-lg sm:text-xl font-bold pr-2">Consultar sobre {package_.name}</h2>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setShowContactForm(false)}
+                className="flex-shrink-0"
               >
                 ✕
               </Button>

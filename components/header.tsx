@@ -10,7 +10,11 @@ import { motion } from "framer-motion"
 import { destinationService } from "@/lib/supabase"
 import type { Destination } from "@/lib/supabase"
 
-export function Header() {
+interface HeaderProps {
+  position?: "fixed" | "sticky"
+}
+
+export function Header({ position = "fixed" }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
@@ -119,7 +123,7 @@ export function Header() {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6, ease: "easeOut" }}
-      className="fixed top-0 w-full bg-white/95 backdrop-blur-sm z-50 border-b border-gray-100 py-4"
+      className={`${position} top-0 w-full bg-white/95 backdrop-blur-sm z-50 border-b border-gray-100 py-4`}
     >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
