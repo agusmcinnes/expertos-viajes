@@ -20,13 +20,22 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
     e.preventDefault()
     setIsLoading(true)
 
-    // Simulamos autenticación (en producción usar JWT/Auth)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    if (credentials.username === "admin" && credentials.password === "expertos2024") {
+    try {
+      console.log("🔐 Intentando autenticación con:", credentials.username)
+      
+      // Usar email en lugar de username para Supabase Auth
+      const email = credentials.username.includes('@') 
+        ? credentials.username 
+        : `${credentials.username}@expertos-viajes.com`
+      
+      const { authenticateAdmin } = await import('@/lib/supabase-admin')
+      await authenticateAdmin(email, credentials.password)
+      
+      console.log("✅ Autenticación exitosa")
       onLogin()
-    } else {
-      alert("Credenciales incorrectas")
+    } catch (error: any) {
+      console.error("❌ Error de autenticación:", error)
+      alert("Credenciales incorrectas: " + (error.message || "Error desconocido"))
     }
 
     setIsLoading(false)
@@ -53,7 +62,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                   value={credentials.username}
                   onChange={(e) => setCredentials((prev) => ({ ...prev, username: e.target.value }))}
                   className="pl-10"
-                  placeholder="admin"
+                  placeholder="Email"
                   required
                 />
               </div>
@@ -68,7 +77,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
                   value={credentials.password}
                   onChange={(e) => setCredentials((prev) => ({ ...prev, password: e.target.value }))}
                   className="pl-10"
-                  placeholder="expertos2024"
+                  placeholder="Contraseña"
                   required
                 />
               </div>
