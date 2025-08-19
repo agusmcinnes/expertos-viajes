@@ -255,9 +255,78 @@ export const packageService = {
 
   // Eliminar paquete (soft delete)
   async deletePackage(id: number) {
-    const { error } = await supabase.from("travel_packages").update({ is_active: false }).eq("id", id)
+    console.log("🔧 packageService.deletePackage iniciado para ID:", id)
+    
+    try {
+      // Intento 1: Actualización normal
+      const { data, error } = await supabase
+        .from("travel_packages")
+        .update({ 
+          is_active: false,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", id)
+        .select()
 
-    if (error) throw error
+      console.log("🔧 packageService resultado:", { data, error })
+
+      if (error) {
+        console.error("🔧 packageService error:", error)
+        
+        // Si hay error de RLS, intentamos con rpc (stored procedure)
+        if (error.message.includes('RLS') || error.message.includes('policy') || error.message.includes('permission')) {
+          console.log("🔧 Intentando con función RPC para bypass RLS...")
+          return await this.deletePackageWithRPC(id)
+        }
+        
+        throw error
+      }
+
+      if (!data || data.length === 0) {
+        console.warn("🔧 packageService: No se actualizó ningún registro")
+        
+        // Verificar si el paquete existe
+        const { data: checkData } = await supabase
+          .from("travel_packages")
+          .select("id, is_active")
+          .eq("id", id)
+          .single()
+        
+        if (!checkData) {
+          throw new Error(`No se encontró el paquete con ID ${id}`)
+        }
+        
+        if (!checkData.is_active) {
+          console.log("🔧 El paquete ya estaba inactivo")
+          return checkData
+        }
+        
+        throw new Error(`No se pudo actualizar el paquete con ID ${id} - problemas de permisos`)
+      }
+
+      console.log("🔧 packageService: Paquete actualizado exitosamente:", data[0])
+      return data[0]
+    } catch (error) {
+      console.error("🔧 Error en deletePackage:", error)
+      throw error
+    }
+  },
+
+  // Función auxiliar para eliminar con RPC (bypass RLS)
+  async deletePackageWithRPC(id: number) {
+    console.log("🔧 Usando RPC para eliminar paquete:", id)
+    
+    const { data, error } = await supabase.rpc('admin_delete_package', {
+      package_id: id
+    })
+    
+    if (error) {
+      console.error("🔧 Error en RPC:", error)
+      throw error
+    }
+    
+    console.log("🔧 RPC exitoso:", data)
+    return data
   },
 
   // Obtener paquetes especiales

@@ -11,7 +11,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign } from "lucide-react"
-import { supabase } from "@/lib/supabase"
+import { supabase, packageService } from "@/lib/supabase"
+import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
@@ -20,11 +21,59 @@ export function AdminDashboardSimple() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState<number | null>(null)
   const [isAdding, setIsAdding] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
   const [isLoadingRates, setIsLoadingRates] = useState(false)
+
+  // Verificar autenticación al cargar
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = await isAdminAuthenticated()
+      if (!isAuth) {
+        alert("Sesión expirada. Por favor inicia sesión de nuevo.")
+        window.location.reload()
+      }
+    }
+    checkAuth()
+  }, [])
+
+  // Función para cerrar sesión
+  const handleLogout = async () => {
+    try {
+      await signOutAdmin()
+      window.location.reload()
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+    }
+  }
+
+  // Función de debug para testing
+  const debugDeletePackage = async (id: number) => {
+    console.log("🐛 DEBUG: Testing delete functionality for package", id);
+    try {
+      // Verificar autenticación primero
+      const isAuth = await isAdminAuthenticated()
+      console.log("� Admin autenticado:", isAuth)
+      
+      if (!isAuth) {
+        throw new Error("Admin no está autenticado. Por favor inicia sesión de nuevo.")
+      }
+      
+      // Usar el servicio admin autenticado
+      console.log("🐛 DEBUG: Usando adminPackageService...");
+      const result = await adminPackageService.deletePackage(id)
+      
+      console.log("🐛 DEBUG: Delete result:", result);
+      return result;
+      
+    } catch (error) {
+      console.error("🐛 DEBUG: Delete error:", error);
+      throw error;
+    }
+  };
   const [accommodations, setAccommodations] = useState<any[]>([])
   const [showAccommodations, setShowAccommodations] = useState(false)
   const [showRatesModal, setShowRatesModal] = useState(false)
@@ -67,7 +116,9 @@ export function AdminDashboardSimple() {
 
   const loadData = async () => {
     try {
+      console.log("🔄 LoadData iniciado...");
       setIsLoading(true)
+      console.log("Cargando datos...")
 
       // Try to load packages
       const packagesQuery = supabase
@@ -79,9 +130,11 @@ export function AdminDashboardSimple() {
       const { data: packagesData, error: packagesError } = await packagesQuery
 
       if (packagesError) {
-        console.warn("Error loading packages:", packagesError)
+        console.warn("❌ Error loading packages:", packagesError)
         setPackages([])
       } else {
+        console.log("📦 Paquetes cargados:", packagesData?.length || 0)
+        console.log("📦 IDs de paquetes:", packagesData?.map(p => p.id) || [])
         // Add transport_type if missing and set default is_special
         const packagesWithTransport = (packagesData || []).map((pkg: any) => ({
           ...pkg,
@@ -89,6 +142,7 @@ export function AdminDashboardSimple() {
           is_special: pkg.is_special || false,
         }))
         setPackages(packagesWithTransport)
+        console.log("✅ Paquetes procesados y guardados en estado");
       }
 
       // Load destinations
@@ -528,18 +582,83 @@ export function AdminDashboardSimple() {
   }
 
   const handleDelete = async (id: number) => {
-    if (confirm("¿Estás seguro de que querés eliminar este paquete?")) {
+    console.log("🚀 HandleDelete iniciado para ID:", id);
+    
+    // Encontrar el paquete que se va a eliminar para mostrar su nombre
+    const packageToDelete = packages.find(pkg => pkg.id === id)
+    const packageName = packageToDelete?.name || `paquete ${id}`
+    
+    console.log("📦 Paquete a eliminar:", packageToDelete);
+    
+    if (confirm(`¿Estás seguro de que querés eliminar "${packageName}"?`)) {
       try {
-        const { error } = await supabase.from("travel_packages").update({ is_active: false }).eq("id", id)
-
-        if (error) throw error
-
+        console.log("✅ Usuario confirmó eliminación");
+        console.log("🔄 Iniciando proceso de eliminación...");
+        setIsDeleting(true)
+        
+        // Test directo con supabase
+        console.log("🧪 Testing direct supabase call...");
+        const { data: testData, error: testError } = await supabase
+          .from("travel_packages")
+          .select("id, name, is_active")
+          .eq("id", id)
+          .single();
+          
+        console.log("🧪 Test data:", testData, "Error:", testError);
+        
+        if (testError) {
+          console.error("❌ Error en test directo:", testError);
+          throw testError;
+        }
+        
+        // Usar el servicio de packages para eliminar
+        console.log("📞 Llamando a packageService.deletePackage...");
+        const deleteResult = await debugDeletePackage(id);
+        
+        console.log("✅ packageService.deletePackage completado sin errores");
+        console.log("📋 Resultado de eliminación:", deleteResult);
+        
+        // Verificar que el paquete se eliminó correctamente
+        console.log("🔍 Verificando eliminación en BD...");
+        const { data: verifyData, error: verifyError } = await supabase
+          .from("travel_packages")
+          .select("id, name, is_active")
+          .eq("id", id)
+          .single();
+          
+        console.log("🔍 Verificación:", verifyData, "Error:", verifyError);
+        
+        if (verifyData && verifyData.is_active === true) {
+          console.error("❌ ERROR: El paquete sigue activo en BD después de eliminarlo");
+          throw new Error("El paquete no se eliminó correctamente en la base de datos");
+        }
+        
+        // Actualizar la lista inmediatamente removiendo el paquete del estado local
+        console.log("🔄 Actualizando estado local...");
+        setPackages(prevPackages => {
+          const newPackages = prevPackages.filter(pkg => pkg.id !== id);
+          console.log("📊 Paquetes antes:", prevPackages.length, "Paquetes después:", newPackages.length);
+          return newPackages;
+        });
+        
+        // Recargar datos para asegurar consistencia
+        console.log("🔄 Recargando datos desde BD...");
         await loadData()
-        alert("Paquete eliminado exitosamente")
+        
+        console.log("🎉 Eliminación completada exitosamente");
+        alert(`El paquete "${packageName}" fue eliminado exitosamente`)
       } catch (error) {
-        console.error("Error deleting package:", error)
-        alert("Error al eliminar el paquete")
+        console.error("❌ Error en handleDelete:", error);
+        alert("Error al eliminar el paquete: " + (error as Error).message)
+        // Recargar datos en caso de error para mantener consistencia
+        console.log("🔄 Recargando datos después del error...");
+        await loadData()
+      } finally {
+        console.log("🏁 Finalizando handleDelete...");
+        setIsDeleting(false)
       }
+    } else {
+      console.log("❌ Usuario canceló la eliminación");
     }
   }
 
@@ -582,9 +701,14 @@ export function AdminDashboardSimple() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
-            <Button onClick={() => (window.location.href = "/")} variant="outline">
-              Ver Sitio Web
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => (window.location.href = "/")} variant="outline">
+                Ver Sitio Web
+              </Button>
+              <Button onClick={handleLogout} variant="outline" className="text-red-600 border-red-600 hover:bg-red-50">
+                Cerrar Sesión
+              </Button>
+            </div>
           </div>
         </div>
       </motion.div>
@@ -1053,7 +1177,8 @@ export function AdminDashboardSimple() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleEdit(pkg)}
-                              className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white transition-all duration-300 hover:scale-105"
+                              disabled={isDeleting}
+                              className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white transition-all duration-300 hover:scale-105 disabled:opacity-50"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -1061,9 +1186,14 @@ export function AdminDashboardSimple() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleDelete(pkg.id)}
-                              className="border-2 border-red-500 text-red-500 hover:bg-gradient-to-r hover:from-red-500 hover:to-red-400 hover:text-white transition-all duration-300 hover:scale-105"
+                              disabled={isDeleting}
+                              className="border-2 border-red-500 text-red-500 hover:bg-gradient-to-r hover:from-red-500 hover:to-red-400 hover:text-white transition-all duration-300 hover:scale-105 disabled:opacity-50"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              {isDeleting ? (
+                                <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-500 border-t-transparent"></div>
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
                             </Button>
                           </div>
                         </div>
