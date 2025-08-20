@@ -14,11 +14,11 @@ export default function ContactPage() {
   return (
     <>
       <head>
-        <title>Contacto - Expertos Viajes</title>
-        <meta name="description" content="Contacta con Expertos Viajes. Estamos aquí para ayudarte a planificar tu próxima aventura. Consulta sobre nuestros paquetes turísticos y destinos." />
+        <title>Contacto - Expertos en Viajes</title>
+        <meta name="description" content="Contacta con Expertos en Viajes. Estamos aquí para ayudarte a planificar tu próxima aventura. Consulta sobre nuestros paquetes turísticos y destinos." />
         <meta name="keywords" content="contacto, consultas, información turística, asesoramiento viajes, agencia de viajes Chubut" />
-        <meta property="og:title" content="Contacto - Expertos Viajes" />
-        <meta property="og:description" content="Contacta con Expertos Viajes. Estamos aquí para ayudarte a planificar tu próxima aventura." />
+        <meta property="og:title" content="Contacto - Expertos en Viajes" />
+        <meta property="og:description" content="Contacta con Expertos en Viajes. Estamos aquí para ayudarte a planificar tu próxima aventura." />
         <meta property="og:url" content="https://expertos-viajes.vercel.app/contacto" />
         <link rel="canonical" href="https://expertos-viajes.vercel.app/contacto" />
       </head>

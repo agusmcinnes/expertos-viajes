@@ -14,7 +14,7 @@ export function Footer() {
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                 <Plane className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold">Expertos Viajes</span>
+              <span className="text-xl font-bold">Expertos en Viajes</span>
             </Link>
             <p className="text-gray-300 mb-6 max-w-md">
               Tu agencia de confianza para crear experiencias de viaje inolvidables. Más de 10 años haciendo realidad
@@ -92,7 +92,7 @@ export function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">© {currentYear} Expertos Viajes. Todos los derechos reservados.</p>
+          <p className="text-gray-400 text-sm">© {currentYear} Expertos en Viajes. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>

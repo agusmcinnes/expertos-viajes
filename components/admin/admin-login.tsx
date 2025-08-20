@@ -49,7 +49,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
             <Plane className="w-8 h-8 text-white" />
           </div>
           <CardTitle className="text-2xl text-gray-900">Panel de Administración</CardTitle>
-          <p className="text-gray-600">Expertos Viajes</p>
+          <p className="text-gray-600">Expertos en Viajes</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

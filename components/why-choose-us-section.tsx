@@ -47,7 +47,7 @@ export function WhyChooseUsSection() {
           {/* Header */}
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              ¿Por qué elegir <span className="text-primary">Expertos Viajes</span>?
+              ¿Por qué elegir <span className="text-primary">Expertos en Viajes</span>?
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Más que una agencia de viajes, somos tus compañeros de aventura. Descubrí por qué miles de viajeros
@@ -80,7 +80,7 @@ export function WhyChooseUsSection() {
             <div className="max-w-4xl mx-auto">
               <div className="text-6xl text-secondary mb-6">"</div>
               <blockquote className="text-xl md:text-2xl font-medium mb-6 italic">
-                Expertos Viajes transformó nuestras vacaciones en la experiencia más increíble de nuestras vidas. Cada
+                Expertos en Viajes transformó nuestras vacaciones en la experiencia más increíble de nuestras vidas. Cada
                 detalle fue perfecto, desde el primer contacto hasta nuestro regreso a casa.
               </blockquote>
               <div className="flex items-center justify-center space-x-1 mb-4">

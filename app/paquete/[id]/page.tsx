@@ -7,11 +7,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const { id } = await params
   
   return {
-    title: "Detalle del Paquete - Expertos Viajes",
+    title: "Detalle del Paquete - Expertos en Viajes",
     description: "Descubrí todos los detalles de este increíble paquete turístico. Itinerario completo, precios, servicios incluidos y más información.",
     keywords: ["paquete turístico", "itinerario de viaje", "detalles del viaje", "precios de viajes"],
     openGraph: {
-      title: "Detalle del Paquete - Expertos Viajes",
+      title: "Detalle del Paquete - Expertos en Viajes",
       description: "Descubrí todos los detalles de este increíble paquete turístico.",
       url: `https://expertos-viajes.vercel.app/paquete/${id}`,
       type: "website",

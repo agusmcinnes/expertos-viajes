@@ -48,7 +48,7 @@ export function AboutSection() {
             <div>
               <h3 className="text-2xl font-bold text-gray-900 mb-6">Nuestra Historia</h3>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                Fundada en 2014, Expertos Viajes nació del sueño de compartir la magia de viajar. Comenzamos como un
+                Fundada en 2014, Expertos en Viajes nació del sueño de compartir la magia de viajar. Comenzamos como un
                 pequeño equipo de aventureros que creía que cada persona merece vivir experiencias únicas e
                 inolvidables.
               </p>
@@ -67,7 +67,7 @@ export function AboutSection() {
             <div className="relative">
               <Image
                 src="/travel-team-office.png"
-                alt="Equipo de Expertos Viajes"
+                alt="Equipo de Expertos en Viajes"
                 width={600}
                 height={500}
                 className="rounded-lg shadow-lg"
