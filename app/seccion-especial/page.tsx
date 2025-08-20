@@ -15,11 +15,11 @@ export default function SpecialSectionRoute() {
 // Metadata para SEO
 export async function generateMetadata() {
   return {
-    title: "Sección Especial - Expertos Viajes",
+    title: "Sección Especial - Expertos en Viajes",
     description: "Descubrí nuestras experiencias más exclusivas y especiales, diseñadas para hacer de tu viaje algo verdaderamente único e inolvidable.",
     keywords: ["experiencias exclusivas", "viajes especiales", "turismo premium", "experiencias únicas", "viajes personalizados"],
     openGraph: {
-      title: "Sección Especial - Expertos Viajes",
+      title: "Sección Especial - Expertos en Viajes",
       description: "Descubrí nuestras experiencias más exclusivas y especiales, diseñadas para hacer de tu viaje algo verdaderamente único e inolvidable.",
       url: "https://expertos-viajes.vercel.app/seccion-especial",
       type: "website",

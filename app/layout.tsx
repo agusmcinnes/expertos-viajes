@@ -8,16 +8,16 @@ import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/components/json-ld"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://expertos-viajes.vercel.app'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.expertosenviajes.com.ar/'),
   title: {
-    default: "Expertos Viajes - Tu próximo destino soñado",
-    template: "%s | Expertos Viajes"
+    default: "Expertos en Viajes - Tu próximo destino soñado",
+    template: "%s | Expertos en Viajes"
   },
   description: "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut. Contamos desde viajes en bus hasta viajes aéreos. Contáctanos y descubre el mundo con nosotros.",
   keywords: ["viajes", "turismo", "agencia de viajes", "paquetes turísticos", "destinos", "aventura", "vacaciones", "Chubut", "Argentina", "cruceros", "viajes en bus", "viajes aéreos"],
-  authors: [{ name: "Expertos Viajes" }],
-  creator: "Expertos Viajes",
-  publisher: "Expertos Viajes",
+  authors: [{ name: "Expertos en Viajes" }],
+  creator: "Expertos en Viajes",
+  publisher: "Expertos en Viajes",
   robots: {
     index: true,
     follow: true,
@@ -33,21 +33,21 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_AR",
     url: "https://expertos-viajes.vercel.app",
-    siteName: "Expertos Viajes",
-    title: "Expertos Viajes - Tu próximo destino soñado",
+    siteName: "Expertos en Viajes",
+    title: "Expertos en Viajes - Tu próximo destino soñado",
     description: "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut.",
     images: [
       {
         url: "/logo-expertos-viajes.png",
         width: 800,
         height: 600,
-        alt: "Expertos Viajes - Agencia de Turismo",
+        alt: "Expertos en Viajes - Agencia de Turismo",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Expertos Viajes - Tu próximo destino soñado",
+    title: "Expertos en Viajes - Tu próximo destino soñado",
     description: "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales.",
     images: ["/logo-expertos-viajes.png"],
   },

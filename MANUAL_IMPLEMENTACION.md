@@ -1,4 +1,4 @@
-# Manual - **Solución**: Implementado filtrado real en `destination-page.tsx` usando `pkg.transport_type === transport`e Implementación - Expertos Viajes
+# Manual - **Solución**: Implementado filtrado real en `destination-page.tsx` usando `pkg.transport_type === transport`e Implementación - Expertos en Viajes
 
 ## ✅ **CORRECCIONES APLICADAS (Agosto 2025)**
 

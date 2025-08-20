@@ -21,7 +21,7 @@ function getBaseUrl() {
 export const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "TravelAgency",
-  "name": "Expertos Viajes",
+  "name": "Expertos en Viajes",
   "description": "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut.",
   "url": getBaseUrl(),
   "logo": `${getBaseUrl()}/logo-expertos-viajes.png`,
@@ -72,7 +72,7 @@ export const organizationJsonLd = {
 export const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "Expertos Viajes",
+  "name": "Expertos en Viajes",
   "url": getBaseUrl(),
   "potentialAction": {
     "@type": "SearchAction",

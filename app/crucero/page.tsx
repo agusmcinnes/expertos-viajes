@@ -13,12 +13,12 @@ export default function CruceroPage() {
 }
 
 export const metadata = {
-  title: "Viajes en Crucero - Expertos Viajes",
-  description: "Descubrí los mejores cruceros con Expertos Viajes. Navega por destinos increíbles con el máximo confort y lujo. Experiencias únicas en alta mar.",
+  title: "Viajes en Crucero - Expertos en Viajes",
+  description: "Descubrí los mejores cruceros con Expertos en Viajes. Navega por destinos increíbles con el máximo confort y lujo. Experiencias únicas en alta mar.",
   keywords: ["cruceros", "viajes marítimos", "cruceros de lujo", "turismo náutico", "destinos marítimos", "vacaciones en barco"],
   openGraph: {
-    title: "Viajes en Crucero - Expertos Viajes",
-    description: "Descubrí los mejores cruceros con Expertos Viajes. Navega por destinos increíbles con el máximo confort y lujo.",
+    title: "Viajes en Crucero - Expertos en Viajes",
+    description: "Descubrí los mejores cruceros con Expertos en Viajes. Navega por destinos increíbles con el máximo confort y lujo.",
     url: "https://expertos-viajes.vercel.app/crucero",
     type: "website",
   },
