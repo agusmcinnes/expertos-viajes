@@ -23,7 +23,7 @@ export function HeroSection() {
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 container mx-auto px-4 text-center text-white mt-10"
+        className="relative z-10 container mx-auto px-4 text-center text-white mt-32"
       >
         <div className="max-w-4xl mx-auto">
           <motion.h1
@@ -40,7 +40,7 @@ export function HeroSection() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4 }}
-            className="text-md sm:text-xl md:text-2xl mb-6 md:mb-8 text-white/90 max-w-2xl mx-auto px-4"
+            className="text-md sm:text-xl md:text-2xl mb-6 md:mb-8 text-white/90 max-w-4xl mx-auto px-4"
           >
             Tu próxima experiencia empieza acá. Somos expertos en convertir sueños en realidad. Te ayudamos a crear recuerdos inolvidables. Tu historia de viaje comienza con un solo clic.
           </motion.p>
@@ -75,7 +75,7 @@ export function HeroSection() {
           </motion.div>
 
           {/* Stats */}
-          <div className="max-w-4xl mx-auto mt-20 md:mt-0">
+          <div className="max-w-4xl mx-auto md:mt-0">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-12">
               <div className="text-center">
                 <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">98%</div>
