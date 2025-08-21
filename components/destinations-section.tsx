@@ -111,7 +111,7 @@ export function DestinationsSection() {
           {/* Header */}
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              Nuestros <span className="text-primary">Destinos</span>
+              Destinos <span className="text-primary">Destacados</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Desde aventuras locales hasta experiencias exóticas, tenemos el viaje perfecto para vos. Explorá nuestros

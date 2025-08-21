@@ -23,15 +23,34 @@ export function Footer() {
             <div className="space-y-2">
               <div className="flex items-center text-gray-300">
                 <MapPin className="w-4 h-4 mr-2" />
-                <span>Av. Corrientes 1234, Buenos Aires</span>
+                <span>Bolivar Nº 1543, Corrientes, ARGENTINA</span>
               </div>
               <div className="flex items-center text-gray-300">
                 <Phone className="w-4 h-4 mr-2" />
-                <span>+54 11 4567-8900</span>
+                <span>+54 9 379 4030711 / +54 9 379 4142376</span>
               </div>
               <div className="flex items-center text-gray-300">
                 <Mail className="w-4 h-4 mr-2" />
-                <span>info@expertosviajes.com</span>
+                <a 
+                  href="mailto:expertosenviajes.info@gmail.com?subject=Consulta desde sitio web&body=Hola, me gustaría obtener información sobre sus servicios de viaje." 
+                  className="hover:text-secondary transition-colors"
+                >
+                  expertosenviajes.info@gmail.com
+                </a>
+              </div>
+              <div className="flex items-center text-gray-300">
+                <Mail className="w-4 h-4 mr-2" />
+                <a 
+                  href="mailto:vetedeviaje.info@gmail.com?subject=Consulta desde sitio web&body=Hola, me gustaría obtener información sobre sus servicios de viaje." 
+                  className="hover:text-secondary transition-colors"
+                >
+                  vetedeviaje.info@gmail.com
+                </a>
+              </div>
+              <div className="text-gray-300 mt-4">
+                <p className="font-semibold">HORARIOS:</p>
+                <p className="text-sm">Lunes a viernes: 09:00 - 21:00 hs (corrido)</p>
+                <p className="text-sm">Sábados: 09:00 - 13:00 y 17:30 - 21:00 hs</p>
               </div>
             </div>
           </div>
