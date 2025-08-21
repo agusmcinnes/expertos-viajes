@@ -19,7 +19,7 @@ export function AboutSection() {
     {
       icon: Award,
       title: "Experiencia comprobada",
-      description: "Más de 10 años creando momentos inolvidables y construyendo confianza con nuestros viajeros.",
+      description: "Más de 20 años creando momentos inolvidables y construyendo confianza con nuestros viajeros.",
     },
     {
       icon: Globe,

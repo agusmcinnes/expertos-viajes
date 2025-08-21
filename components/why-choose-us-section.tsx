@@ -14,9 +14,9 @@ export function WhyChooseUsSection() {
     },
     {
       icon: Clock,
-      title: "Planificación Express",
+      title: "Planificación Inteligente",
       description:
-        "Organizamos tu viaje en tiempo récord sin sacrificar calidad. Tu aventura puede comenzar mañana mismo.",
+        "Optimizamos cada detalle de tu viaje para que ahorres tiempo y disfrutes al máximo. Tu aventura, organizada de forma eficiente.",
       color: "bg-green-500",
     },
     {
@@ -73,23 +73,6 @@ export function WhyChooseUsSection() {
                 </CardContent>
               </Card>
             ))}
-          </div>
-
-          {/* Testimonial */}
-          <div className="mt-16 bg-gradient-to-r from-primary to-primary/80 rounded-2xl p-8 md:p-12 text-center text-white">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-6xl text-secondary mb-6">"</div>
-              <blockquote className="text-xl md:text-2xl font-medium mb-6 italic">
-                Expertos en Viajes transformó nuestras vacaciones en la experiencia más increíble de nuestras vidas. Cada
-                detalle fue perfecto, desde el primer contacto hasta nuestro regreso a casa.
-              </blockquote>
-              <div className="flex items-center justify-center space-x-1 mb-4">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-6 h-6 fill-secondary text-secondary" />
-                ))}
-              </div>
-              <cite className="text-secondary font-semibold">- María y Carlos, viajeros a Tailandia 2024</cite>
-            </div>
           </div>
         </div>
       </div>

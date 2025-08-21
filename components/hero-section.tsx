@@ -32,8 +32,8 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.2 }}
             className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 md:mb-6 leading-tight"
           >
-            Descubrí tu próximo
-            <span className="block text-secondary"> destino soñado</span>
+            Viajes
+            <span className="block text-secondary">que te marcan</span>
           </motion.h1>
 
           <motion.p
@@ -42,8 +42,7 @@ export function HeroSection() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-md sm:text-xl md:text-2xl mb-6 md:mb-8 text-white/90 max-w-2xl mx-auto px-4"
           >
-            Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales, tu viaje
-            perfecto te está esperando.
+            Tu próxima experiencia empieza acá. Somos expertos en convertir sueños en realidad. Te ayudamos a crear recuerdos inolvidables. Tu historia de viaje comienza con un solo clic.
           </motion.p>
 
           <motion.div
@@ -76,19 +75,27 @@ export function HeroSection() {
           </motion.div>
 
           {/* Stats */}
-          <div className="max-w-2xl mx-auto mt-20 md:mt-0">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+          <div className="max-w-4xl mx-auto mt-20 md:mt-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 lg:gap-12">
               <div className="text-center">
-                <div className="text-3xl font-bold text-secondary mb-2">500+</div>
-                <div className="text-white/80">Viajes realizados</div>
+                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">98%</div>
+                <div className="text-white/80 text-sm">de clientes satisfechos</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-secondary mb-2">50+</div>
-                <div className="text-white/80">Destinos únicos</div>
+                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">+ 10.000</div>
+                <div className="text-white/80 text-sm">viajeros felices en los últimos 3 años</div>
               </div>
-              <div className="text-center col-span-2 md:col-span-1">
-                <div className="text-3xl font-bold text-secondary mb-2">98%</div>
-                <div className="text-white/80">Clientes satisfechos</div>
+              <div className="text-center">
+                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">+ 75%</div>
+                <div className="text-white/80 text-sm">de nuestros clientes viajan de nuevo con nosotros</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">+ 20</div>
+                <div className="text-white/80 text-sm">años de experiencia</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">100%</div>
+                <div className="text-white/80 text-sm">Staff altamente capacitado</div>
               </div>
             </div>
           </div>
