@@ -2,13 +2,15 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from "lucide-react"
 import { contactService } from "@/lib/supabase"
+import { initEmailJS, sendEmail, type EmailData } from "@/lib/emailjs"
 import { motion } from "framer-motion"
+import { useToast } from "@/hooks/use-toast"
 
 interface ContactFormFunctionalProps {
   packageName?: string
@@ -25,19 +27,47 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
+  const { toast } = useToast()
+
+  // Inicializar EmailJS cuando se monta el componente
+  useEffect(() => {
+    initEmailJS()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      await contactService.createInquiry({
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone || null,
+      // Preparar datos para EmailJS
+      const emailData: EmailData = {
+        from_name: formData.name,
+        from_email: formData.email,
+        phone: formData.phone,
         message: formData.message,
-        status: "pending",
-      })
+        to_name: "Expertos en Viajes"
+      }
+
+      // Enviar email con EmailJS
+      const emailSent = await sendEmail(emailData)
+      
+      if (!emailSent) {
+        throw new Error("Error al enviar el email")
+      }
+
+      // También guardar en Supabase si está disponible (opcional)
+      try {
+        await contactService.createInquiry({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || null,
+          message: formData.message,
+          status: "pending",
+        })
+      } catch (supabaseError) {
+        console.warn("No se pudo guardar en Supabase:", supabaseError)
+        // No fallar si Supabase no está disponible
+      }
 
       setIsSuccess(true)
       setFormData({ 
@@ -45,6 +75,12 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
         email: "", 
         phone: "", 
         message: packageName ? `Hola, me interesa obtener más información sobre el paquete "${packageName}". ` : ""
+      })
+
+      // Mostrar toast de éxito
+      toast({
+        title: "¡Consulta enviada!",
+        description: "Te contactaremos pronto para ayudarte con tu viaje soñado.",
       })
 
       // Llamar callback de éxito si existe
@@ -58,7 +94,11 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
       setTimeout(() => setIsSuccess(false), 5000)
     } catch (error) {
       console.error("Error sending inquiry:", error)
-      alert("Error al enviar la consulta. Por favor, intentá nuevamente.")
+      toast({
+        variant: "destructive",
+        title: "Error al enviar consulta",
+        description: "Por favor, intentá nuevamente o contactanos directamente.",
+      })
     } finally {
       setIsSubmitting(false)
     }

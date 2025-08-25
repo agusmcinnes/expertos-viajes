@@ -4,6 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ScrollToTop } from "@/components/scroll-to-top"
 import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/components/json-ld"
+import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -81,6 +82,7 @@ export default function RootLayout({
         <JsonLd data={websiteJsonLd} />
         {children}
         <ScrollToTop />
+        <Toaster />
       </body>
     </html>
   )
