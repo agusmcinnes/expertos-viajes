@@ -23,25 +23,25 @@ export function ContactFormSection({
     {
       icon: MapPin,
       title: "Ubicación",
-      details: ["Av. Corrientes 1234, Piso 5", "Buenos Aires, Argentina"],
+      details: ["Bolivar Nº 1543", "Corrientes, ARGENTINA"],
       color: "text-blue-600",
     },
     {
       icon: Phone,
       title: "Teléfono",
-      details: ["+54 11 4567-8900", "WhatsApp: +54 9 11 2345-6789"],
+      details: ["+54 9 379 4030711", "+54 9 379 4142376"],
       color: "text-green-600",
     },
     {
       icon: Mail,
       title: "Email",
-      details: ["info@expertosviajes.com", "reservas@expertosviajes.com"],
+      details: ["expertosenviajes.info@gmail.com", "vetedeviaje.info@gmail.com"],
       color: "text-purple-600",
     },
     {
       icon: Clock,
       title: "Horarios",
-      details: ["Lun - Vie: 9:00 - 18:00", "Sáb: 9:00 - 13:00"],
+      details: ["Lunes a viernes: 09:00 - 21:00 hs (corrido)", "Sábados: 09:00 - 13:00 y 17:30 - 21:00 hs"],
       color: "text-orange-600",
     },
   ]
