@@ -1,16 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, Star, Sparkles, ArrowLeft, MapPin } from "lucide-react"
-import Image from "next/image"
+import { Sparkles, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { siteConfigService, packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
-import { NavigationButton } from "@/components/navigation-button"
+import { PackageCard } from "@/components/package-card"
 
 export function SpecialSectionPage() {
   const [sectionTitle, setSectionTitle] = useState("Sección Especial") // Default fallback
@@ -177,66 +174,7 @@ export function SpecialSectionPage() {
                       transition={{ duration: 0.6, delay: index * 0.1 }}
                       className="h-full"
                     >
-                      <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 h-full flex flex-col">
-                        <div className="relative overflow-hidden">
-                          <Image
-                            src={pkg.image_url || "/placeholder.svg?height=300&width=400"}
-                            alt={pkg.name}
-                            width={400}
-                            height={300}
-                            className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-                          />
-                          <div className="absolute top-4 right-4">
-                            <Badge className="bg-gradient-to-r from-secondary to-secondary/80 text-gray-900 font-semibold shadow-lg">
-                              ${pkg.price}
-                            </Badge>
-                          </div>
-                          <div className="absolute top-4 left-4">
-                            <Badge variant="outline" className="bg-white/90 text-gray-900 border-white">
-                              {pkg.duration}
-                            </Badge>
-                          </div>
-                          <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
-                            <Badge className="bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg">
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              Especial
-                            </Badge>
-                          </div>
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-                        </div>
-
-                        <CardContent className="p-6 flex flex-col flex-1">
-                          <h3 className="text-xl font-bold text-gray-900 mb-3">{pkg.name}</h3>
-                          <p className="text-gray-600 mb-4 leading-relaxed flex-1">{pkg.description}</p>
-
-                          <div className="space-y-3 mb-6">
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Calendar className="w-4 h-4 mr-2" />
-                              <span>
-                                Próximas salidas: {pkg.available_dates?.slice(0, 2).join(", ") || "Consultar fechas"}
-                              </span>
-                            </div>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Users className="w-4 h-4 mr-2" />
-                              <span>Grupos reducidos (máx. {pkg.max_capacity} personas)</span>
-                            </div>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Star className="w-4 h-4 mr-2 fill-yellow-400 text-yellow-400" />
-                              <span>Experiencia premium exclusiva</span>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-3 mt-auto">
-                            <NavigationButton 
-                              href={`/paquete/${pkg.id}`}
-                              className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
-                              loadingText="Cargando..."
-                            >
-                              Ver Detalles
-                            </NavigationButton>
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <PackageCard package={pkg} />
                     </motion.div>
                   ))}
                 </div>

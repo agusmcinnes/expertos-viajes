@@ -27,6 +27,7 @@ export function AdminDashboardSimple() {
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
   const [isLoadingRates, setIsLoadingRates] = useState(false)
+  const [editingAccommodation, setEditingAccommodation] = useState<number | null>(null)
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -80,6 +81,7 @@ export function AdminDashboardSimple() {
   const [selectedAccommodationForRates, setSelectedAccommodationForRates] = useState<any>(null)
   const [rates, setRates] = useState<any[]>([])
   const [accommodationRates, setAccommodationRates] = useState<{[key: number]: any[]}>({}) // Nuevo estado para tarifas por alojamiento
+  const [editingRateId, setEditingRateId] = useState<number | null>(null)
   const [rateFormData, setRateFormData] = useState({
     mes: "",
     anio: "2025",
@@ -101,12 +103,14 @@ export function AdminDashboardSimple() {
     is_special: false,
     servicios_incluidos: "",
     servicios_adicionales: "",
+    max_group_size: "",
   })
 
   const [accommodationFormData, setAccommodationFormData] = useState({
     name: "",
     stars: "3",
     enlace_web: "",
+    regimen: "",
   })
 
   // Cargar datos desde Supabase
@@ -178,6 +182,7 @@ export function AdminDashboardSimple() {
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
+      max_group_size: "",
     })
   }
 
@@ -196,6 +201,7 @@ export function AdminDashboardSimple() {
       is_special: pkg.is_special || false,
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
+      max_group_size: (pkg as any).max_group_size?.toString() || "",
     })
     
     // Cargar alojamientos existentes
@@ -230,6 +236,7 @@ export function AdminDashboardSimple() {
       name: accommodationFormData.name,
       stars: parseInt(accommodationFormData.stars),
       enlace_web: accommodationFormData.enlace_web || null,
+      regimen: accommodationFormData.regimen || null,
       isNew: true,
     }
 
@@ -238,6 +245,54 @@ export function AdminDashboardSimple() {
       name: "",
       stars: "3",
       enlace_web: "",
+      regimen: "",
+    })
+  }
+
+  // Función para editar alojamiento
+  const handleEditAccommodation = (accommodation: any) => {
+    setEditingAccommodation(accommodation.id)
+    setAccommodationFormData({
+      name: accommodation.name,
+      stars: accommodation.stars.toString(),
+      enlace_web: accommodation.enlace_web || "",
+      regimen: accommodation.regimen || "",
+    })
+  }
+
+  // Función para cancelar edición de alojamiento
+  const handleCancelEditAccommodation = () => {
+    setEditingAccommodation(null)
+    setAccommodationFormData({
+      name: "",
+      stars: "3",
+      enlace_web: "",
+      regimen: "",
+    })
+  }
+
+  // Función para guardar edición de alojamiento
+  const handleSaveEditAccommodation = () => {
+    if (!accommodationFormData.name || editingAccommodation === null) return
+
+    setAccommodations(prev => prev.map(acc => 
+      acc.id === editingAccommodation 
+        ? {
+            ...acc,
+            name: accommodationFormData.name,
+            stars: parseInt(accommodationFormData.stars),
+            enlace_web: accommodationFormData.enlace_web || null,
+            regimen: accommodationFormData.regimen || null,
+          }
+        : acc
+    ))
+
+    setEditingAccommodation(null)
+    setAccommodationFormData({
+      name: "",
+      stars: "3",
+      enlace_web: "",
+      regimen: "",
     })
   }
 
@@ -292,16 +347,16 @@ export function AdminDashboardSimple() {
     const rateData = {
       mes: parseInt(rateFormData.mes),
       anio: parseInt(rateFormData.anio),
-      tarifa_dbl: parseFloat(rateFormData.tarifa_dbl) || 0,
-      tarifa_tpl: parseFloat(rateFormData.tarifa_tpl) || 0,
-      tarifa_cpl: parseFloat(rateFormData.tarifa_cpl) || 0,
-      tarifa_menor: parseFloat(rateFormData.tarifa_menor) || 0,
+      tarifa_dbl: parseFloat(rateFormData.tarifa_dbl) || null,
+      tarifa_tpl: parseFloat(rateFormData.tarifa_tpl) || null,
+      tarifa_cpl: parseFloat(rateFormData.tarifa_cpl) || null,
+      tarifa_menor: parseFloat(rateFormData.tarifa_menor) || null,
     }
 
     // Si es un alojamiento nuevo, agregar a lista temporal
     if (selectedAccommodationForRates.isNew) {
       const newRate = {
-        id: Date.now(),
+        id: editingRateId || Date.now(),
         ...rateData,
         accommodation_id: selectedAccommodationForRates.id,
         isNew: true,
@@ -310,7 +365,16 @@ export function AdminDashboardSimple() {
       // Actualizar las tarifas para este alojamiento específico
       setAccommodationRates(prev => {
         const currentRates = prev[selectedAccommodationForRates.id] || []
-        const filteredRates = currentRates.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        let filteredRates
+        
+        if (editingRateId) {
+          // Si estamos editando, reemplazar la tarifa existente
+          filteredRates = currentRates.filter(r => r.id !== editingRateId)
+        } else {
+          // Si es nueva, eliminar cualquier tarifa existente para el mismo mes/año
+          filteredRates = currentRates.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        }
+        
         return {
           ...prev,
           [selectedAccommodationForRates.id]: [...filteredRates, newRate]
@@ -319,31 +383,76 @@ export function AdminDashboardSimple() {
       
       // También actualizar el estado rates para el modal
       setRates(prev => {
-        const filtered = prev.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        let filtered
+        if (editingRateId) {
+          filtered = prev.filter(r => r.id !== editingRateId)
+        } else {
+          filtered = prev.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        }
         return [...filtered, newRate]
       })
       
-      alert("Tarifa agregada (se guardará al guardar el paquete)")
+      alert(editingRateId ? "Tarifa actualizada (se guardará al guardar el paquete)" : "Tarifa agregada (se guardará al guardar el paquete)")
     } else {
       // Si es un alojamiento existente, guardar en base de datos
       try {
-        const { error } = await supabase
-          .from("accommodation_rates")
-          .upsert({
-            ...rateData,
-            accommodation_id: selectedAccommodationForRates.id,
-          })
+        if (editingRateId) {
+          // Actualizar tarifa existente
+          const { error } = await supabase
+            .from("accommodation_rates")
+            .update(rateData)
+            .eq("id", editingRateId)
 
-        if (error) throw error
+          if (error) throw error
+          alert("Tarifa actualizada exitosamente")
+        } else {
+          // Crear nueva tarifa o actualizar si ya existe para el mismo mes/año
+          const { error } = await supabase
+            .from("accommodation_rates")
+            .upsert({
+              ...rateData,
+              accommodation_id: selectedAccommodationForRates.id,
+            })
+
+          if (error) throw error
+          alert("Tarifa guardada exitosamente")
+        }
+        
         await loadRatesForAccommodation(selectedAccommodationForRates.id)
-        alert("Tarifa guardada exitosamente")
       } catch (error) {
         console.error("Error saving rate:", error)
         alert("Error al guardar la tarifa")
       }
     }
 
-    // Limpiar formulario
+    // Limpiar formulario y resetear estado de edición
+    setRateFormData({
+      mes: "",
+      anio: "2025",
+      tarifa_dbl: "",
+      tarifa_tpl: "",
+      tarifa_cpl: "",
+      tarifa_menor: "",
+    })
+    setEditingRateId(null)
+  }
+
+  // Función para editar tarifa
+  const handleEditRate = (rate: any) => {
+    setEditingRateId(rate.id)
+    setRateFormData({
+      mes: rate.mes.toString(),
+      anio: rate.anio.toString(),
+      tarifa_dbl: rate.tarifa_dbl?.toString() || "",
+      tarifa_tpl: rate.tarifa_tpl?.toString() || "",
+      tarifa_cpl: rate.tarifa_cpl?.toString() || "",
+      tarifa_menor: rate.tarifa_menor?.toString() || "",
+    })
+  }
+
+  // Función para cancelar edición
+  const handleCancelEdit = () => {
+    setEditingRateId(null)
     setRateFormData({
       mes: "",
       anio: "2025",
@@ -392,6 +501,7 @@ export function AdminDashboardSimple() {
     setShowRatesModal(false)
     setSelectedAccommodationForRates(null)
     setRates([])
+    setEditingRateId(null)
     setRateFormData({
       mes: "",
       anio: "2025",
@@ -440,6 +550,7 @@ export function AdminDashboardSimple() {
         name: acc.name,
         stars: acc.stars,
         enlace_web: acc.enlace_web,
+        regimen: acc.regimen,
         paquete_id: packageId,
       }))
 
@@ -505,6 +616,7 @@ export function AdminDashboardSimple() {
         servicios_adicionales: formData.servicios_adicionales 
           ? formData.servicios_adicionales.split(",").map((s) => s.trim()).filter(s => s.length > 0)
           : null,
+        max_group_size: formData.max_group_size ? Number.parseInt(formData.max_group_size) : null,
       }
 
       // Only add transport_type if the form has it
@@ -565,11 +677,13 @@ export function AdminDashboardSimple() {
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
+      max_group_size: "",
     })
     setAccommodationFormData({
       name: "",
       stars: "3",
       enlace_web: "",
+      regimen: "",
     })
     setRateFormData({
       mes: "",
@@ -958,6 +1072,21 @@ export function AdminDashboardSimple() {
                             </label>
                           </div>
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Máximo de Personas en el Grupo
+                          </label>
+                          <Input
+                            type="number"
+                            value={formData.max_group_size}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, max_group_size: e.target.value }))}
+                            placeholder="Dejar en blanco = sin máximo"
+                            min="1"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Si se deja en blanco, no habrá límite máximo para el grupo
+                          </p>
+                        </div>
 
                         {/* Sección de Alojamientos */}
                         {showAccommodations && (
@@ -1009,6 +1138,14 @@ export function AdminDashboardSimple() {
                                       placeholder="https://hotelparadise.com"
                                     />
                                   </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Régimen (opcional)</label>
+                                    <Input
+                                      value={accommodationFormData.regimen}
+                                      onChange={(e) => setAccommodationFormData(prev => ({...prev, regimen: e.target.value}))}
+                                      placeholder="Desayuno incluido, Media pensión, etc."
+                                    />
+                                  </div>
                                 </div>
                                 <Button
                                   type="button"
@@ -1031,43 +1168,136 @@ export function AdminDashboardSimple() {
                                 <div className="space-y-2">
                                   <h4 className="font-medium">Alojamientos del Paquete ({accommodations.length})</h4>
                                   {accommodations.map((accommodation) => (
-                                    <div key={accommodation.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
-                                      <div className="flex items-center space-x-3">
-                                        <Hotel className="w-4 h-4 text-gray-500" />
-                                        <div>
-                                          <div className="flex items-center space-x-2">
-                                            <span className="font-medium">{accommodation.name}</span>
-                                            <div className="flex items-center space-x-1">
-                                              {renderStars(accommodation.stars)}
+                                    <div key={accommodation.id} className="p-3 bg-white border rounded-lg">
+                                      {editingAccommodation === accommodation.id ? (
+                                        // Modo edición
+                                        <div className="space-y-3">
+                                          <div className="grid grid-cols-2 gap-3">
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">Nombre</label>
+                                              <Input
+                                                value={accommodationFormData.name}
+                                                onChange={(e) => setAccommodationFormData(prev => ({...prev, name: e.target.value}))}
+                                                className="text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">Estrellas</label>
+                                              <Select
+                                                value={accommodationFormData.stars}
+                                                onValueChange={(value) => setAccommodationFormData(prev => ({...prev, stars: value}))}
+                                              >
+                                                <SelectTrigger className="h-8">
+                                                  <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  {[1, 2, 3, 4, 5].map((star) => (
+                                                    <SelectItem key={star} value={star.toString()}>
+                                                      <div className="flex items-center space-x-1">
+                                                        <span>{star}</span>
+                                                        {renderStars(star)}
+                                                      </div>
+                                                    </SelectItem>
+                                                  ))}
+                                                </SelectContent>
+                                              </Select>
+                                            </div>
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">Sitio Web</label>
+                                              <Input
+                                                value={accommodationFormData.enlace_web}
+                                                onChange={(e) => setAccommodationFormData(prev => ({...prev, enlace_web: e.target.value}))}
+                                                className="text-sm"
+                                              />
+                                            </div>
+                                            <div>
+                                              <label className="block text-xs font-medium text-gray-700 mb-1">Régimen</label>
+                                              <Input
+                                                value={accommodationFormData.regimen}
+                                                onChange={(e) => setAccommodationFormData(prev => ({...prev, regimen: e.target.value}))}
+                                                className="text-sm"
+                                              />
                                             </div>
                                           </div>
-                                          {accommodation.enlace_web && (
-                                            <div className="text-sm text-blue-600 truncate max-w-xs">
-                                              {accommodation.enlace_web}
-                                            </div>
-                                          )}
+                                          <div className="flex gap-2 justify-end">
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={handleCancelEditAccommodation}
+                                            >
+                                              <X className="w-3 h-3 mr-1" />
+                                              Cancelar
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              onClick={handleSaveEditAccommodation}
+                                              disabled={!accommodationFormData.name}
+                                              className="bg-green-600 hover:bg-green-700"
+                                            >
+                                              <Save className="w-3 h-3 mr-1" />
+                                              Guardar
+                                            </Button>
+                                          </div>
                                         </div>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleManageRates(accommodation)}
-                                          className="border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
-                                        >
-                                          <DollarSign className="w-4 h-4" />
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => handleRemoveAccommodation(accommodation.id)}
-                                          className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </Button>
-                                      </div>
+                                      ) : (
+                                        // Modo vista
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center space-x-3">
+                                            <Hotel className="w-4 h-4 text-gray-500" />
+                                            <div>
+                                              <div className="flex items-center space-x-2">
+                                                <span className="font-medium">{accommodation.name}</span>
+                                                <div className="flex items-center space-x-1">
+                                                  {renderStars(accommodation.stars)}
+                                                </div>
+                                              </div>
+                                              <div className="text-sm text-gray-600 space-x-2">
+                                                {accommodation.enlace_web && (
+                                                  <span className="text-blue-600 truncate max-w-xs">
+                                                    {accommodation.enlace_web}
+                                                  </span>
+                                                )}
+                                                {accommodation.regimen && (
+                                                  <span className="text-gray-500">
+                                                    • {accommodation.regimen}
+                                                  </span>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => handleEditAccommodation(accommodation)}
+                                              className="border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white"
+                                            >
+                                              <Edit className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => handleManageRates(accommodation)}
+                                              className="border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
+                                            >
+                                              <DollarSign className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => handleRemoveAccommodation(accommodation.id)}
+                                              className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                                            >
+                                              <X className="w-4 h-4" />
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   ))}
                                 </div>
@@ -1237,8 +1467,10 @@ export function AdminDashboardSimple() {
             </div>
 
             {/* Formulario para agregar/editar tarifa */}
-            <div className="bg-gray-50 p-4 rounded-lg mb-6">
-              <h3 className="font-medium mb-4">Agregar/Actualizar Tarifa</h3>
+            <div className={`p-4 rounded-lg mb-6 ${editingRateId ? 'bg-blue-50 border-2 border-blue-200' : 'bg-gray-50'}`}>
+              <h3 className="font-medium mb-4">
+                {editingRateId ? '✏️ Editando Tarifa' : '➕ Agregar Nueva Tarifa'}
+              </h3>
               <div className="grid md:grid-cols-6 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
@@ -1330,13 +1562,25 @@ export function AdminDashboardSimple() {
                   />
                 </div>
               </div>
-              <Button
-                onClick={handleSaveRate}
-                className="mt-4 bg-green-600 hover:bg-green-700"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Tarifa
-              </Button>
+              <div className="flex gap-2 mt-4">
+                <Button
+                  onClick={handleSaveRate}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {editingRateId ? "Actualizar Tarifa" : "Guardar Tarifa"}
+                </Button>
+                {editingRateId && (
+                  <Button
+                    onClick={handleCancelEdit}
+                    variant="outline"
+                    className="border-gray-400 text-gray-600 hover:bg-gray-50"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancelar
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Lista de tarifas existentes */}
@@ -1350,24 +1594,32 @@ export function AdminDashboardSimple() {
                 <h3 className="font-medium mb-4">Tarifas Existentes</h3>
                 <div className="space-y-2">
                   {rates.map((rate) => (
-                    <div key={rate.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                    <div key={rate.id} className={`flex items-center justify-between p-3 border rounded-lg ${editingRateId === rate.id ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}>
                       <div className="grid grid-cols-6 gap-4 flex-1">
                         <div className="font-medium">
                           {new Date(2024, rate.mes - 1).toLocaleDateString('es-ES', { month: 'long' })} {rate.anio}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">DBL:</span> ${rate.tarifa_dbl}
+                          <span className="font-medium">DBL:</span> {rate.tarifa_dbl ? `$${rate.tarifa_dbl}` : '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">TPL:</span> ${rate.tarifa_tpl}
+                          <span className="font-medium">TPL:</span> {rate.tarifa_tpl ? `$${rate.tarifa_tpl}` : '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">CPL:</span> ${rate.tarifa_cpl}
+                          <span className="font-medium">CPL:</span> {rate.tarifa_cpl ? `$${rate.tarifa_cpl}` : '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">MENOR:</span> ${rate.tarifa_menor}
+                          <span className="font-medium">MENOR:</span> {rate.tarifa_menor ? `$${rate.tarifa_menor}` : '-'}
                         </div>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditRate(rate)}
+                            className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"

@@ -2,10 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, Star, ArrowLeft, MapPin, CheckCircle, Plane, Bus, Ship } from "lucide-react"
+import { ArrowLeft, MapPin, CheckCircle, Plane, Bus, Ship } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -13,6 +12,7 @@ import { packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
 import { Breadcrumbs, BreadcrumbJsonLd } from "@/components/breadcrumbs"
+import { PackageCard } from "@/components/package-card"
 
 interface DestinationData {
   name: string
@@ -77,11 +77,11 @@ export function DestinationPage({ destination }: DestinationPageProps) {
   const getTransportColor = (transportType: string) => {
     switch (transportType) {
       case 'aereo':
-        return 'bg-blue-100 text-blue-800'
+        return 'bg-purple-100 text-purple-800'
       case 'bus':
-        return 'bg-orange-100 text-orange-800'
+        return 'bg-red-100 text-red-800'
       case 'crucero':
-        return 'bg-cyan-100 text-cyan-800'
+        return 'bg-blue-100 text-blue-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -248,71 +248,9 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                   ))}
                 </div>
               ) : packages.length > 0 ? (
-                <div className="grid md:grid-cols-2 gap-8">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {packages.map((pkg, index) => (
-                    <motion.div
-                      key={pkg.id}
-                      initial={{ opacity: 0, y: 50 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.6, delay: index * 0.1 }}
-                    >
-                      <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
-                        <div className="relative overflow-hidden">
-                          <Image
-                            src={pkg.image_url || "/placeholder.svg?height=300&width=400"}
-                            alt={pkg.name}
-                            width={400}
-                            height={300}
-                            className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-                          />
-                          <div className="absolute top-4 right-4">
-                            <Badge className="bg-gradient-to-r from-secondary to-secondary/80 text-gray-900 font-semibold shadow-lg">
-                              Desde ${pkg.price}
-                            </Badge>
-                          </div>
-                          <div className="absolute top-4 left-4 space-y-2">
-                            <Badge variant="outline" className="bg-white/90 text-gray-900 border-white flex justify-center">
-                              {pkg.duration}
-                            </Badge>
-                            {transport && transport !== 'all' && (
-                              <Badge className={`${getTransportColor(transport)} flex`}>
-                                {getTransportIcon(transport)}
-                                <span className="ml-1">{getTransportName(transport)}</span>
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        <CardContent className="p-6">
-                          <h3 className="text-xl font-bold text-gray-900 mb-3">{pkg.name}</h3>
-                          <p className="text-gray-600 mb-4 leading-relaxed">{pkg.description}</p>
-
-                          <div className="space-y-3 mb-6">
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Calendar className="w-4 h-4 mr-2" />
-                              <span>
-                                Próximas salidas: {pkg.available_dates?.slice(0, 2).join(", ") || "Consultar fechas"}
-                              </span>
-                            </div>
-                            <div className="flex items-center text-sm text-gray-500">
-                              <Users className="w-4 h-4 mr-2" />
-                              <span>Grupos reducidos (máx. {pkg.max_capacity} personas)</span>
-                            </div>
-                          </div>
-
-                          <div className="flex gap-3">
-                            <NavigationButton 
-                              href={`/paquete/${pkg.id}`}
-                              className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
-                              loadingText="Cargando..."
-                            >
-                              Ver Detalles
-                            </NavigationButton>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
+                    <PackageCard key={pkg.id} package={pkg} index={index} />
                   ))}
                 </div>
               ) : (
