@@ -81,6 +81,7 @@ export function AdminDashboardSimple() {
   const [selectedAccommodationForRates, setSelectedAccommodationForRates] = useState<any>(null)
   const [rates, setRates] = useState<any[]>([])
   const [accommodationRates, setAccommodationRates] = useState<{[key: number]: any[]}>({}) // Nuevo estado para tarifas por alojamiento
+  const [editingRateId, setEditingRateId] = useState<number | null>(null)
   const [rateFormData, setRateFormData] = useState({
     mes: "",
     anio: "2025",
@@ -346,16 +347,16 @@ export function AdminDashboardSimple() {
     const rateData = {
       mes: parseInt(rateFormData.mes),
       anio: parseInt(rateFormData.anio),
-      tarifa_dbl: parseFloat(rateFormData.tarifa_dbl) || 0,
-      tarifa_tpl: parseFloat(rateFormData.tarifa_tpl) || 0,
-      tarifa_cpl: parseFloat(rateFormData.tarifa_cpl) || 0,
-      tarifa_menor: parseFloat(rateFormData.tarifa_menor) || 0,
+      tarifa_dbl: parseFloat(rateFormData.tarifa_dbl) || null,
+      tarifa_tpl: parseFloat(rateFormData.tarifa_tpl) || null,
+      tarifa_cpl: parseFloat(rateFormData.tarifa_cpl) || null,
+      tarifa_menor: parseFloat(rateFormData.tarifa_menor) || null,
     }
 
     // Si es un alojamiento nuevo, agregar a lista temporal
     if (selectedAccommodationForRates.isNew) {
       const newRate = {
-        id: Date.now(),
+        id: editingRateId || Date.now(),
         ...rateData,
         accommodation_id: selectedAccommodationForRates.id,
         isNew: true,
@@ -364,7 +365,16 @@ export function AdminDashboardSimple() {
       // Actualizar las tarifas para este alojamiento específico
       setAccommodationRates(prev => {
         const currentRates = prev[selectedAccommodationForRates.id] || []
-        const filteredRates = currentRates.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        let filteredRates
+        
+        if (editingRateId) {
+          // Si estamos editando, reemplazar la tarifa existente
+          filteredRates = currentRates.filter(r => r.id !== editingRateId)
+        } else {
+          // Si es nueva, eliminar cualquier tarifa existente para el mismo mes/año
+          filteredRates = currentRates.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        }
+        
         return {
           ...prev,
           [selectedAccommodationForRates.id]: [...filteredRates, newRate]
@@ -373,31 +383,76 @@ export function AdminDashboardSimple() {
       
       // También actualizar el estado rates para el modal
       setRates(prev => {
-        const filtered = prev.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        let filtered
+        if (editingRateId) {
+          filtered = prev.filter(r => r.id !== editingRateId)
+        } else {
+          filtered = prev.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
+        }
         return [...filtered, newRate]
       })
       
-      alert("Tarifa agregada (se guardará al guardar el paquete)")
+      alert(editingRateId ? "Tarifa actualizada (se guardará al guardar el paquete)" : "Tarifa agregada (se guardará al guardar el paquete)")
     } else {
       // Si es un alojamiento existente, guardar en base de datos
       try {
-        const { error } = await supabase
-          .from("accommodation_rates")
-          .upsert({
-            ...rateData,
-            accommodation_id: selectedAccommodationForRates.id,
-          })
+        if (editingRateId) {
+          // Actualizar tarifa existente
+          const { error } = await supabase
+            .from("accommodation_rates")
+            .update(rateData)
+            .eq("id", editingRateId)
 
-        if (error) throw error
+          if (error) throw error
+          alert("Tarifa actualizada exitosamente")
+        } else {
+          // Crear nueva tarifa o actualizar si ya existe para el mismo mes/año
+          const { error } = await supabase
+            .from("accommodation_rates")
+            .upsert({
+              ...rateData,
+              accommodation_id: selectedAccommodationForRates.id,
+            })
+
+          if (error) throw error
+          alert("Tarifa guardada exitosamente")
+        }
+        
         await loadRatesForAccommodation(selectedAccommodationForRates.id)
-        alert("Tarifa guardada exitosamente")
       } catch (error) {
         console.error("Error saving rate:", error)
         alert("Error al guardar la tarifa")
       }
     }
 
-    // Limpiar formulario
+    // Limpiar formulario y resetear estado de edición
+    setRateFormData({
+      mes: "",
+      anio: "2025",
+      tarifa_dbl: "",
+      tarifa_tpl: "",
+      tarifa_cpl: "",
+      tarifa_menor: "",
+    })
+    setEditingRateId(null)
+  }
+
+  // Función para editar tarifa
+  const handleEditRate = (rate: any) => {
+    setEditingRateId(rate.id)
+    setRateFormData({
+      mes: rate.mes.toString(),
+      anio: rate.anio.toString(),
+      tarifa_dbl: rate.tarifa_dbl?.toString() || "",
+      tarifa_tpl: rate.tarifa_tpl?.toString() || "",
+      tarifa_cpl: rate.tarifa_cpl?.toString() || "",
+      tarifa_menor: rate.tarifa_menor?.toString() || "",
+    })
+  }
+
+  // Función para cancelar edición
+  const handleCancelEdit = () => {
+    setEditingRateId(null)
     setRateFormData({
       mes: "",
       anio: "2025",
@@ -446,6 +501,7 @@ export function AdminDashboardSimple() {
     setShowRatesModal(false)
     setSelectedAccommodationForRates(null)
     setRates([])
+    setEditingRateId(null)
     setRateFormData({
       mes: "",
       anio: "2025",
@@ -1120,9 +1176,9 @@ export function AdminDashboardSimple() {
                                             <div>
                                               <label className="block text-xs font-medium text-gray-700 mb-1">Nombre</label>
                                               <Input
-                                                size="sm"
                                                 value={accommodationFormData.name}
                                                 onChange={(e) => setAccommodationFormData(prev => ({...prev, name: e.target.value}))}
+                                                className="text-sm"
                                               />
                                             </div>
                                             <div>
@@ -1149,17 +1205,17 @@ export function AdminDashboardSimple() {
                                             <div>
                                               <label className="block text-xs font-medium text-gray-700 mb-1">Sitio Web</label>
                                               <Input
-                                                size="sm"
                                                 value={accommodationFormData.enlace_web}
                                                 onChange={(e) => setAccommodationFormData(prev => ({...prev, enlace_web: e.target.value}))}
+                                                className="text-sm"
                                               />
                                             </div>
                                             <div>
                                               <label className="block text-xs font-medium text-gray-700 mb-1">Régimen</label>
                                               <Input
-                                                size="sm"
                                                 value={accommodationFormData.regimen}
                                                 onChange={(e) => setAccommodationFormData(prev => ({...prev, regimen: e.target.value}))}
+                                                className="text-sm"
                                               />
                                             </div>
                                           </div>
@@ -1411,8 +1467,10 @@ export function AdminDashboardSimple() {
             </div>
 
             {/* Formulario para agregar/editar tarifa */}
-            <div className="bg-gray-50 p-4 rounded-lg mb-6">
-              <h3 className="font-medium mb-4">Agregar/Actualizar Tarifa</h3>
+            <div className={`p-4 rounded-lg mb-6 ${editingRateId ? 'bg-blue-50 border-2 border-blue-200' : 'bg-gray-50'}`}>
+              <h3 className="font-medium mb-4">
+                {editingRateId ? '✏️ Editando Tarifa' : '➕ Agregar Nueva Tarifa'}
+              </h3>
               <div className="grid md:grid-cols-6 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
@@ -1504,13 +1562,25 @@ export function AdminDashboardSimple() {
                   />
                 </div>
               </div>
-              <Button
-                onClick={handleSaveRate}
-                className="mt-4 bg-green-600 hover:bg-green-700"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                Guardar Tarifa
-              </Button>
+              <div className="flex gap-2 mt-4">
+                <Button
+                  onClick={handleSaveRate}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {editingRateId ? "Actualizar Tarifa" : "Guardar Tarifa"}
+                </Button>
+                {editingRateId && (
+                  <Button
+                    onClick={handleCancelEdit}
+                    variant="outline"
+                    className="border-gray-400 text-gray-600 hover:bg-gray-50"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancelar
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Lista de tarifas existentes */}
@@ -1524,24 +1594,32 @@ export function AdminDashboardSimple() {
                 <h3 className="font-medium mb-4">Tarifas Existentes</h3>
                 <div className="space-y-2">
                   {rates.map((rate) => (
-                    <div key={rate.id} className="flex items-center justify-between p-3 bg-white border rounded-lg">
+                    <div key={rate.id} className={`flex items-center justify-between p-3 border rounded-lg ${editingRateId === rate.id ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}>
                       <div className="grid grid-cols-6 gap-4 flex-1">
                         <div className="font-medium">
                           {new Date(2024, rate.mes - 1).toLocaleDateString('es-ES', { month: 'long' })} {rate.anio}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">DBL:</span> ${rate.tarifa_dbl}
+                          <span className="font-medium">DBL:</span> {rate.tarifa_dbl ? `$${rate.tarifa_dbl}` : '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">TPL:</span> ${rate.tarifa_tpl}
+                          <span className="font-medium">TPL:</span> {rate.tarifa_tpl ? `$${rate.tarifa_tpl}` : '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">CPL:</span> ${rate.tarifa_cpl}
+                          <span className="font-medium">CPL:</span> {rate.tarifa_cpl ? `$${rate.tarifa_cpl}` : '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">MENOR:</span> ${rate.tarifa_menor}
+                          <span className="font-medium">MENOR:</span> {rate.tarifa_menor ? `$${rate.tarifa_menor}` : '-'}
                         </div>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditRate(rate)}
+                            className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="outline"

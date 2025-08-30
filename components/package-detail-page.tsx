@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, Star, DollarSign, Mail, Phone, ChevronDown, ChevronUp } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, Star, DollarSign, Mail, Phone, ChevronDown, ChevronUp, Utensils } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -23,6 +23,7 @@ interface Accommodation {
   name: string
   stars: number
   enlace_web?: string
+  regimen?: string
   rates?: AccommodationRate[]
 }
 
@@ -354,6 +355,12 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                                 {renderStars(accommodation.stars)}
                                 <span className="text-sm text-gray-600">({accommodation.stars} estrellas)</span>
                               </div>
+                              {accommodation.regimen && (
+                                <div className="flex items-center mt-2">
+                                  <Utensils className="w-4 h-4 mr-2 text-green-600" />
+                                  <span className="text-sm text-gray-700 font-medium">{accommodation.regimen}</span>
+                                </div>
+                              )}
                               {accommodation.enlace_web && (
                                 <a 
                                   href={accommodation.enlace_web} 
