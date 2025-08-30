@@ -16,6 +16,7 @@ export interface TravelPackage {
   image_url: string | null
   available_dates: string[] | null
   max_capacity: number
+  max_group_size?: number | null
   is_active: boolean
   is_special: boolean
   transport_type?: "aereo" | "bus" | "crucero"
@@ -30,6 +31,7 @@ export interface Accommodation {
   name: string
   stars: number
   enlace_web?: string | null
+  regimen?: string | null
   paquete_id: number
   created_at: string
   updated_at: string

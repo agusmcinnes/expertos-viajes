@@ -1,17 +1,15 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Plane, MapPin, Calendar, Users, Clock, Star } from "lucide-react"
+import { Plane, MapPin, Star, Users } from "lucide-react"
 import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
 import { Breadcrumbs, BreadcrumbJsonLd } from "@/components/breadcrumbs"
+import { PackageCard } from "@/components/package-card"
 
 export function AvionPackagesPage() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
@@ -178,82 +176,7 @@ export function AvionPackagesPage() {
           ) : packages.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               {packages.map((pkg, index) => (
-                <motion.div
-                  key={pkg.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                >
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 bg-white">
-                    <div className="relative">
-                      <Image
-                        src={pkg.image_url || "/hero.webp"}
-                        alt={pkg.name}
-                        width={400}
-                        height={250}
-                        className="w-full h-64 object-cover"
-                      />
-                      <div className="absolute top-4 left-4 space-y-2">
-                        <Badge className="bg-blue-100 text-blue-800">
-                          <Plane className="w-3 h-3 mr-1" />
-                          En Avión
-                        </Badge>
-                        <Badge variant="outline" className="bg-white/90 text-gray-900 border-white block">
-                          {pkg.duration}
-                        </Badge>
-                      </div>
-                      <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1">
-                        <div className="flex items-center gap-1">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium">4.8</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <CardContent className="p-6">
-                      <div className="mb-4">
-                        <h3 className="text-xl font-bold text-gray-800 mb-2">{pkg.name}</h3>
-                        <p className="text-gray-600 text-sm mb-3">{pkg.description}</p>
-                      </div>
-
-                      <div className="space-y-3 mb-6">
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Clock className="w-4 h-4 text-blue-500" />
-                          <span>{pkg.duration}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Users className="w-4 h-4 text-green-500" />
-                          <span>Hasta {pkg.max_capacity || 20} personas</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Calendar className="w-4 h-4 text-red-500" />
-                          <span>
-                            {pkg.available_dates?.slice(0, 2).join(", ") || "Consultar fechas"}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <p className="text-2xl font-bold text-blue-600">
-                              ${pkg.price.toLocaleString()}
-                              <span className="text-sm font-normal text-gray-500"> por persona</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <NavigationButton 
-                          href={`/paquete/${pkg.id}`}
-                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                          loadingText="Cargando..."
-                        >
-                          Ver Detalles del Viaje
-                        </NavigationButton>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                <PackageCard key={pkg.id} package={pkg} index={index} />
               ))}
             </div>
           ) : (

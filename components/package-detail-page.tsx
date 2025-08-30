@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, Star, DollarSign, Mail, Phone } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, Star, DollarSign, Mail, Phone, ChevronDown, ChevronUp } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -30,10 +30,10 @@ interface AccommodationRate {
   id: number
   mes: number
   anio: number
-  tarifa_dbl: number
-  tarifa_tpl: number
-  tarifa_cpl: number
-  tarifa_menor: number
+  tarifa_dbl: number | null
+  tarifa_tpl: number | null
+  tarifa_cpl: number | null
+  tarifa_menor: number | null
 }
 
 export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
@@ -44,6 +44,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showContactForm, setShowContactForm] = useState(false)
+  const [showAllDates, setShowAllDates] = useState(false)
 
   useEffect(() => {
     loadPackageData()
@@ -142,7 +143,10 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
     return months[month - 1]
   }
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount == null || amount === 0) {
+      return '-'
+    }
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -466,15 +470,31 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                         Fechas Disponibles
                       </h4>
                       <div className="space-y-1">
-                        {package_.available_dates.slice(0, 5).map((date, index) => (
+                        {(showAllDates ? package_.available_dates : package_.available_dates.slice(0, 5)).map((date, index) => (
                           <div key={index} className="text-xs sm:text-sm bg-gray-50 rounded px-2 py-1">
                             {date}
                           </div>
                         ))}
+                        
                         {package_.available_dates.length > 5 && (
-                          <p className="text-xs text-gray-500">
-                            +{package_.available_dates.length - 5} fechas más
-                          </p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowAllDates(!showAllDates)}
+                            className="text-xs p-1 h-auto mt-2 text-blue-600 hover:text-blue-800"
+                          >
+                            {showAllDates ? (
+                              <>
+                                <ChevronUp className="w-3 h-3 mr-1" />
+                                Mostrar menos fechas
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3 h-3 mr-1" />
+                                Ver todas las fechas ({package_.available_dates.length - 5} más)
+                              </>
+                            )}
+                          </Button>
                         )}
                       </div>
                     </div>

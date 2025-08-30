@@ -1,16 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Calendar, Users, Star, Plane, Bus, Ship } from "lucide-react"
-import Image from "next/image"
+import { Plane, Bus, Ship } from "lucide-react"
 import { motion } from "framer-motion"
 import { packageService, destinationService } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import Link from "next/link"
-import { NavigationButton } from "@/components/navigation-button"
+import { PackageCard } from "@/components/package-card"
 
 export function DestinationsSectionDynamic() {
   const [activeDestination, setActiveDestination] = useState("argentina")
@@ -64,18 +61,6 @@ export function DestinationsSectionDynamic() {
       "exoticos-mundo": "🌍",
     }
     return icons[code] || ""
-  }
-
-  const getTransportInfo = (transport_type?: "aereo" | "bus" | "crucero") => {
-    const transportType = transport_type || "aereo"
-    switch (transportType) {
-      case "bus":
-        return { icon: Bus, text: "Bus", className: "bg-bus text-white" }
-      case "crucero":
-        return { icon: Ship, text: "Crucero", className: "bg-blue-600 text-white" }
-      default:
-        return { icon: Plane, text: "Aéreo", className: "bg-primary text-white" }
-    }
   }
 
   return (
@@ -146,79 +131,9 @@ export function DestinationsSectionDynamic() {
               ))}
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-8 auto-rows-fr">
+            <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-8">
               {packages.map((pkg, index) => (
-                <motion.div
-                  key={pkg.id}
-                  initial={{ opacity: 0, y: 50 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.6, delay: index * 0.1 }}
-                  className="h-full"
-                >
-                  <Card className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 h-full flex flex-col">
-                    <div className="relative overflow-hidden">
-                      <Image
-                        src={pkg.image_url || "/placeholder.svg?height=300&width=400"}
-                        alt={pkg.name}
-                        width={400}
-                        height={300}
-                        className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                      <div className="absolute top-4 right-4">
-                        <Badge className="bg-secondary text-gray-900 font-semibold">${pkg.price}</Badge>
-                      </div>
-                      <div className="absolute top-4 left-4">
-                        <Badge variant="outline" className="bg-white/90 text-gray-900">
-                          {pkg.duration}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    <CardContent className="p-6 flex flex-col flex-1">
-                      <h3 className="text-xl font-bold text-gray-900 mb-3">{pkg.name}</h3>
-                      <p className="text-gray-600 mb-4 leading-relaxed flex-1">{pkg.description}</p>
-
-                      <div className="space-y-3 mb-6">
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Calendar className="w-4 h-4 mr-2" />
-                          <span>
-                            Próximas salidas: {pkg.available_dates?.slice(0, 2).join(", ") || "Consultar fechas"}
-                          </span>
-                        </div>
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Users className="w-4 h-4 mr-2" />
-                          <span>Grupos reducidos (máx. {pkg.max_capacity} personas)</span>
-                        </div>
-                        {(() => {
-                          const transportInfo = getTransportInfo(pkg.transport_type)
-                          const TransportIcon = transportInfo.icon
-                          return (
-                            <div className="flex items-center text-sm text-gray-500">
-                              <TransportIcon className="w-4 h-4 mr-2" />
-                              <span>Transporte: {transportInfo.text}</span>
-                            </div>
-                          )
-                        })()}
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Star className="w-4 h-4 mr-2 fill-yellow-400 text-yellow-400" />
-                          <span>Calificación 4.9/5</span>
-                        </div>
-                      </div>
-
-                      <div className="flex gap-3 mt-auto">
-                        <NavigationButton 
-                          href={`/paquete/${pkg.id}`}
-                          className="flex-1 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl text-white"
-                          loadingText="Cargando..."
-                        >
-                          Ver Detalles
-                        </NavigationButton>
-
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
+                <PackageCard key={pkg.id} package={pkg} index={index} />
               ))}
             </div>
           )}
