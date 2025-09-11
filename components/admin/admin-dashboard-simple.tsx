@@ -934,12 +934,12 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Precio (USD)</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Precio</label>
                           <Input
-                            type="number"
+                            type="text"
                             value={formData.price}
                             onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
-                            placeholder="1200"
+                            placeholder="1200 USD | 1.400.000 ARS"
                           />
                         </div>
                         <div>

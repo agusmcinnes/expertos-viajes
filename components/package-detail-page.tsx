@@ -523,7 +523,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                       <Phone className="w-4 h-4 mr-1" />
                       O llámanos directamente
                     </p>
-                    <p className="font-semibold">+54 9 11 1234-5678</p>
+                    <p className="font-semibold">+54 9 379 4030711</p>
+                    <p className="font-semibold">+54 9 379 4142376</p>
                   </div>
                 </CardContent>
               </Card>
