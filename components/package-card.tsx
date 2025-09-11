@@ -115,7 +115,7 @@ export function PackageCard({ package: pkg, index = 0 }: PackageCardProps) {
           <div className={`absolute bottom-0 right-0 bg-gradient-to-r ${colors.gradient} text-white px-4 py-2 rounded-tl-lg`}>
             <div className="text-right">
               <p className="text-xs opacity-90">Desde</p>
-              <p className="text-lg font-bold">${pkg.price.toLocaleString()}</p>
+              <p className="text-lg font-bold">{pkg.price}</p>
             </div>
           </div>
         </div>

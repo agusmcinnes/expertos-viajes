@@ -10,7 +10,7 @@ export interface TravelPackage {
   id: number
   name: string
   description: string
-  price: number
+  price: string
   destination_id: number
   duration: string | null
   image_url: string | null

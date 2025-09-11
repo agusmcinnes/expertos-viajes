@@ -192,7 +192,7 @@ export function AdminDashboardSimple() {
     setFormData({
       name: pkg.name,
       description: pkg.description,
-      price: pkg.price.toString(),
+      price: pkg.price,
       destination_id: pkg.destination_id.toString(),
       duration: pkg.duration || "",
       available_dates: pkg.available_dates?.join(", ") || "",
@@ -604,7 +604,7 @@ export function AdminDashboardSimple() {
       const packageData = {
         name: formData.name,
         description: formData.description,
-        price: Number.parseFloat(formData.price),
+        price: formData.price,
         destination_id: Number.parseInt(formData.destination_id),
         duration: formData.duration,
         available_dates: formData.available_dates.split(",").map((d) => d.trim()),
