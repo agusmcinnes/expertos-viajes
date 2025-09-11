@@ -233,7 +233,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
 
                 <Badge variant="secondary" className="bg-green-500/80 text-white border-green-400/30 text-sm sm:text-base md:text-lg px-2 sm:px-3 py-1">
                   <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
-                  Desde {formatCurrency(package_.price)}
+                  Desde {package_.price}
                 </Badge>
               </div>
 
@@ -465,7 +465,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 <CardContent className="space-y-4">
                   <div className="text-center">
                     <div className="text-2xl sm:text-3xl font-bold text-primary mb-2">
-                      Desde {formatCurrency(package_.price)}
+                      Desde {package_.price}
                     </div>
                     <p className="text-sm text-gray-600">Precio por persona</p>
                   </div>
