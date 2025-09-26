@@ -22,6 +22,8 @@ export interface TravelPackage {
   transport_type?: "aereo" | "bus" | "crucero"
   servicios_incluidos?: string[] | null
   servicios_adicionales?: string[] | null
+  pdf_url?: string | null
+  drive_folder_url?: string | null
   created_at: string
   updated_at: string
 }
@@ -78,6 +80,17 @@ export interface SiteConfig {
   config_key: string
   config_value: string
   description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Agency {
+  id: number
+  name: string
+  email: string
+  phone: string
+  password: string
+  status: "pending" | "approved" | "rejected"
   created_at: string
   updated_at: string
 }
@@ -586,4 +599,127 @@ export const accommodationRateService = {
 
     if (error) throw error
   },
+}
+
+// Servicios para agencias
+export const agencyService = {
+  // Registrar nueva agencia
+  async registerAgency(agencyData: Omit<Agency, 'id' | 'created_at' | 'updated_at' | 'status'>) {
+    // Hash de la contraseña usando una función simple (en producción usar bcrypt o similar)
+    const hashedPassword = await hashPassword(agencyData.password)
+    
+    const { data, error } = await supabase
+      .from("agencies")
+      .insert([{
+        ...agencyData,
+        password: hashedPassword,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }])
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Obtener agencia por email y validar contraseña
+  async validateAgencyLogin(email: string, password: string) {
+    const { data, error } = await supabase
+      .from("agencies")
+      .select("*")
+      .eq("email", email)
+      .eq("status", "approved")
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error
+    if (!data) return null
+
+    // Si la agencia no tiene contraseña guardada (agencias antiguas), retornar null
+    if (!data.password) {
+      console.error('Agency does not have password set:', data.email)
+      return null
+    }
+
+    // Validar contraseña
+    const isPasswordValid = await verifyPassword(password, data.password)
+    if (!isPasswordValid) return null
+
+    return data
+  },
+
+  // Obtener agencia por email
+  async getAgencyByEmail(email: string) {
+    const { data, error } = await supabase
+      .from("agencies")
+      .select("*")
+      .eq("email", email)
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error
+    return data
+  },
+
+  // Obtener paquetes con PDF para agencias
+  async getPackagesWithPDF() {
+    const { data, error } = await supabase
+      .from("travel_packages")
+      .select(`
+        *,
+        destinations (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("is_active", true)
+      .not("pdf_url", "is", null)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Obtener todas las solicitudes de agencias (para admin)
+  async getAllAgencies() {
+    const { data, error } = await supabase
+      .from("agencies")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Aprobar/rechazar agencia (para admin)
+  async updateAgencyStatus(id: number, status: 'approved' | 'rejected') {
+    const { data, error } = await supabase
+      .from("agencies")
+      .update({ 
+        status,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  }
+}
+
+// Funciones auxiliares para manejo de contraseñas
+export const hashPassword = async (password: string): Promise<string> => {
+  // En una implementación de producción, usar bcrypt o similar
+  // Por ahora usamos una función hash simple
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password + 'salt_secret_key')
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex
+}
+
+export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
+  const hashedInput = await hashPassword(password)
+  return hashedInput === hash
 }

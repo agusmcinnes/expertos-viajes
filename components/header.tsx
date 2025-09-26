@@ -9,6 +9,7 @@ import { Menu, X, Home, Users, Phone, ChevronDown, ChevronRight, Bus, Plane, Spa
 import { motion } from "framer-motion"
 import { destinationService } from "@/lib/supabase"
 import type { Destination } from "@/lib/supabase"
+import { isAgencyAuthenticated, getCurrentAgency, logoutAgency } from "@/lib/agency-auth"
 
 interface HeaderProps {
   position?: "fixed" | "sticky"
@@ -19,10 +20,13 @@ export function Header({ position = "fixed" }: HeaderProps) {
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const [specialSectionTitle, setSpecialSectionTitle] = useState("Sección Especial")
+  const [isAgencyLoggedIn, setIsAgencyLoggedIn] = useState(false)
+  const [agencyName, setAgencyName] = useState("")
 
   useEffect(() => {
     loadDestinations()
     loadSpecialSectionTitle()
+    checkAgencySession()
   }, [])
 
   const loadDestinations = async () => {
@@ -44,10 +48,28 @@ export function Header({ position = "fixed" }: HeaderProps) {
     }
   }
 
+  const checkAgencySession = () => {
+    const authenticated = isAgencyAuthenticated()
+    setIsAgencyLoggedIn(authenticated)
+    
+    if (authenticated) {
+      const agency = getCurrentAgency()
+      setAgencyName(agency?.name || "Agencia")
+    }
+  }
+
+  const handleAgencyLogout = () => {
+    logoutAgency()
+    setIsAgencyLoggedIn(false)
+    setAgencyName("")
+    window.location.reload()
+  }
+
   const navigation = [
     { name: "Inicio", href: "/#", icon: Home },
     { name: "Nosotros", href: "/#nosotros", icon: Users },
     { name: specialSectionTitle, href: "/seccion-especial", icon: Sparkles },
+    ...(isAgencyLoggedIn ? [{ name: "Para Agencias", href: "/agencias/modulo", icon: Users }] : [])
   ]
 
   // Definir destinos específicos para cada tipo de transporte
@@ -318,12 +340,42 @@ export function Header({ position = "fixed" }: HeaderProps) {
                 Contactanos
               </Link>
             </Button>
-            <Button
-              variant="outline"
-              asChild
-              className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white bg-transparent transition-all duration-300 hover:scale-105"
-            >
-            </Button>
+            {/* Login button for agencies when not logged in */}
+            {!isAgencyLoggedIn && (
+              <Button
+                variant="outline"
+                asChild
+                className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white bg-transparent transition-all duration-300 hover:scale-105"
+              >
+                <Link href="/agencias/login">
+                  Iniciar Sesión
+                </Link>
+              </Button>
+            )}
+            
+            {/* Agency Dropdown */}
+            {isAgencyLoggedIn && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="border-2 border-green-500 text-green-700 hover:bg-green-500 hover:text-white bg-transparent transition-all duration-300 hover:scale-105"
+                  >
+                    {agencyName}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/agencias/modulo">
+                      Módulo de Agencias
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleAgencyLogout}>
+                    Cerrar Sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -590,10 +642,54 @@ export function Header({ position = "fixed" }: HeaderProps) {
                         handleNavigation("/contacto")
                       }}
                     >
-                      <Plane className="w-4 h-4 mr-2" />
+                      <Phone className="w-4 h-4 mr-2" />
                       Contactanos
                     </Link>
                   </Button>
+
+                  {/* Login button for agencies when not logged in - Mobile */}
+                  {!isAgencyLoggedIn && (
+                    <Button
+                      variant="outline"
+                      asChild
+                      className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white bg-transparent transition-all duration-300"
+                    >
+                      <Link
+                        href="/agencias/login"
+                        onClick={() => setIsMenuOpen(false)}
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        Iniciar Sesión
+                      </Link>
+                    </Button>
+                  )}
+
+                  {/* Agency dropdown for mobile when logged in */}
+                  {isAgencyLoggedIn && (
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        asChild
+                        className="w-full border-2 border-green-500 text-green-700 hover:bg-green-500 hover:text-white bg-transparent transition-all duration-300"
+                      >
+                        <Link
+                          href="/agencias/modulo"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          <Users className="w-4 h-4 mr-2" />
+                          {agencyName}
+                        </Link>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="w-full border-2 border-red-500 text-red-700 hover:bg-red-500 hover:text-white bg-transparent transition-all duration-300"
+                        onClick={handleAgencyLogout}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Cerrar Sesión
+                      </Button>
+                    </div>
+                  )}
                 </motion.div>
               </nav>
             </div>

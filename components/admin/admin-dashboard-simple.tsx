@@ -10,16 +10,17 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign } from "lucide-react"
-import { supabase, packageService } from "@/lib/supabase"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users } from "lucide-react"
+import { supabase, packageService, agencyService } from "@/lib/supabase"
 import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
-import type { TravelPackage, Destination } from "@/lib/supabase"
+import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
 
 export function AdminDashboardSimple() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [destinations, setDestinations] = useState<Destination[]>([])
+  const [agencies, setAgencies] = useState<Agency[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState<number | null>(null)
@@ -28,6 +29,7 @@ export function AdminDashboardSimple() {
   const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
   const [isLoadingRates, setIsLoadingRates] = useState(false)
   const [editingAccommodation, setEditingAccommodation] = useState<number | null>(null)
+  const [isLoadingAgencies, setIsLoadingAgencies] = useState(false)
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -100,6 +102,8 @@ export function AdminDashboardSimple() {
     available_dates: "",
     transport_type: "aereo" as "aereo" | "bus" | "crucero",
     image_url: "",
+    pdf_url: "",
+    drive_folder_url: "",
     is_special: false,
     servicios_incluidos: "",
     servicios_adicionales: "",
@@ -157,6 +161,15 @@ export function AdminDashboardSimple() {
 
       if (destinationsError) throw destinationsError
       setDestinations(destinationsData || [])
+
+      // Load agencies
+      try {
+        const agenciesData = await agencyService.getAllAgencies()
+        setAgencies(agenciesData || [])
+      } catch (error) {
+        console.warn("Error loading agencies:", error)
+        setAgencies([])
+      }
     } catch (error) {
       console.error("Error loading data:", error)
       alert("Error al cargar los datos. Verifica la conexión con Supabase.")
@@ -179,6 +192,8 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
+      pdf_url: "",
+      drive_folder_url: "",
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
@@ -198,6 +213,8 @@ export function AdminDashboardSimple() {
       available_dates: pkg.available_dates?.join(", ") || "",
       transport_type: pkg.transport_type || "aereo",
       image_url: pkg.image_url || "",
+      pdf_url: pkg.pdf_url || "",
+      drive_folder_url: pkg.drive_folder_url || "",
       is_special: pkg.is_special || false,
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
@@ -609,6 +626,8 @@ export function AdminDashboardSimple() {
         duration: formData.duration,
         available_dates: formData.available_dates.split(",").map((d) => d.trim()),
         image_url: formData.image_url || `/placeholder.svg?height=300&width=400&query=${encodeURIComponent(formData.name)}`,
+        pdf_url: formData.pdf_url || null,
+        drive_folder_url: formData.drive_folder_url || null,
         is_special: formData.is_special,
         servicios_incluidos: formData.servicios_incluidos 
           ? formData.servicios_incluidos.split(",").map((s) => s.trim()).filter(s => s.length > 0)
@@ -674,6 +693,8 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
+      pdf_url: "",
+      drive_folder_url: "",
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
@@ -793,6 +814,61 @@ export function AdminDashboardSimple() {
     })
   }
 
+  // Funciones para gestión de agencias
+  const handleApproveAgency = async (id: number) => {
+    try {
+      setIsLoadingAgencies(true)
+      await agencyService.updateAgencyStatus(id, 'approved')
+      await loadData() // Recargar datos
+      alert('Agencia aprobada exitosamente')
+    } catch (error) {
+      console.error('Error al aprobar agencia:', error)
+      alert('Error al aprobar la agencia')
+    } finally {
+      setIsLoadingAgencies(false)
+    }
+  }
+
+  const handleRejectAgency = async (id: number) => {
+    if (confirm('¿Estás seguro de que quieres rechazar esta agencia?')) {
+      try {
+        setIsLoadingAgencies(true)
+        await agencyService.updateAgencyStatus(id, 'rejected')
+        await loadData() // Recargar datos
+        alert('Agencia rechazada')
+      } catch (error) {
+        console.error('Error al rechazar agencia:', error)
+        alert('Error al rechazar la agencia')
+      } finally {
+        setIsLoadingAgencies(false)
+      }
+    }
+  }
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      case 'pending':
+      default:
+        return 'bg-yellow-100 text-yellow-800'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'Aprobada'
+      case 'rejected':
+        return 'Rechazada'
+      case 'pending':
+      default:
+        return 'Pendiente'
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -887,10 +963,14 @@ export function AdminDashboardSimple() {
         {/* Tabs para diferentes secciones de administración */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Tabs defaultValue="packages" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="packages" className="flex items-center space-x-2">
                 <Package className="w-4 h-4" />
                 <span>Gestión de Paquetes</span>
+              </TabsTrigger>
+              <TabsTrigger value="agencies" className="flex items-center space-x-2">
+                <Users className="w-4 h-4" />
+                <span>Gestión de Agencias</span>
               </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center space-x-2">
                 <Settings className="w-4 h-4" />
@@ -1032,6 +1112,32 @@ export function AdminDashboardSimple() {
                             onChange={(e) => setFormData((prev) => ({ ...prev, image_url: e.target.value }))}
                             placeholder="https://ejemplo.com/imagen.jpg (opcional)"
                           />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            URL del PDF para Agencias
+                          </label>
+                          <Input
+                            value={formData.pdf_url}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, pdf_url: e.target.value }))}
+                            placeholder="https://ejemplo.com/archivo.pdf (opcional)"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            PDF que podrán descargar las agencias desde su módulo especial
+                          </p>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            URL de Carpeta de Google Drive
+                          </label>
+                          <Input
+                            value={formData.drive_folder_url}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, drive_folder_url: e.target.value }))}
+                            placeholder="https://drive.google.com/drive/folders/... (opcional)"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Carpeta de Google Drive con flyers que las agencias podrán ver
+                          </p>
                         </div>
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1438,6 +1544,78 @@ export function AdminDashboardSimple() {
                       </div>
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="agencies">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Gestión de Agencias</CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Administra las solicitudes de registro de agencias. Aprueba o rechaza el acceso al módulo especial.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingAgencies ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-gray-600">Cargando agencias...</p>
+                    </div>
+                  ) : agencies.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">No hay agencias registradas</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {agencies.map((agency) => (
+                        <motion.div
+                          key={agency.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="border rounded-lg p-4 bg-white shadow-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-4 mb-2">
+                                <h3 className="font-semibold text-lg">{agency.name}</h3>
+                                <Badge className={getStatusBadgeVariant(agency.status)}>
+                                  {getStatusText(agency.status)}
+                                </Badge>
+                              </div>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                <p><strong>Email:</strong> {agency.email}</p>
+                                <p><strong>Teléfono:</strong> {agency.phone}</p>
+                                <p><strong>Fecha de solicitud:</strong> {new Date(agency.created_at).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            
+                            {agency.status === 'pending' && (
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => handleApproveAgency(agency.id)}
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  size="sm"
+                                  disabled={isLoadingAgencies}
+                                >
+                                  Aprobar
+                                </Button>
+                                <Button
+                                  onClick={() => handleRejectAgency(agency.id)}
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={isLoadingAgencies}
+                                >
+                                  Rechazar
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
