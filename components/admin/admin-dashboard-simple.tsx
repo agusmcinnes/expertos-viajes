@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users } from "lucide-react"
-import { supabase, packageService, agencyService } from "@/lib/supabase"
+import { supabase, packageService, agencyService, pdfService, type PDFType } from "@/lib/supabase"
 import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -30,6 +30,18 @@ export function AdminDashboardSimple() {
   const [isLoadingRates, setIsLoadingRates] = useState(false)
   const [editingAccommodation, setEditingAccommodation] = useState<number | null>(null)
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false)
+  
+  // Estados para manejo de PDFs
+  const [uploadingPDFs, setUploadingPDFs] = useState<Record<PDFType, boolean>>({
+    tarifario: false,
+    flyer: false,
+    piezas_redes: false
+  })
+  const [pdfFiles, setPdfFiles] = useState<Record<PDFType, File | null>>({
+    tarifario: null,
+    flyer: null,
+    piezas_redes: null
+  })
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -102,8 +114,9 @@ export function AdminDashboardSimple() {
     available_dates: "",
     transport_type: "aereo" as "aereo" | "bus" | "crucero",
     image_url: "",
-    pdf_url: "",
-    drive_folder_url: "",
+    tarifario_pdf_url: "",
+    flyer_pdf_url: "",
+    piezas_redes_pdf_url: "",
     is_special: false,
     servicios_incluidos: "",
     servicios_adicionales: "",
@@ -178,6 +191,72 @@ export function AdminDashboardSimple() {
     }
   }
 
+  // Funciones para manejar PDFs
+  const handlePDFFileChange = (pdfType: PDFType, file: File | null) => {
+    setPdfFiles(prev => ({
+      ...prev,
+      [pdfType]: file
+    }))
+  }
+
+  const handlePDFUpload = async (packageId: number, pdfType: PDFType) => {
+    const file = pdfFiles[pdfType]
+    if (!file) return
+
+    setUploadingPDFs(prev => ({ ...prev, [pdfType]: true }))
+
+    try {
+      const result = await pdfService.uploadAndUpdatePDF(packageId, pdfType, file)
+      
+      if (result.success) {
+        // Actualizar el estado local del formData
+        setFormData(prev => ({
+          ...prev,
+          [`${pdfType}_pdf_url`]: result.url || ""
+        }))
+        
+        // Recargar packages para reflejar cambios
+        await loadData()
+        
+        alert(`${pdfType.toUpperCase()} subido exitosamente`)
+      } else {
+        alert(`Error subiendo ${pdfType}: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error uploading PDF:', error)
+      alert(`Error subiendo ${pdfType}`)
+    } finally {
+      setUploadingPDFs(prev => ({ ...prev, [pdfType]: false }))
+      // Limpiar el archivo seleccionado
+      setPdfFiles(prev => ({ ...prev, [pdfType]: null }))
+    }
+  }
+
+  const handlePDFDelete = async (packageId: number, pdfType: PDFType) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar el ${pdfType}?`)) return
+
+    try {
+      const success = await pdfService.deletePDF(packageId, pdfType)
+      if (success) {
+        await pdfService.updatePDFUrl(packageId, pdfType, null)
+        
+        // Actualizar estado local
+        setFormData(prev => ({
+          ...prev,
+          [`${pdfType}_pdf_url`]: ""
+        }))
+        
+        await loadData()
+        alert(`${pdfType.toUpperCase()} eliminado exitosamente`)
+      } else {
+        alert(`Error eliminando ${pdfType}`)
+      }
+    } catch (error) {
+      console.error('Error deleting PDF:', error)
+      alert(`Error eliminando ${pdfType}`)
+    }
+  }
+
   const handleAdd = () => {
     setIsAdding(true)
     setShowAccommodations(true)
@@ -192,8 +271,9 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
-      pdf_url: "",
-      drive_folder_url: "",
+      tarifario_pdf_url: "",
+      flyer_pdf_url: "",
+      piezas_redes_pdf_url: "",
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
@@ -213,8 +293,9 @@ export function AdminDashboardSimple() {
       available_dates: pkg.available_dates?.join(", ") || "",
       transport_type: pkg.transport_type || "aereo",
       image_url: pkg.image_url || "",
-      pdf_url: pkg.pdf_url || "",
-      drive_folder_url: pkg.drive_folder_url || "",
+      tarifario_pdf_url: pkg.tarifario_pdf_url || "",
+      flyer_pdf_url: pkg.flyer_pdf_url || "",
+      piezas_redes_pdf_url: pkg.piezas_redes_pdf_url || "",
       is_special: pkg.is_special || false,
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
@@ -626,8 +707,9 @@ export function AdminDashboardSimple() {
         duration: formData.duration,
         available_dates: formData.available_dates.split(",").map((d) => d.trim()),
         image_url: formData.image_url || `/placeholder.svg?height=300&width=400&query=${encodeURIComponent(formData.name)}`,
-        pdf_url: formData.pdf_url || null,
-        drive_folder_url: formData.drive_folder_url || null,
+        tarifario_pdf_url: formData.tarifario_pdf_url || null,
+        flyer_pdf_url: formData.flyer_pdf_url || null,
+        piezas_redes_pdf_url: formData.piezas_redes_pdf_url || null,
         is_special: formData.is_special,
         servicios_incluidos: formData.servicios_incluidos 
           ? formData.servicios_incluidos.split(",").map((s) => s.trim()).filter(s => s.length > 0)
@@ -693,8 +775,9 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
-      pdf_url: "",
-      drive_folder_url: "",
+      tarifario_pdf_url: "",
+      flyer_pdf_url: "",
+      piezas_redes_pdf_url: "",
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
@@ -1113,30 +1196,134 @@ export function AdminDashboardSimple() {
                             placeholder="https://ejemplo.com/imagen.jpg (opcional)"
                           />
                         </div>
+
+                        {/* PDFs para Agencias */}
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            URL del PDF para Agencias
-                          </label>
-                          <Input
-                            value={formData.pdf_url}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, pdf_url: e.target.value }))}
-                            placeholder="https://ejemplo.com/archivo.pdf (opcional)"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            PDF que podrán descargar las agencias desde su módulo especial
-                          </p>
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            URL de Carpeta de Google Drive
-                          </label>
-                          <Input
-                            value={formData.drive_folder_url}
-                            onChange={(e) => setFormData((prev) => ({ ...prev, drive_folder_url: e.target.value }))}
-                            placeholder="https://drive.google.com/drive/folders/... (opcional)"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Carpeta de Google Drive con flyers que las agencias podrán ver
+                          <h4 className="text-lg font-medium text-gray-900 mb-4">PDFs para Agencias</h4>
+                          <div className="space-y-4">
+                            
+                            {/* Tarifario PDF */}
+                            <div className="border rounded-lg p-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                📋 Tarifario PDF
+                              </label>
+                              <div className="flex gap-2 mb-2">
+                                <Input
+                                  type="file"
+                                  accept=".pdf"
+                                  onChange={(e) => handlePDFFileChange('tarifario', e.target.files?.[0] || null)}
+                                  className="flex-1"
+                                />
+                                {isEditing && (
+                                  <Button
+                                    type="button"
+                                    onClick={() => handlePDFUpload(isEditing, 'tarifario')}
+                                    disabled={!pdfFiles.tarifario || uploadingPDFs.tarifario}
+                                    size="sm"
+                                  >
+                                    {uploadingPDFs.tarifario ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                              </div>
+                              {formData.tarifario_pdf_url && (
+                                <div className="flex gap-2 items-center">
+                                  <span className="text-sm text-green-600">✓ PDF disponible</span>
+                                  {isEditing && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handlePDFDelete(isEditing, 'tarifario')}
+                                    >
+                                      Eliminar
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Flyer PDF */}
+                            <div className="border rounded-lg p-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                🎨 Flyer PDF
+                              </label>
+                              <div className="flex gap-2 mb-2">
+                                <Input
+                                  type="file"
+                                  accept=".pdf"
+                                  onChange={(e) => handlePDFFileChange('flyer', e.target.files?.[0] || null)}
+                                  className="flex-1"
+                                />
+                                {isEditing && (
+                                  <Button
+                                    type="button"
+                                    onClick={() => handlePDFUpload(isEditing, 'flyer')}
+                                    disabled={!pdfFiles.flyer || uploadingPDFs.flyer}
+                                    size="sm"
+                                  >
+                                    {uploadingPDFs.flyer ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                              </div>
+                              {formData.flyer_pdf_url && (
+                                <div className="flex gap-2 items-center">
+                                  <span className="text-sm text-green-600">✓ PDF disponible</span>
+                                  {isEditing && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handlePDFDelete(isEditing, 'flyer')}
+                                    >
+                                      Eliminar
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Piezas Redes PDF */}
+                            <div className="border rounded-lg p-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                📱 Piezas para Redes Sociales PDF
+                              </label>
+                              <div className="flex gap-2 mb-2">
+                                <Input
+                                  type="file"
+                                  accept=".pdf"
+                                  onChange={(e) => handlePDFFileChange('piezas_redes', e.target.files?.[0] || null)}
+                                  className="flex-1"
+                                />
+                                {isEditing && (
+                                  <Button
+                                    type="button"
+                                    onClick={() => handlePDFUpload(isEditing, 'piezas_redes')}
+                                    disabled={!pdfFiles.piezas_redes || uploadingPDFs.piezas_redes}
+                                    size="sm"
+                                  >
+                                    {uploadingPDFs.piezas_redes ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                              </div>
+                              {formData.piezas_redes_pdf_url && (
+                                <div className="flex gap-2 items-center">
+                                  <span className="text-sm text-green-600">✓ PDF disponible</span>
+                                  {isEditing && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handlePDFDelete(isEditing, 'piezas_redes')}
+                                    >
+                                      Eliminar
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Los PDFs subidos estarán disponibles para las agencias autenticadas
                           </p>
                         </div>
                         <div className="md:col-span-2">

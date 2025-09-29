@@ -22,10 +22,16 @@ export interface TravelPackage {
   transport_type?: "aereo" | "bus" | "crucero"
   servicios_incluidos?: string[] | null
   servicios_adicionales?: string[] | null
-  pdf_url?: string | null
-  drive_folder_url?: string | null
+  tarifario_pdf_url?: string | null
+  flyer_pdf_url?: string | null
+  piezas_redes_pdf_url?: string | null
   created_at: string
   updated_at: string
+  destinations?: {
+    id: number
+    name: string
+    code: string
+  }
 }
 
 export interface Accommodation {
@@ -673,7 +679,7 @@ export const agencyService = {
         )
       `)
       .eq("is_active", true)
-      .not("pdf_url", "is", null)
+      .or("tarifario_pdf_url.not.is.null,flyer_pdf_url.not.is.null,piezas_redes_pdf_url.not.is.null")
       .order("created_at", { ascending: false })
 
     if (error) throw error
@@ -722,4 +728,242 @@ export const hashPassword = async (password: string): Promise<string> => {
 export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
   const hashedInput = await hashPassword(password)
   return hashedInput === hash
+}
+
+// Tipos para PDFs
+export type PDFType = 'tarifario' | 'flyer' | 'piezas_redes'
+
+export interface PDFUploadResult {
+  success: boolean
+  url?: string
+  error?: string
+}
+
+// Servicio para manejo de PDFs en Supabase Storage
+export const pdfService = {
+  // Subir un PDF específico para un paquete
+  async uploadPDF(packageId: number, pdfType: PDFType, file: File): Promise<PDFUploadResult> {
+    try {
+      console.log('🔧 Iniciando upload PDF:', { packageId, pdfType, fileName: file.name, fileSize: file.size, fileType: file.type })
+      
+      // Validar archivo
+      if (!file.type.includes('pdf')) {
+        console.error('❌ Tipo de archivo inválido:', file.type)
+        return { success: false, error: 'El archivo debe ser un PDF' }
+      }
+
+      if (file.size > 50 * 1024 * 1024) { // 50MB
+        console.error('❌ Archivo muy grande:', file.size)
+        return { success: false, error: 'El archivo no puede superar 50MB' }
+      }
+
+      // Test básico de conectividad
+      console.log('� Probando conectividad con Supabase...')
+      const { data: testData, error: testError } = await supabase.storage.from('pdfs_expertos').list()
+      
+      if (testError) {
+        console.error('❌ Error de conectividad:', testError)
+        return { success: false, error: 'Error de conectividad: ' + testError.message }
+      }
+      
+      console.log('✅ Conectividad OK, archivos actuales:', testData?.length || 0)
+
+      // Definir ruta del archivo
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      console.log('📁 Ruta del archivo:', filePath)
+
+      // Test de upload simple
+      console.log('📤 Intentando upload...')
+      const { data, error } = await supabase.storage
+        .from('pdfs_expertos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        })
+
+      if (error) {
+        console.error('❌ Error en upload:', error)
+        console.error('❌ Error details:', {
+          message: error.message,
+          name: error.name
+        })
+        return { success: false, error: `Error de upload: ${error.message}` }
+      }
+      
+      console.log('✅ Archivo subido exitosamente:', data)
+
+      // Obtener URL pública/signed para descarga
+      let downloadUrl: string
+      
+      // Primero intentar URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('pdfs_expertos')
+        .getPublicUrl(filePath)
+      
+      downloadUrl = publicUrlData.publicUrl
+      console.log('🔗 URL pública generada:', downloadUrl)
+      
+      // Si el bucket no es público, usar signed URL
+      // Esto es útil si necesitas URLs temporales con expiración
+      /*
+      const { data: signedUrlData, error: signedError } = await supabase.storage
+        .from('pdfs_expertos')
+        .createSignedUrl(filePath, 3600) // 1 hora de expiración
+      
+      if (signedError) {
+        console.warn('⚠️ No se pudo crear signed URL, usando public URL:', signedError)
+      } else {
+        downloadUrl = signedUrlData.signedUrl
+        console.log('🔗 Signed URL generada:', downloadUrl)
+      }
+      */
+
+      return {
+        success: true,
+        url: downloadUrl
+      }
+    } catch (error) {
+      console.error('💥 Error uploading PDF:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      }
+    }
+  },
+
+  // Eliminar un PDF específico
+  async deletePDF(packageId: number, pdfType: PDFType): Promise<boolean> {
+    try {
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      const { error } = await supabase.storage
+        .from('pdfs_expertos')
+        .remove([filePath])
+
+      return !error
+    } catch (error) {
+      console.error('Error deleting PDF:', error)
+      return false
+    }
+  },
+
+  // Eliminar todos los PDFs de un paquete
+  async deleteAllPackagePDFs(packageId: number): Promise<boolean> {
+    try {
+      const files = ['tarifario.pdf', 'flyer.pdf', 'piezas_redes.pdf']
+      const filePaths = files.map(file => `packages/${packageId}/${file}`)
+
+      const { error } = await supabase.storage
+        .from('pdfs_expertos')
+        .remove(filePaths)
+
+      return !error
+    } catch (error) {
+      console.error('Error deleting package PDFs:', error)
+      return false
+    }
+  },
+
+  // Actualizar URL de PDF en la base de datos
+  async updatePDFUrl(packageId: number, pdfType: PDFType, url: string | null): Promise<boolean> {
+    try {
+      const updateData: Partial<TravelPackage> = {}
+      
+      switch (pdfType) {
+        case 'tarifario':
+          updateData.tarifario_pdf_url = url
+          break
+        case 'flyer':
+          updateData.flyer_pdf_url = url
+          break
+        case 'piezas_redes':
+          updateData.piezas_redes_pdf_url = url
+          break
+      }
+
+      const { error } = await supabase
+        .from('travel_packages')
+        .update(updateData)
+        .eq('id', packageId)
+
+      return !error
+    } catch (error) {
+      console.error('Error updating PDF URL:', error)
+      return false
+    }
+  },
+
+  // Función completa: upload + actualizar BD
+  async uploadAndUpdatePDF(packageId: number, pdfType: PDFType, file: File): Promise<PDFUploadResult> {
+    const uploadResult = await this.uploadPDF(packageId, pdfType, file)
+    
+    if (uploadResult.success && uploadResult.url) {
+      const updateSuccess = await this.updatePDFUrl(packageId, pdfType, uploadResult.url)
+      
+      if (!updateSuccess) {
+        return {
+          success: false,
+          error: 'PDF subido pero no se pudo actualizar la base de datos'
+        }
+      }
+    }
+
+    return uploadResult
+  },
+
+  // Función para verificar si un PDF existe y es accesible
+  async verifyPDFAccess(packageId: number, pdfType: PDFType): Promise<boolean> {
+    try {
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      
+      // Verificar si el archivo existe
+      const { data, error } = await supabase.storage
+        .from('pdfs_expertos')
+        .list(`packages/${packageId}`, {
+          search: `${pdfType}.pdf`
+        })
+      
+      if (error) {
+        console.error('❌ Error verificando acceso al PDF:', error)
+        return false
+      }
+      
+      const fileExists = data && data.length > 0
+      console.log(`🔍 PDF ${pdfType} existe para paquete ${packageId}:`, fileExists)
+      
+      return fileExists
+    } catch (error) {
+      console.error('❌ Error en verificación de PDF:', error)
+      return false
+    }
+  },
+
+  // Función para generar URL de descarga (signed URL para mayor seguridad)
+  async getDownloadUrl(packageId: number, pdfType: PDFType): Promise<string | null> {
+    try {
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      
+      // Intentar crear una signed URL para descarga segura
+      const { data, error } = await supabase.storage
+        .from('pdfs_expertos')
+        .createSignedUrl(filePath, 3600) // 1 hora de expiración
+      
+      if (error) {
+        console.error('❌ Error creando signed URL:', error)
+        
+        // Fallback a URL pública
+        const { data: publicData } = supabase.storage
+          .from('pdfs_expertos')
+          .getPublicUrl(filePath)
+        
+        console.log('🔄 Usando URL pública como fallback:', publicData.publicUrl)
+        return publicData.publicUrl
+      }
+      
+      console.log('✅ Signed URL creada:', data.signedUrl)
+      return data.signedUrl
+    } catch (error) {
+      console.error('❌ Error generando URL de descarga:', error)
+      return null
+    }
+  }
 }
