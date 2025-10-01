@@ -69,7 +69,6 @@ export function Header({ position = "fixed" }: HeaderProps) {
     { name: "Inicio", href: "/#", icon: Home },
     { name: "Nosotros", href: "/#nosotros", icon: Users },
     { name: specialSectionTitle, href: "/seccion-especial", icon: Sparkles },
-    ...(isAgencyLoggedIn ? [{ name: "Para Agencias", href: "/agencias/modulo", icon: Users }] : [])
   ]
 
   // Definir destinos específicos para cada tipo de transporte

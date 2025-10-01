@@ -92,9 +92,20 @@ export interface SiteConfig {
 
 export interface Agency {
   id: number
-  name: string
-  email: string
-  phone: string
+  razon_social: string
+  cuit: string
+  numero_legajo: string
+  nombre_fantasia: string
+  telefono_contacto_1: string // obligatorio
+  telefono_contacto_2?: string | null
+  telefono_contacto_3?: string | null
+  domicilio: string
+  ciudad: string
+  provincia: string
+  pais: string
+  email_contacto_1: string // obligatorio
+  email_contacto_2?: string | null
+  email_administracion: string
   password: string
   status: "pending" | "approved" | "rejected"
   created_at: string
@@ -611,47 +622,93 @@ export const accommodationRateService = {
 export const agencyService = {
   // Registrar nueva agencia
   async registerAgency(agencyData: Omit<Agency, 'id' | 'created_at' | 'updated_at' | 'status'>) {
-    // Hash de la contraseña usando una función simple (en producción usar bcrypt o similar)
-    const hashedPassword = await hashPassword(agencyData.password)
-    
-    const { data, error } = await supabase
-      .from("agencies")
-      .insert([{
+    try {
+      console.log('Registrando agencia con datos:', agencyData)
+      
+      // Hash de la contraseña usando una función simple (en producción usar bcrypt o similar)
+      const hashedPassword = await hashPassword(agencyData.password)
+      console.log('Password hasheado exitosamente')
+      
+      const insertData = {
         ...agencyData,
         password: hashedPassword,
-        status: 'pending',
+        status: 'pending' as const,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
-      }])
-      .select()
+      }
+      
+      console.log('Datos a insertar:', insertData)
+      
+      const { data, error } = await supabase
+        .from("agencies")
+        .insert([insertData])
+        .select()
 
-    if (error) throw error
-    return data[0]
+      if (error) {
+        console.error('Error de Supabase details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          fullError: error
+        })
+        throw new Error(`Error de base de datos: ${error.message || 'Error desconocido'}`)
+      }
+      
+      console.log('Agencia insertada exitosamente:', data)
+      return data[0]
+    } catch (error) {
+      console.error('Error en registerAgency:', error)
+      throw error
+    }
   },
 
   // Obtener agencia por email y validar contraseña
   async validateAgencyLogin(email: string, password: string) {
-    const { data, error } = await supabase
-      .from("agencies")
-      .select("*")
-      .eq("email", email)
-      .eq("status", "approved")
-      .single()
+    try {
+      // Primero buscar la agencia sin filtrar por status
+      const { data, error } = await supabase
+        .from("agencies")
+        .select("*")
+        .eq("email_contacto_1", email)
+        .single()
 
-    if (error && error.code !== 'PGRST116') throw error
-    if (!data) return null
+      if (error && error.code === 'PGRST116') {
+        // No se encontró ninguna agencia con ese email
+        return { success: false, message: 'No existe una agencia registrada con este email' }
+      }
+      
+      if (error) throw error
+      if (!data) return { success: false, message: 'No existe una agencia registrada con este email' }
 
-    // Si la agencia no tiene contraseña guardada (agencias antiguas), retornar null
-    if (!data.password) {
-      console.error('Agency does not have password set:', data.email)
-      return null
+      // Verificar el estado de la agencia
+      if (data.status === 'pending') {
+        return { success: false, message: 'Su solicitud de registro está siendo revisada por el administrador. Le notificaremos por email cuando sea aprobada.' }
+      }
+      
+      if (data.status === 'rejected') {
+        return { success: false, message: 'Su solicitud de registro fue rechazada. Contacte al administrador para más información.' }
+      }
+
+      // Si la agencia no tiene contraseña guardada (agencias antiguas), retornar null
+      if (!data.password) {
+        console.error('Agency does not have password set:', data.email_contacto_1)
+        return { success: false, message: 'Error de configuración de cuenta. Contacte al administrador.' }
+      }
+
+      // Validar contraseña
+      const isPasswordValid = await verifyPassword(password, data.password)
+      if (!isPasswordValid) {
+        return { success: false, message: 'Contraseña incorrecta' }
+      }
+
+      // Login exitoso
+      return { success: true, agency: data }
+      
+    } catch (error) {
+      console.error('Error in validateAgencyLogin:', error)
+      return { success: false, message: 'Error interno del servidor. Intente nuevamente.' }
     }
-
-    // Validar contraseña
-    const isPasswordValid = await verifyPassword(password, data.password)
-    if (!isPasswordValid) return null
-
-    return data
   },
 
   // Obtener agencia por email
@@ -659,7 +716,7 @@ export const agencyService = {
     const { data, error } = await supabase
       .from("agencies")
       .select("*")
-      .eq("email", email)
+      .eq("email_contacto_1", email)
       .single()
 
     if (error && error.code !== 'PGRST116') throw error
@@ -730,31 +787,66 @@ export const verifyPassword = async (password: string, hash: string): Promise<bo
   return hashedInput === hash
 }
 
-// Tipos para PDFs
-export type PDFType = 'tarifario' | 'flyer' | 'piezas_redes'
+// Tipos para archivos (expandido para incluir todo tipo de archivos)
+export type FileType = 'tarifario' | 'flyer' | 'piezas_redes'
+export type PDFType = 'tarifario' | 'flyer' | 'piezas_redes' // Mantenemos para compatibilidad
 
-export interface PDFUploadResult {
+export interface FileUploadResult {
   success: boolean
   url?: string
   error?: string
+  fileName?: string
+  fileSize?: number
+  fileType?: string
 }
 
 // Servicio para manejo de PDFs en Supabase Storage
 export const pdfService = {
   // Subir un PDF específico para un paquete
-  async uploadPDF(packageId: number, pdfType: PDFType, file: File): Promise<PDFUploadResult> {
+  async uploadPDF(packageId: number, pdfType: PDFType, file: File): Promise<FileUploadResult> {
     try {
       console.log('🔧 Iniciando upload PDF:', { packageId, pdfType, fileName: file.name, fileSize: file.size, fileType: file.type })
       
-      // Validar archivo
-      if (!file.type.includes('pdf')) {
-        console.error('❌ Tipo de archivo inválido:', file.type)
-        return { success: false, error: 'El archivo debe ser un PDF' }
+      // Validar archivo - ahora permite múltiples tipos
+      const allowedTypes = [
+        // PDFs
+        'application/pdf',
+        // Imágenes
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+        // Documentos
+        'application/msword', // .doc
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-powerpoint', // .ppt
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+        'text/plain', // .txt
+        'text/csv', // .csv
+        // Videos
+        'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo',
+        // Audio
+        'audio/mpeg', 'audio/wav', 'audio/mp3',
+        // Archivos comprimidos
+        'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed'
+      ]
+
+      if (!allowedTypes.includes(file.type)) {
+        console.error('❌ Tipo de archivo no permitido:', file.type)
+        return { 
+          success: false, 
+          error: `Tipo de archivo no permitido: ${file.type}. Tipos permitidos: PDF, imágenes, documentos, videos, audio y archivos comprimidos.` 
+        }
       }
 
-      if (file.size > 50 * 1024 * 1024) { // 50MB
+      // Aumentar límite de tamaño a 100MB para otros tipos de archivo
+      const maxSize = file.type.startsWith('video/') ? 200 * 1024 * 1024 : 100 * 1024 * 1024 // 200MB para videos, 100MB para otros
+      if (file.size > maxSize) {
         console.error('❌ Archivo muy grande:', file.size)
-        return { success: false, error: 'El archivo no puede superar 50MB' }
+        const maxSizeMB = file.type.startsWith('video/') ? '200MB' : '100MB'
+        return { 
+          success: false, 
+          error: `El archivo es muy grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Tamaño máximo: ${maxSizeMB}` 
+        }
       }
 
       // Test básico de conectividad
@@ -893,7 +985,7 @@ export const pdfService = {
   },
 
   // Función completa: upload + actualizar BD
-  async uploadAndUpdatePDF(packageId: number, pdfType: PDFType, file: File): Promise<PDFUploadResult> {
+  async uploadAndUpdatePDF(packageId: number, pdfType: PDFType, file: File): Promise<FileUploadResult> {
     const uploadResult = await this.uploadPDF(packageId, pdfType, file)
     
     if (uploadResult.success && uploadResult.url) {
@@ -966,4 +1058,63 @@ export const pdfService = {
       return null
     }
   }
+}
+
+export const getFileIcon = (fileType: string, fileName?: string): string => {
+  // PDFs
+  if (fileType === 'application/pdf') return 'FileText'
+  
+  // Imágenes
+  if (fileType.startsWith('image/')) return 'Image'
+  
+  // Videos
+  if (fileType.startsWith('video/')) return 'Video'
+  
+  // Audio
+  if (fileType.startsWith('audio/')) return 'Music'
+  
+  // Documentos de texto
+  if (fileType === 'text/plain' || 
+      fileType === 'application/msword' || 
+      fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    return 'FileText'
+  }
+  
+  // Hojas de cálculo
+  if (fileType === 'application/vnd.ms-excel' || 
+      fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      fileType === 'text/csv') {
+    return 'Sheet'
+  }
+  
+  // Presentaciones
+  if (fileType === 'application/vnd.ms-powerpoint' || 
+      fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+    return 'Presentation'
+  }
+  
+  // Archivos comprimidos
+  if (fileType === 'application/zip' || 
+      fileType === 'application/x-rar-compressed' || 
+      fileType === 'application/x-7z-compressed') {
+    return 'Archive'
+  }
+  
+  // Por defecto
+  return 'File'
+}
+
+export const getFileTypeLabel = (fileType: string): string => {
+  if (fileType === 'application/pdf') return 'PDF'
+  if (fileType.startsWith('image/')) return 'Imagen'
+  if (fileType.startsWith('video/')) return 'Video'
+  if (fileType.startsWith('audio/')) return 'Audio'
+  if (fileType === 'text/plain') return 'Texto'
+  if (fileType === 'text/csv') return 'CSV'
+  if (fileType.includes('word')) return 'Word'
+  if (fileType.includes('excel')) return 'Excel'
+  if (fileType.includes('powerpoint')) return 'PowerPoint'
+  if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('7z')) return 'Comprimido'
+  
+  return 'Archivo'
 }

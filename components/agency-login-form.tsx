@@ -38,24 +38,22 @@ export default function AgencyLoginForm() {
     setMessage(null)
 
     try {
-      await loginAgency(formData.email, formData.password)
+      const result = await loginAgency(formData.email, formData.password)
       
-      setMessage({ type: 'success', text: 'Inicio de sesión exitoso. Redirigiendo...' })
-      
-      // Redirigir al módulo de agencias después de un breve delay
-      setTimeout(() => {
-        router.push('/agencias/modulo')
-      }, 1500)
+      if (result.success) {
+        setMessage({ type: 'success', text: 'Inicio de sesión exitoso. Redirigiendo...' })
+        
+        // Redirigir al módulo de agencias después de un breve delay
+        setTimeout(() => {
+          router.push('/agencias/modulo')
+        }, 1500)
+      } else {
+        setMessage({ type: 'error', text: result.message || 'Error al iniciar sesión.' })
+      }
 
     } catch (error: any) {
       console.error('Error en login:', error)
-      let errorMessage = 'Error al iniciar sesión. Intente nuevamente.'
-      
-      if (error.message?.includes('Credenciales incorrectas')) {
-        errorMessage = 'Email o contraseña incorrectos, o la agencia no está aprobada.'
-      }
-      
-      setMessage({ type: 'error', text: errorMessage })
+      setMessage({ type: 'error', text: 'Error interno del servidor. Intente nuevamente.' })
     } finally {
       setLoading(false)
     }

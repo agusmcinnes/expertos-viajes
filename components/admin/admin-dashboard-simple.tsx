@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users } from "lucide-react"
-import { supabase, packageService, agencyService, pdfService, type PDFType } from "@/lib/supabase"
+import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
 import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -30,14 +30,16 @@ export function AdminDashboardSimple() {
   const [isLoadingRates, setIsLoadingRates] = useState(false)
   const [editingAccommodation, setEditingAccommodation] = useState<number | null>(null)
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false)
+  const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null)
+  const [isAgencyDetailOpen, setIsAgencyDetailOpen] = useState(false)
   
-  // Estados para manejo de PDFs
-  const [uploadingPDFs, setUploadingPDFs] = useState<Record<PDFType, boolean>>({
+  // Estados para manejo de archivos
+  const [uploadingFiles, setUploadingFiles] = useState<Record<FileType, boolean>>({
     tarifario: false,
     flyer: false,
     piezas_redes: false
   })
-  const [pdfFiles, setPdfFiles] = useState<Record<PDFType, File | null>>({
+  const [selectedFiles, setSelectedFiles] = useState<Record<FileType, File | null>>({
     tarifario: null,
     flyer: null,
     piezas_redes: null
@@ -191,69 +193,69 @@ export function AdminDashboardSimple() {
     }
   }
 
-  // Funciones para manejar PDFs
-  const handlePDFFileChange = (pdfType: PDFType, file: File | null) => {
-    setPdfFiles(prev => ({
+  // Funciones para manejar archivos
+  const handleFileChange = (fileType: FileType, file: File | null) => {
+    setSelectedFiles(prev => ({
       ...prev,
-      [pdfType]: file
+      [fileType]: file
     }))
   }
 
-  const handlePDFUpload = async (packageId: number, pdfType: PDFType) => {
-    const file = pdfFiles[pdfType]
+  const handleFileUpload = async (packageId: number, fileType: FileType) => {
+    const file = selectedFiles[fileType]
     if (!file) return
 
-    setUploadingPDFs(prev => ({ ...prev, [pdfType]: true }))
+    setUploadingFiles(prev => ({ ...prev, [fileType]: true }))
 
     try {
-      const result = await pdfService.uploadAndUpdatePDF(packageId, pdfType, file)
+      const result = await pdfService.uploadAndUpdatePDF(packageId, fileType, file)
       
       if (result.success) {
         // Actualizar el estado local del formData
         setFormData(prev => ({
           ...prev,
-          [`${pdfType}_pdf_url`]: result.url || ""
+          [`${fileType}_pdf_url`]: result.url || ""
         }))
         
         // Recargar packages para reflejar cambios
         await loadData()
         
-        alert(`${pdfType.toUpperCase()} subido exitosamente`)
+        alert(`${getFileTypeLabel(file.type)} subido exitosamente`)
       } else {
-        alert(`Error subiendo ${pdfType}: ${result.error}`)
+        alert(`Error subiendo archivo: ${result.error}`)
       }
     } catch (error) {
-      console.error('Error uploading PDF:', error)
-      alert(`Error subiendo ${pdfType}`)
+      console.error('Error uploading file:', error)
+      alert(`Error subiendo archivo`)
     } finally {
-      setUploadingPDFs(prev => ({ ...prev, [pdfType]: false }))
+      setUploadingFiles(prev => ({ ...prev, [fileType]: false }))
       // Limpiar el archivo seleccionado
-      setPdfFiles(prev => ({ ...prev, [pdfType]: null }))
+      setSelectedFiles(prev => ({ ...prev, [fileType]: null }))
     }
   }
 
-  const handlePDFDelete = async (packageId: number, pdfType: PDFType) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar el ${pdfType}?`)) return
+  const handleFileDelete = async (packageId: number, fileType: FileType) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar este archivo?`)) return
 
     try {
-      const success = await pdfService.deletePDF(packageId, pdfType)
+      const success = await pdfService.deletePDF(packageId, fileType)
       if (success) {
-        await pdfService.updatePDFUrl(packageId, pdfType, null)
+        await pdfService.updatePDFUrl(packageId, fileType, null)
         
         // Actualizar estado local
         setFormData(prev => ({
           ...prev,
-          [`${pdfType}_pdf_url`]: ""
+          [`${fileType}_pdf_url`]: ""
         }))
         
         await loadData()
-        alert(`${pdfType.toUpperCase()} eliminado exitosamente`)
+        alert(`Archivo eliminado exitosamente`)
       } else {
-        alert(`Error eliminando ${pdfType}`)
+        alert(`Error eliminando archivo`)
       }
     } catch (error) {
-      console.error('Error deleting PDF:', error)
-      alert(`Error eliminando ${pdfType}`)
+      console.error('Error deleting file:', error)
+      alert(`Error eliminando archivo`)
     }
   }
 
@@ -734,7 +736,15 @@ export function AdminDashboardSimple() {
           await saveAccommodationsForPackage(newPackage[0].id)
         }
         
-        alert("Paquete agregado exitosamente")
+        // Cambiar automáticamente al modo edición para permitir subir PDFs
+        if (newPackage && newPackage[0]) {
+          setIsAdding(false)
+          setIsEditing(newPackage[0].id)
+          await loadData()
+          alert("Paquete agregado exitosamente. Ahora puedes subir los PDFs.")
+        } else {
+          alert("Paquete agregado exitosamente")
+        }
       } else if (isEditing) {
         const { error } = await supabase.from("travel_packages").update(packageData).eq("id", isEditing)
         if (error) throw error
@@ -745,9 +755,8 @@ export function AdminDashboardSimple() {
         }
         
         alert("Paquete actualizado exitosamente")
+        await loadData()
       }
-
-      await loadData()
       handleCancel()
     } catch (error) {
       console.error("Error saving package:", error)
@@ -926,6 +935,11 @@ export function AdminDashboardSimple() {
         setIsLoadingAgencies(false)
       }
     }
+  }
+
+  const handleViewAgencyDetail = (agency: Agency) => {
+    setSelectedAgency(agency)
+    setIsAgencyDetailOpen(true)
   }
 
   const getStatusBadgeVariant = (status: string) => {
@@ -1210,18 +1224,28 @@ export function AdminDashboardSimple() {
                               <div className="flex gap-2 mb-2">
                                 <Input
                                   type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handlePDFFileChange('tarifario', e.target.files?.[0] || null)}
+                                  accept="*/*"
+                                  onChange={(e) => handleFileChange('tarifario', e.target.files?.[0] || null)}
                                   className="flex-1"
                                 />
                                 {isEditing && (
                                   <Button
                                     type="button"
-                                    onClick={() => handlePDFUpload(isEditing, 'tarifario')}
-                                    disabled={!pdfFiles.tarifario || uploadingPDFs.tarifario}
+                                    onClick={() => handleFileUpload(isEditing, 'tarifario')}
+                                    disabled={!selectedFiles.tarifario || uploadingFiles.tarifario}
                                     size="sm"
                                   >
-                                    {uploadingPDFs.tarifario ? "Subiendo..." : "Subir"}
+                                    {uploadingFiles.tarifario ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                                {isAdding && (
+                                  <Button
+                                    type="button"
+                                    disabled
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    Guardar paquete primero
                                   </Button>
                                 )}
                               </div>
@@ -1233,7 +1257,7 @@ export function AdminDashboardSimple() {
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handlePDFDelete(isEditing, 'tarifario')}
+                                      onClick={() => handleFileDelete(isEditing, 'tarifario')}
                                     >
                                       Eliminar
                                     </Button>
@@ -1250,18 +1274,28 @@ export function AdminDashboardSimple() {
                               <div className="flex gap-2 mb-2">
                                 <Input
                                   type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handlePDFFileChange('flyer', e.target.files?.[0] || null)}
+                                  accept="*/*"
+                                  onChange={(e) => handleFileChange('flyer', e.target.files?.[0] || null)}
                                   className="flex-1"
                                 />
                                 {isEditing && (
                                   <Button
                                     type="button"
-                                    onClick={() => handlePDFUpload(isEditing, 'flyer')}
-                                    disabled={!pdfFiles.flyer || uploadingPDFs.flyer}
+                                    onClick={() => handleFileUpload(isEditing, 'flyer')}
+                                    disabled={!selectedFiles.flyer || uploadingFiles.flyer}
                                     size="sm"
                                   >
-                                    {uploadingPDFs.flyer ? "Subiendo..." : "Subir"}
+                                    {uploadingFiles.flyer ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                                {isAdding && (
+                                  <Button
+                                    type="button"
+                                    disabled
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    Guardar paquete primero
                                   </Button>
                                 )}
                               </div>
@@ -1273,7 +1307,7 @@ export function AdminDashboardSimple() {
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handlePDFDelete(isEditing, 'flyer')}
+                                      onClick={() => handleFileDelete(isEditing, 'flyer')}
                                     >
                                       Eliminar
                                     </Button>
@@ -1290,18 +1324,28 @@ export function AdminDashboardSimple() {
                               <div className="flex gap-2 mb-2">
                                 <Input
                                   type="file"
-                                  accept=".pdf"
-                                  onChange={(e) => handlePDFFileChange('piezas_redes', e.target.files?.[0] || null)}
+                                  accept="*/*"
+                                  onChange={(e) => handleFileChange('piezas_redes', e.target.files?.[0] || null)}
                                   className="flex-1"
                                 />
                                 {isEditing && (
                                   <Button
                                     type="button"
-                                    onClick={() => handlePDFUpload(isEditing, 'piezas_redes')}
-                                    disabled={!pdfFiles.piezas_redes || uploadingPDFs.piezas_redes}
+                                    onClick={() => handleFileUpload(isEditing, 'piezas_redes')}
+                                    disabled={!selectedFiles.piezas_redes || uploadingFiles.piezas_redes}
                                     size="sm"
                                   >
-                                    {uploadingPDFs.piezas_redes ? "Subiendo..." : "Subir"}
+                                    {uploadingFiles.piezas_redes ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                                {isAdding && (
+                                  <Button
+                                    type="button"
+                                    disabled
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    Guardar paquete primero
                                   </Button>
                                 )}
                               </div>
@@ -1313,7 +1357,7 @@ export function AdminDashboardSimple() {
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handlePDFDelete(isEditing, 'piezas_redes')}
+                                      onClick={() => handleFileDelete(isEditing, 'piezas_redes')}
                                     >
                                       Eliminar
                                     </Button>
@@ -1763,23 +1807,78 @@ export function AdminDashboardSimple() {
                           animate={{ opacity: 1, y: 0 }}
                           className="border rounded-lg p-4 bg-white shadow-sm"
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 space-y-4">
                               <div className="flex items-center gap-4 mb-2">
-                                <h3 className="font-semibold text-lg">{agency.name}</h3>
+                                <h3 className="font-semibold text-lg">{agency.razon_social}</h3>
                                 <Badge className={getStatusBadgeVariant(agency.status)}>
                                   {getStatusText(agency.status)}
                                 </Badge>
                               </div>
-                              <div className="text-sm text-gray-600 space-y-1">
-                                <p><strong>Email:</strong> {agency.email}</p>
-                                <p><strong>Teléfono:</strong> {agency.phone}</p>
+                              
+                              {/* Información Legal */}
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Información Legal</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                  <div><strong>Razón Social:</strong> {agency.razon_social}</div>
+                                  <div><strong>Nombre de Fantasía:</strong> {agency.nombre_fantasia}</div>
+                                  <div><strong>CUIT:</strong> {agency.cuit}</div>
+                                  <div><strong>N° Legajo:</strong> {agency.numero_legajo}</div>
+                                </div>
+                              </div>
+
+                              {/* Información de Contacto */}
+                              <div className="bg-blue-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Información de Contacto</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                  <div><strong>Teléfono Principal:</strong> {agency.telefono_contacto_1}</div>
+                                  {agency.telefono_contacto_2 && (
+                                    <div><strong>Teléfono 2:</strong> {agency.telefono_contacto_2}</div>
+                                  )}
+                                  {agency.telefono_contacto_3 && (
+                                    <div><strong>Teléfono 3:</strong> {agency.telefono_contacto_3}</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Información de Domicilio */}
+                              <div className="bg-green-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Domicilio</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                  <div className="md:col-span-2"><strong>Dirección:</strong> {agency.domicilio}</div>
+                                  <div><strong>Ciudad:</strong> {agency.ciudad}</div>
+                                  <div><strong>Provincia:</strong> {agency.provincia}</div>
+                                  <div><strong>País:</strong> {agency.pais}</div>
+                                </div>
+                              </div>
+
+                              {/* Información de Emails */}
+                              <div className="bg-purple-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Correos Electrónicos</h4>
+                                <div className="grid grid-cols-1 gap-2 text-sm">
+                                  <div><strong>Email Principal:</strong> {agency.email_contacto_1}</div>
+                                  {agency.email_contacto_2 && (
+                                    <div><strong>Email Secundario:</strong> {agency.email_contacto_2}</div>
+                                  )}
+                                  <div><strong>Email Administración:</strong> {agency.email_administracion}</div>
+                                </div>
+                              </div>
+
+                              <div className="text-sm text-gray-600">
                                 <p><strong>Fecha de solicitud:</strong> {new Date(agency.created_at).toLocaleDateString()}</p>
                               </div>
                             </div>
                             
                             {agency.status === 'pending' && (
-                              <div className="flex gap-2">
+                              <div className="flex flex-col gap-2 ml-4">
+                                <Button
+                                  onClick={() => handleViewAgencyDetail(agency)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="mb-2"
+                                >
+                                  Ver Detalle
+                                </Button>
                                 <Button
                                   onClick={() => handleApproveAgency(agency.id)}
                                   className="bg-green-600 hover:bg-green-700 text-white"
@@ -1798,6 +1897,18 @@ export function AdminDashboardSimple() {
                                 </Button>
                               </div>
                             )}
+                            
+                            {agency.status !== 'pending' && (
+                              <div className="ml-4">
+                                <Button
+                                  onClick={() => handleViewAgencyDetail(agency)}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Ver Detalle
+                                </Button>
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       ))}
@@ -1813,6 +1924,176 @@ export function AdminDashboardSimple() {
           </Tabs>
         </motion.div>
       </div>
+
+      {/* Modal de Detalle de Agencia */}
+      <Dialog open={isAgencyDetailOpen} onOpenChange={setIsAgencyDetailOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Detalle de Agencia - {selectedAgency?.razon_social}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedAgency && (
+            <div className="space-y-6">
+              {/* Estado de la Agencia */}
+              <div className="flex items-center gap-4 pb-4 border-b">
+                <Badge className={getStatusBadgeVariant(selectedAgency.status)}>
+                  {getStatusText(selectedAgency.status)}
+                </Badge>
+                <span className="text-sm text-gray-600">
+                  Registrada el {new Date(selectedAgency.created_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Información Legal */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Información Legal</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Razón Social</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.razon_social}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Nombre de Fantasía</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.nombre_fantasia}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">CUIT</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.cuit}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Número de Legajo</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.numero_legajo}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de Contacto */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Información de Contacto</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Teléfono Principal</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.telefono_contacto_1}
+                    </p>
+                  </div>
+                  {selectedAgency.telefono_contacto_2 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-600">Teléfono Secundario</label>
+                      <p className="text-sm bg-white p-2 rounded border">
+                        {selectedAgency.telefono_contacto_2}
+                      </p>
+                    </div>
+                  )}
+                  {selectedAgency.telefono_contacto_3 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-600">Teléfono Terciario</label>
+                      <p className="text-sm bg-white p-2 rounded border">
+                        {selectedAgency.telefono_contacto_3}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Información de Domicilio */}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Domicilio</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-gray-600">Dirección</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.domicilio}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Ciudad</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.ciudad}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Provincia</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.provincia}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">País</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.pais}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de Emails */}
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Correos Electrónicos</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Email Principal</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.email_contacto_1}
+                    </p>
+                  </div>
+                  {selectedAgency.email_contacto_2 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-600">Email Secundario</label>
+                      <p className="text-sm bg-white p-2 rounded border">
+                        {selectedAgency.email_contacto_2}
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Email Administración</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.email_administracion}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acciones de Administración */}
+              {selectedAgency.status === 'pending' && (
+                <div className="flex gap-4 pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      handleApproveAgency(selectedAgency.id)
+                      setIsAgencyDetailOpen(false)
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                    disabled={isLoadingAgencies}
+                  >
+                    Aprobar Agencia
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleRejectAgency(selectedAgency.id)
+                      setIsAgencyDetailOpen(false)
+                    }}
+                    variant="destructive"
+                    className="flex-1"
+                    disabled={isLoadingAgencies}
+                  >
+                    Rechazar Agencia
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Tarifas */}
       {showRatesModal && selectedAccommodationForRates && (

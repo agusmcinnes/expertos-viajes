@@ -9,16 +9,16 @@ export interface AgencySession {
 }
 
 // Simular login de agencia (verificar que esté aprobada y validar contraseña)
-export const loginAgency = async (email: string, password: string): Promise<Agency> => {
-  const agency = await agencyService.validateAgencyLogin(email, password)
+export const loginAgency = async (email: string, password: string): Promise<{ success: boolean; agency?: Agency; message?: string }> => {
+  const result = await agencyService.validateAgencyLogin(email, password)
   
-  if (!agency) {
-    throw new Error("Credenciales incorrectas o agencia no aprobada")
+  if (!result.success) {
+    return result
   }
 
   // Guardar sesión en localStorage
   const session: AgencySession = {
-    agency,
+    agency: result.agency!,
     loginTime: new Date().toISOString()
   }
   
@@ -26,7 +26,7 @@ export const loginAgency = async (email: string, password: string): Promise<Agen
     localStorage.setItem(AGENCY_SESSION_KEY, JSON.stringify(session))
   }
 
-  return agency
+  return { success: true, agency: result.agency }
 }
 
 // Verificar si una agencia está logueada

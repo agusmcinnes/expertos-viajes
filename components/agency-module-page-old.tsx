@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Download, Package, FileText, Bus, Plane, Settings, CreditCard, Building2, FileCheck, File, Star, Users, Globe, Shield, MapPin, Clock, Eye, Calendar, ChevronDown, ChevronUp } from "lucide-react"
-import { agencyService, pdfService, getFileIcon, getFileTypeLabel, supabase } from '@/lib/supabase'
+import { Download, Package, FileText, Bus, Plane, Settings, CreditCard, Building2, FileCheck, File, Star, Users, Globe, Shield, MapPin, Clock, Eye } from "lucide-react"
+import { agencyService, pdfService, getFileIcon, getFileTypeLabel } from '@/lib/supabase'
 import { isAgencyAuthenticated, getCurrentAgency } from '@/lib/agency-auth'
 import type { TravelPackage } from '@/lib/supabase'
 import { motion } from "framer-motion"
@@ -48,53 +48,41 @@ export default function AgencyModulePage() {
     // Si tenemos packageId y pdfType, intentar generar una nueva URL
     if (packageId && pdfType) {
       try {
-        const downloadUrl = await pdfService.getDownloadUrl(packageId, pdfType)
-        if (downloadUrl) {
-          console.log('✅ Nueva URL generada:', downloadUrl)
-          window.open(downloadUrl, '_blank')
-          return
+        console.log('🔄 Generando nueva URL de descarga...')
+        const newUrl = await pdfService.getDownloadUrl(packageId, pdfType)
+        
+        if (newUrl) {
+          console.log('✅ Nueva URL generada:', newUrl)
+          pdfUrl = newUrl
+        } else {
+          console.warn('⚠️ No se pudo generar nueva URL, usando URL original')
         }
       } catch (error) {
         console.error('❌ Error generando nueva URL:', error)
       }
     }
     
-    // Fallback a la URL original
-    console.log('🔄 Usando URL original como fallback')
-    window.open(pdfUrl, '_blank')
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('agency_session')
-    router.push('/agencias/login')
+    // Verificar si la URL es válida
+    if (!pdfUrl || pdfUrl.trim() === '') {
+      console.error('❌ URL de PDF vacía')
+      alert('Error: URL del PDF no disponible')
+      return
+    }
+    
+    console.log('📥 Iniciando descarga con URL:', pdfUrl)
+    const link = document.createElement('a')
+    link.href = pdfUrl
+    link.download = `${packageName.replace(/\s+/g, '_')}.pdf`
+    link.target = '_blank'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   const handleAdminDownload = (fileName: string) => {
-    try {
-      console.log(`🔗 Descargando ${fileName}...`)
-      
-      // Mapear nombre a archivo en la carpeta public/pdfs
-      const fileMapping: Record<string, string> = {
-        'Tarjetas de Crédito': '/pdfs/tarjetas.pdf',
-        'Bancos': '/pdfs/bancos.pdf', 
-        'Contrato de Reserva': '/pdfs/reserva.pdf'
-      }
-      
-      const filePath = fileMapping[fileName]
-      if (!filePath) {
-        console.error('❌ Archivo no encontrado:', fileName)
-        alert('Archivo no disponible')
-        return
-      }
-      
-      console.log('✅ Descargando archivo desde:', filePath)
-      // Abrir el archivo directamente desde la carpeta public
-      window.open(filePath, '_blank')
-      
-    } catch (error) {
-      console.error('❌ Error en descarga:', error)
-      alert(`Error descargando ${fileName}`)
-    }
+    // Aquí implementaremos la descarga de PDFs administrativos desde Supabase Storage
+    console.log(`Descargando ${fileName}`)
+    alert(`Funcionalidad de descarga para ${fileName} - Se implementará con Supabase Storage`)
   }
 
   const getBusPackages = () => packages.filter(pkg => pkg.transport_type === 'bus')
@@ -113,11 +101,24 @@ export default function AgencyModulePage() {
     }
   }
 
+  const getTransportText = (transport: string) => {
+    switch (transport) {
+      case 'aereo':
+        return 'Aéreo'
+      case 'bus':
+        return 'Bus'
+      case 'crucero':
+        return 'Crucero'
+      default:
+        return 'Aéreo'
+    }
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary mx-auto mb-6"></div>
           <p className="text-gray-600 text-lg">Cargando módulo de agencias...</p>
         </div>
       </div>
@@ -125,71 +126,77 @@ export default function AgencyModulePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* Header Section */}
-      <div className="bg-white shadow-lg border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4 lg:py-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
-            {/* Title and Agency Info */}
-            <div className="flex-1">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 lg:gap-4">
-                <div className="flex items-center gap-2 lg:gap-3">
-                  <Building2 className="w-6 h-6 lg:w-8 lg:h-8 text-blue-600" />
-                  <div>
-                    <h1 className="text-xl lg:text-2xl xl:text-3xl font-bold text-gray-800">
-                      Portal de Agencias
-                    </h1>
-                    {agency && (
-                      <p className="text-sm lg:text-base text-gray-600">
-                        Bienvenido, <span className="font-semibold text-blue-600">{agency.name}</span>
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <Button 
-                  onClick={handleLogout}
-                  variant="outline" 
-                  size="sm"
-                  className="self-start sm:self-auto text-gray-600 hover:text-red-600 hover:border-red-300"
-                >
-                  Cerrar Sesión
-                </Button>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      {/* Hero Header */}
+      <div className="bg-gradient-to-r from-purple-300 to-purple-900 text-white">
+        <div className="container mx-auto px-4 py-8 lg:py-12">
+          <motion.div
+            initial={{ opacity: 0, y: -30 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            <div className="flex items-center justify-center mb-4">
+              <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold leading-tight">
+                Portal Exclusivo para Agencias
+              </h1>
+            </div>
+            <p className="text-lg md:text-xl opacity-90 mb-2">
+              Bienvenido/a, <span className="font-bold text-yellow-300">{agency?.name}</span>
+            </p>
+            <p className="text-sm md:text-lg opacity-80 px-4">
+              Accede a recursos exclusivos, PDFs y herramientas especializadas para potenciar tu negocio
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center mt-6 space-y-3 sm:space-y-0 sm:space-x-4 lg:space-x-8">
+              <div className="flex items-center">
+                <Shield className="w-4 h-4 lg:w-5 lg:h-5 mr-2 text-green-300" />
+                <span className="text-xs md:text-sm">Contenido Exclusivo</span>
+              </div>
+              <div className="flex items-center">
+                <Users className="w-4 h-4 lg:w-5 lg:h-5 mr-2 text-blue-300" />
+                <span className="text-xs md:text-sm">Soporte Premium</span>
+              </div>
+              <div className="flex items-center">
+                <Globe className="w-4 h-4 lg:w-5 lg:h-5 mr-2 text-purple-300" />
+                <span className="text-xs md:text-sm">Destinos Únicos</span>
               </div>
             </div>
+          </motion.div>
+        </div>
+      </div>
 
-            {/* Navigation Tabs */}
-            <div className="flex flex-col sm:flex-row gap-2 lg:gap-3">
+      {/* Navigation Tabs */}
+      <div className="bg-white shadow-lg border-b">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-center overflow-x-auto">
+            <div className="flex space-x-1 gap-2 p-2 min-w-max">
               <Button
                 onClick={() => setActiveSection('bus')}
-                variant="ghost"
-                size="sm"
-                className={`flex items-center justify-center px-3 py-2 lg:px-4 lg:py-2 text-sm lg:text-base font-medium rounded-lg transition-all duration-300 ${
+                variant={activeSection === 'bus' ? 'default' : 'ghost'}
+                className={`px-4 md:px-6 lg:px-8 py-3 md:py-4 rounded-lg transition-all duration-300 text-sm md:text-base whitespace-nowrap ${
                   activeSection === 'bus'
                     ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg scale-105'
                     : 'text-gray-600 hover:text-red-500 hover:bg-red-50'
                 }`}
               >
                 <Bus className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                En Bus
+                <span className="hidden sm:inline">Paquetes en </span>Bus
               </Button>
               <Button
                 onClick={() => setActiveSection('avion')}
-                variant="ghost"
-                size="sm"
-                className={`flex items-center justify-center px-3 py-2 lg:px-4 lg:py-2 text-sm lg:text-base font-medium rounded-lg transition-all duration-300 ${
+                variant={activeSection === 'avion' ? 'default' : 'ghost'}
+                className={`px-4 md:px-6 lg:px-8 py-3 md:py-4 rounded-lg transition-all duration-300 text-sm md:text-base whitespace-nowrap ${
                   activeSection === 'avion'
                     ? 'bg-violet-500 hover:bg-violet-600 text-white shadow-lg scale-105'
                     : 'text-gray-600 hover:text-violet-500 hover:bg-violet-50'
                 }`}
               >
                 <Plane className="w-4 h-4 md:w-5 md:h-5 mr-1 md:mr-2" />
-                En Avión
+                <span className="hidden sm:inline">Paquetes en </span>Avión
               </Button>
               <Button
                 onClick={() => setActiveSection('administracion')}
-                variant="ghost"
-                size="sm"
-                className={`flex items-center justify-center px-3 py-2 lg:px-4 lg:py-2 text-sm lg:text-base font-medium rounded-lg transition-all duration-300 ${
+                variant={activeSection === 'administracion' ? 'default' : 'ghost'}
+                className={`px-4 md:px-6 lg:px-8 py-3 md:py-4 rounded-lg transition-all duration-300 text-sm md:text-base whitespace-nowrap ${
                   activeSection === 'administracion'
                     ? 'bg-purple-500 hover:bg-purple-600 text-white shadow-lg scale-105'
                     : 'text-gray-600 hover:text-purple-500 hover:bg-purple-50'
@@ -288,25 +295,25 @@ export default function AgencyModulePage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <Card className="h-full hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:-translate-y-1">
-                  <CardContent className="p-4 lg:p-6 text-center">
-                    <CreditCard className="w-10 h-10 lg:w-12 lg:h-12 text-blue-600 mx-auto mb-3 lg:mb-4" />
-                    <h3 className="text-base lg:text-lg font-bold text-gray-800 mb-2">
-                      Tarjetas de Crédito
-                    </h3>
-                    <p className="text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
-                      Información sobre medios de pago con tarjetas
+                <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-gradient-to-br from-red-50 to-pink-50 group cursor-pointer h-full">
+                  <CardContent className="p-4 lg:p-8 text-center flex flex-col h-full">
+                    <div className="bg-red-100 w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mx-auto mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <CreditCard className="w-6 h-6 lg:w-8 lg:h-8 text-red-600" />
+                    </div>
+                    <h3 className="text-lg lg:text-xl font-bold text-gray-800 mb-2 lg:mb-3">Tarjetas de Crédito</h3>
+                    <p className="text-gray-600 mb-4 lg:mb-6 text-xs lg:text-sm flex-grow">
+                      Información sobre procesamiento de pagos y tarifas de tarjetas de crédito
                     </p>
                     <Button 
                       onClick={() => handleAdminDownload('Tarjetas de Crédito')}
-                      size="sm" 
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs lg:text-sm"
+                      className="w-full bg-red-500 hover:bg-red-600 text-white transition-all duration-300 text-sm lg:text-base"
+                      size="sm"
                     >
                       <Download className="w-3 h-3 lg:w-4 lg:h-4 mr-1 lg:mr-2" />
                       Descargar
@@ -320,19 +327,19 @@ export default function AgencyModulePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <Card className="h-full hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 hover:-translate-y-1">
-                  <CardContent className="p-4 lg:p-6 text-center">
-                    <Building2 className="w-10 h-10 lg:w-12 lg:h-12 text-green-600 mx-auto mb-3 lg:mb-4" />
-                    <h3 className="text-base lg:text-lg font-bold text-gray-800 mb-2">
-                      Bancos
-                    </h3>
-                    <p className="text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
-                      Información bancaria y transferencias
+                <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-gradient-to-br from-green-50 to-emerald-50 group cursor-pointer h-full">
+                  <CardContent className="p-4 lg:p-8 text-center flex flex-col h-full">
+                    <div className="bg-green-100 w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mx-auto mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Building2 className="w-6 h-6 lg:w-8 lg:h-8 text-green-600" />
+                    </div>
+                    <h3 className="text-lg lg:text-xl font-bold text-gray-800 mb-2 lg:mb-3">Bancos</h3>
+                    <p className="text-gray-600 mb-4 lg:mb-6 text-xs lg:text-sm flex-grow">
+                      Listado de entidades bancarias autorizadas y procedimientos de transferencias
                     </p>
                     <Button 
                       onClick={() => handleAdminDownload('Bancos')}
-                      size="sm" 
-                      className="w-full bg-green-600 hover:bg-green-700 text-white text-xs lg:text-sm"
+                      className="w-full bg-green-500 hover:bg-green-600 text-white transition-all duration-300 text-sm lg:text-base"
+                      size="sm"
                     >
                       <Download className="w-3 h-3 lg:w-4 lg:h-4 mr-1 lg:mr-2" />
                       Descargar
@@ -346,19 +353,45 @@ export default function AgencyModulePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <Card className="h-full hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 hover:-translate-y-1">
-                  <CardContent className="p-4 lg:p-6 text-center">
-                    <FileCheck className="w-10 h-10 lg:w-12 lg:h-12 text-purple-600 mx-auto mb-3 lg:mb-4" />
-                    <h3 className="text-base lg:text-lg font-bold text-gray-800 mb-2">
-                      Contrato de Reserva
-                    </h3>
-                    <p className="text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
-                      Modelo de contrato para reservas de viajes
+                <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-gradient-to-br from-blue-50 to-cyan-50 group cursor-pointer h-full">
+                  <CardContent className="p-4 lg:p-8 text-center flex flex-col h-full">
+                    <div className="bg-blue-100 w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mx-auto mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <FileCheck className="w-6 h-6 lg:w-8 lg:h-8 text-blue-600" />
+                    </div>
+                    <h3 className="text-lg lg:text-xl font-bold text-gray-800 mb-2 lg:mb-3">Condiciones Generales</h3>
+                    <p className="text-gray-600 mb-4 lg:mb-6 text-xs lg:text-sm flex-grow">
+                      Términos y condiciones generales para la venta de paquetes turísticos
                     </p>
                     <Button 
-                      onClick={() => handleAdminDownload('Contrato de Reserva')}
-                      size="sm" 
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs lg:text-sm"
+                      onClick={() => handleAdminDownload('Condiciones Generales')}
+                      className="w-full bg-blue-500 hover:bg-blue-600 text-white transition-all duration-300 text-sm lg:text-base"
+                      size="sm"
+                    >
+                      <Download className="w-3 h-3 lg:w-4 lg:h-4 mr-1 lg:mr-2" />
+                      Descargar
+                    </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <Card className="hover:shadow-xl transition-all duration-300 border-0 shadow-lg bg-gradient-to-br from-purple-50 to-violet-50 group cursor-pointer h-full">
+                  <CardContent className="p-4 lg:p-8 text-center flex flex-col h-full">
+                    <div className="bg-purple-100 w-12 h-12 lg:w-16 lg:h-16 rounded-full flex items-center justify-center mx-auto mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <File className="w-6 h-6 lg:w-8 lg:h-8 text-purple-600" />
+                    </div>
+                    <h3 className="text-lg lg:text-xl font-bold text-gray-800 mb-2 lg:mb-3">Contrato Modelo</h3>
+                    <p className="text-gray-600 mb-4 lg:mb-6 text-xs lg:text-sm flex-grow">
+                      Plantilla de contrato estándar para servicios turísticos y reservas
+                    </p>
+                    <Button 
+                      onClick={() => handleAdminDownload('Contrato Modelo')}
+                      className="w-full bg-purple-500 hover:bg-purple-600 text-white transition-all duration-300 text-sm lg:text-base"
+                      size="sm"
                     >
                       <Download className="w-3 h-3 lg:w-4 lg:h-4 mr-1 lg:mr-2" />
                       Descargar
@@ -428,7 +461,7 @@ function PackageGrid({
         const Icon = transportType === 'bus' ? Bus : Plane
         
         // Procesar fechas disponibles
-        const availableDates = pkg.available_dates || []
+        const availableDates = pkg.available_dates ? pkg.available_dates.split(',').map(date => date.trim()) : []
         const showExpandButton = availableDates.length > 2
         const isExpanded = expandedDates[pkg.id] || false
         const datesToShow = isExpanded ? availableDates : availableDates.slice(0, 2)
@@ -444,9 +477,9 @@ function PackageGrid({
             <Card className="h-full flex flex-col overflow-hidden group hover:shadow-2xl transition-all duration-500 border-0 shadow-lg bg-white hover:-translate-y-2">
               {/* Imagen con overlays */}
               <div className="relative h-48 overflow-hidden">
-                {pkg.image_url ? (
+                {pkg.main_image_url ? (
                   <img 
-                    src={pkg.image_url} 
+                    src={pkg.main_image_url} 
                     alt={pkg.name}
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
@@ -488,7 +521,7 @@ function PackageGrid({
                   </p>
                 </div>
 
-                {/* Información básica del paquete */}
+                {/* Información del paquete - con altura mínima fija */}
                 <div className="space-y-3 mb-6 flex-1">
                   {/* Duración */}
                   {pkg.duration && (
@@ -498,6 +531,17 @@ function PackageGrid({
                     </div>
                   )}
                   
+                  {/* Tamaño del grupo */}
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Users className="w-4 h-4 text-green-500" />
+                    <span>
+                      {pkg.max_group_size 
+                        ? `Máximo ${pkg.max_group_size} personas`
+                        : 'Sin máximo de personas'
+                      }
+                    </span>
+                  </div>
+
                   {/* Destino */}
                   {pkg.destinations && (
                     <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -515,7 +559,7 @@ function PackageGrid({
                           <span className="font-medium">Fechas disponibles:</span>
                         </div>
                         <div className="ml-6 space-y-1">
-                          {datesToShow.map((date: string, idx: number) => (
+                          {datesToShow.map((date, idx) => (
                             <p key={idx} className="text-sm text-gray-600">• {date}</p>
                           ))}
                           {showExpandButton && (
@@ -547,7 +591,6 @@ function PackageGrid({
                       </div>
                     )}
                   </div>
-
                 </div>
 
                 {/* Botones de descarga - siempre al final */}
@@ -600,6 +643,54 @@ function PackageGrid({
           </motion.div>
         )
       })}
+    </div>
+  )
+}
+                      onClick={() => onDownloadPDF(pkg.flyer_pdf_url!, `${pkg.name} - Flyer`, pkg.id, 'flyer')}
+                      className={`w-full text-white transition-all duration-300 transform hover:scale-105 shadow-lg text-sm md:text-base ${
+                        pkg.transport_type === 'bus'
+                          ? 'bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600'
+                          : 'bg-gradient-to-r from-violet-400 to-violet-500 hover:from-violet-500 hover:to-violet-600'
+                      }`}
+                      size="sm"
+                    >
+                      <Download className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                      <span className="hidden sm:inline">Descargar </span>Flyer
+                    </Button>
+                  )}
+
+                  {/* Piezas Redes PDF */}
+                  {pkg.piezas_redes_pdf_url && (
+                    <Button
+                      onClick={() => onDownloadPDF(pkg.piezas_redes_pdf_url!, `${pkg.name} - Piezas Redes`, pkg.id, 'piezas_redes')}
+                      className={`w-full text-white transition-all duration-300 transform hover:scale-105 shadow-lg text-sm md:text-base ${
+                        pkg.transport_type === 'bus'
+                          ? 'bg-gradient-to-r from-red-300 to-red-400 hover:from-red-400 hover:to-red-500'
+                          : 'bg-gradient-to-r from-violet-300 to-violet-400 hover:from-violet-400 hover:to-violet-500'
+                      }`}
+                      size="sm"
+                    >
+                      <Download className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                      <span className="hidden sm:inline">Descargar </span>Piezas Redes
+                    </Button>
+                  )}
+
+                  {/* Package Details Button */}
+                  <Button
+                    onClick={() => router.push(`/paquete/${pkg.id}`)}
+                    variant="outline"
+                    className="w-full text-gray-600 hover:text-primary hover:bg-primary/5 transition-all duration-300 border-2 border-gray-200 hover:border-primary text-sm md:text-base"
+                    size="sm"
+                  >
+                    <Eye className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+                    Ver Paquete Comercial
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      ))}
     </div>
   )
 }
