@@ -22,8 +22,16 @@ export interface TravelPackage {
   transport_type?: "aereo" | "bus" | "crucero"
   servicios_incluidos?: string[] | null
   servicios_adicionales?: string[] | null
+  tarifario_pdf_url?: string | null
+  flyer_pdf_url?: string | null
+  piezas_redes_pdf_url?: string | null
   created_at: string
   updated_at: string
+  destinations?: {
+    id: number
+    name: string
+    code: string
+  }
 }
 
 export interface Accommodation {
@@ -78,6 +86,28 @@ export interface SiteConfig {
   config_key: string
   config_value: string
   description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Agency {
+  id: number
+  razon_social: string
+  cuit: string
+  numero_legajo: string
+  nombre_fantasia: string
+  telefono_contacto_1: string // obligatorio
+  telefono_contacto_2?: string | null
+  telefono_contacto_3?: string | null
+  domicilio: string
+  ciudad: string
+  provincia: string
+  pais: string
+  email_contacto_1: string // obligatorio
+  email_contacto_2?: string | null
+  email_administracion: string
+  password: string
+  status: "pending" | "approved" | "rejected"
   created_at: string
   updated_at: string
 }
@@ -586,4 +616,505 @@ export const accommodationRateService = {
 
     if (error) throw error
   },
+}
+
+// Servicios para agencias
+export const agencyService = {
+  // Registrar nueva agencia
+  async registerAgency(agencyData: Omit<Agency, 'id' | 'created_at' | 'updated_at' | 'status'>) {
+    try {
+      console.log('Registrando agencia con datos:', agencyData)
+      
+      // Hash de la contraseña usando una función simple (en producción usar bcrypt o similar)
+      const hashedPassword = await hashPassword(agencyData.password)
+      console.log('Password hasheado exitosamente')
+      
+      const insertData = {
+        ...agencyData,
+        password: hashedPassword,
+        status: 'pending' as const,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      
+      console.log('Datos a insertar:', insertData)
+      
+      const { data, error } = await supabase
+        .from("agencies")
+        .insert([insertData])
+        .select()
+
+      if (error) {
+        console.error('Error de Supabase details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          fullError: error
+        })
+        throw new Error(`Error de base de datos: ${error.message || 'Error desconocido'}`)
+      }
+      
+      console.log('Agencia insertada exitosamente:', data)
+      return data[0]
+    } catch (error) {
+      console.error('Error en registerAgency:', error)
+      throw error
+    }
+  },
+
+  // Obtener agencia por email y validar contraseña
+  async validateAgencyLogin(email: string, password: string) {
+    try {
+      // Primero buscar la agencia sin filtrar por status
+      const { data, error } = await supabase
+        .from("agencies")
+        .select("*")
+        .eq("email_contacto_1", email)
+        .single()
+
+      if (error && error.code === 'PGRST116') {
+        // No se encontró ninguna agencia con ese email
+        return { success: false, message: 'No existe una agencia registrada con este email' }
+      }
+      
+      if (error) throw error
+      if (!data) return { success: false, message: 'No existe una agencia registrada con este email' }
+
+      // Verificar el estado de la agencia
+      if (data.status === 'pending') {
+        return { success: false, message: 'Su solicitud de registro está siendo revisada por el administrador. Le notificaremos por email cuando sea aprobada.' }
+      }
+      
+      if (data.status === 'rejected') {
+        return { success: false, message: 'Su solicitud de registro fue rechazada. Contacte al administrador para más información.' }
+      }
+
+      // Si la agencia no tiene contraseña guardada (agencias antiguas), retornar null
+      if (!data.password) {
+        console.error('Agency does not have password set:', data.email_contacto_1)
+        return { success: false, message: 'Error de configuración de cuenta. Contacte al administrador.' }
+      }
+
+      // Validar contraseña
+      const isPasswordValid = await verifyPassword(password, data.password)
+      if (!isPasswordValid) {
+        return { success: false, message: 'Contraseña incorrecta' }
+      }
+
+      // Login exitoso
+      return { success: true, agency: data }
+      
+    } catch (error) {
+      console.error('Error in validateAgencyLogin:', error)
+      return { success: false, message: 'Error interno del servidor. Intente nuevamente.' }
+    }
+  },
+
+  // Obtener agencia por email
+  async getAgencyByEmail(email: string) {
+    const { data, error } = await supabase
+      .from("agencies")
+      .select("*")
+      .eq("email_contacto_1", email)
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error
+    return data
+  },
+
+  // Obtener paquetes con PDF para agencias
+  async getPackagesWithPDF() {
+    const { data, error } = await supabase
+      .from("travel_packages")
+      .select(`
+        *,
+        destinations (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("is_active", true)
+      .or("tarifario_pdf_url.not.is.null,flyer_pdf_url.not.is.null,piezas_redes_pdf_url.not.is.null")
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Obtener todas las solicitudes de agencias (para admin)
+  async getAllAgencies() {
+    const { data, error } = await supabase
+      .from("agencies")
+      .select("*")
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Aprobar/rechazar agencia (para admin)
+  async updateAgencyStatus(id: number, status: 'approved' | 'rejected') {
+    const { data, error } = await supabase
+      .from("agencies")
+      .update({ 
+        status,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  }
+}
+
+// Funciones auxiliares para manejo de contraseñas
+export const hashPassword = async (password: string): Promise<string> => {
+  // En una implementación de producción, usar bcrypt o similar
+  // Por ahora usamos una función hash simple
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password + 'salt_secret_key')
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  return hashHex
+}
+
+export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
+  const hashedInput = await hashPassword(password)
+  return hashedInput === hash
+}
+
+// Tipos para archivos (expandido para incluir todo tipo de archivos)
+export type FileType = 'tarifario' | 'flyer' | 'piezas_redes'
+export type PDFType = 'tarifario' | 'flyer' | 'piezas_redes' // Mantenemos para compatibilidad
+
+export interface FileUploadResult {
+  success: boolean
+  url?: string
+  error?: string
+  fileName?: string
+  fileSize?: number
+  fileType?: string
+}
+
+// Servicio para manejo de PDFs en Supabase Storage
+export const pdfService = {
+  // Subir un PDF específico para un paquete
+  async uploadPDF(packageId: number, pdfType: PDFType, file: File): Promise<FileUploadResult> {
+    try {
+      console.log('🔧 Iniciando upload PDF:', { packageId, pdfType, fileName: file.name, fileSize: file.size, fileType: file.type })
+      
+      // Validar archivo - ahora permite múltiples tipos
+      const allowedTypes = [
+        // PDFs
+        'application/pdf',
+        // Imágenes
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+        // Documentos
+        'application/msword', // .doc
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-powerpoint', // .ppt
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+        'text/plain', // .txt
+        'text/csv', // .csv
+        // Videos
+        'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo',
+        // Audio
+        'audio/mpeg', 'audio/wav', 'audio/mp3',
+        // Archivos comprimidos
+        'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed'
+      ]
+
+      if (!allowedTypes.includes(file.type)) {
+        console.error('❌ Tipo de archivo no permitido:', file.type)
+        return { 
+          success: false, 
+          error: `Tipo de archivo no permitido: ${file.type}. Tipos permitidos: PDF, imágenes, documentos, videos, audio y archivos comprimidos.` 
+        }
+      }
+
+      // Aumentar límite de tamaño a 100MB para otros tipos de archivo
+      const maxSize = file.type.startsWith('video/') ? 200 * 1024 * 1024 : 100 * 1024 * 1024 // 200MB para videos, 100MB para otros
+      if (file.size > maxSize) {
+        console.error('❌ Archivo muy grande:', file.size)
+        const maxSizeMB = file.type.startsWith('video/') ? '200MB' : '100MB'
+        return { 
+          success: false, 
+          error: `El archivo es muy grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Tamaño máximo: ${maxSizeMB}` 
+        }
+      }
+
+      // Test básico de conectividad
+      console.log('� Probando conectividad con Supabase...')
+      const { data: testData, error: testError } = await supabase.storage.from('pdfs_expertos').list()
+      
+      if (testError) {
+        console.error('❌ Error de conectividad:', testError)
+        return { success: false, error: 'Error de conectividad: ' + testError.message }
+      }
+      
+      console.log('✅ Conectividad OK, archivos actuales:', testData?.length || 0)
+
+      // Definir ruta del archivo
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      console.log('📁 Ruta del archivo:', filePath)
+
+      // Test de upload simple
+      console.log('📤 Intentando upload...')
+      const { data, error } = await supabase.storage
+        .from('pdfs_expertos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        })
+
+      if (error) {
+        console.error('❌ Error en upload:', error)
+        console.error('❌ Error details:', {
+          message: error.message,
+          name: error.name
+        })
+        return { success: false, error: `Error de upload: ${error.message}` }
+      }
+      
+      console.log('✅ Archivo subido exitosamente:', data)
+
+      // Obtener URL pública/signed para descarga
+      let downloadUrl: string
+      
+      // Primero intentar URL pública
+      const { data: publicUrlData } = supabase.storage
+        .from('pdfs_expertos')
+        .getPublicUrl(filePath)
+      
+      downloadUrl = publicUrlData.publicUrl
+      console.log('🔗 URL pública generada:', downloadUrl)
+      
+      // Si el bucket no es público, usar signed URL
+      // Esto es útil si necesitas URLs temporales con expiración
+      /*
+      const { data: signedUrlData, error: signedError } = await supabase.storage
+        .from('pdfs_expertos')
+        .createSignedUrl(filePath, 3600) // 1 hora de expiración
+      
+      if (signedError) {
+        console.warn('⚠️ No se pudo crear signed URL, usando public URL:', signedError)
+      } else {
+        downloadUrl = signedUrlData.signedUrl
+        console.log('🔗 Signed URL generada:', downloadUrl)
+      }
+      */
+
+      return {
+        success: true,
+        url: downloadUrl
+      }
+    } catch (error) {
+      console.error('💥 Error uploading PDF:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      }
+    }
+  },
+
+  // Eliminar un PDF específico
+  async deletePDF(packageId: number, pdfType: PDFType): Promise<boolean> {
+    try {
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      const { error } = await supabase.storage
+        .from('pdfs_expertos')
+        .remove([filePath])
+
+      return !error
+    } catch (error) {
+      console.error('Error deleting PDF:', error)
+      return false
+    }
+  },
+
+  // Eliminar todos los PDFs de un paquete
+  async deleteAllPackagePDFs(packageId: number): Promise<boolean> {
+    try {
+      const files = ['tarifario.pdf', 'flyer.pdf', 'piezas_redes.pdf']
+      const filePaths = files.map(file => `packages/${packageId}/${file}`)
+
+      const { error } = await supabase.storage
+        .from('pdfs_expertos')
+        .remove(filePaths)
+
+      return !error
+    } catch (error) {
+      console.error('Error deleting package PDFs:', error)
+      return false
+    }
+  },
+
+  // Actualizar URL de PDF en la base de datos
+  async updatePDFUrl(packageId: number, pdfType: PDFType, url: string | null): Promise<boolean> {
+    try {
+      const updateData: Partial<TravelPackage> = {}
+      
+      switch (pdfType) {
+        case 'tarifario':
+          updateData.tarifario_pdf_url = url
+          break
+        case 'flyer':
+          updateData.flyer_pdf_url = url
+          break
+        case 'piezas_redes':
+          updateData.piezas_redes_pdf_url = url
+          break
+      }
+
+      const { error } = await supabase
+        .from('travel_packages')
+        .update(updateData)
+        .eq('id', packageId)
+
+      return !error
+    } catch (error) {
+      console.error('Error updating PDF URL:', error)
+      return false
+    }
+  },
+
+  // Función completa: upload + actualizar BD
+  async uploadAndUpdatePDF(packageId: number, pdfType: PDFType, file: File): Promise<FileUploadResult> {
+    const uploadResult = await this.uploadPDF(packageId, pdfType, file)
+    
+    if (uploadResult.success && uploadResult.url) {
+      const updateSuccess = await this.updatePDFUrl(packageId, pdfType, uploadResult.url)
+      
+      if (!updateSuccess) {
+        return {
+          success: false,
+          error: 'PDF subido pero no se pudo actualizar la base de datos'
+        }
+      }
+    }
+
+    return uploadResult
+  },
+
+  // Función para verificar si un PDF existe y es accesible
+  async verifyPDFAccess(packageId: number, pdfType: PDFType): Promise<boolean> {
+    try {
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      
+      // Verificar si el archivo existe
+      const { data, error } = await supabase.storage
+        .from('pdfs_expertos')
+        .list(`packages/${packageId}`, {
+          search: `${pdfType}.pdf`
+        })
+      
+      if (error) {
+        console.error('❌ Error verificando acceso al PDF:', error)
+        return false
+      }
+      
+      const fileExists = data && data.length > 0
+      console.log(`🔍 PDF ${pdfType} existe para paquete ${packageId}:`, fileExists)
+      
+      return fileExists
+    } catch (error) {
+      console.error('❌ Error en verificación de PDF:', error)
+      return false
+    }
+  },
+
+  // Función para generar URL de descarga (signed URL para mayor seguridad)
+  async getDownloadUrl(packageId: number, pdfType: PDFType): Promise<string | null> {
+    try {
+      const filePath = `packages/${packageId}/${pdfType}.pdf`
+      
+      // Intentar crear una signed URL para descarga segura
+      const { data, error } = await supabase.storage
+        .from('pdfs_expertos')
+        .createSignedUrl(filePath, 3600) // 1 hora de expiración
+      
+      if (error) {
+        console.error('❌ Error creando signed URL:', error)
+        
+        // Fallback a URL pública
+        const { data: publicData } = supabase.storage
+          .from('pdfs_expertos')
+          .getPublicUrl(filePath)
+        
+        console.log('🔄 Usando URL pública como fallback:', publicData.publicUrl)
+        return publicData.publicUrl
+      }
+      
+      console.log('✅ Signed URL creada:', data.signedUrl)
+      return data.signedUrl
+    } catch (error) {
+      console.error('❌ Error generando URL de descarga:', error)
+      return null
+    }
+  }
+}
+
+export const getFileIcon = (fileType: string, fileName?: string): string => {
+  // PDFs
+  if (fileType === 'application/pdf') return 'FileText'
+  
+  // Imágenes
+  if (fileType.startsWith('image/')) return 'Image'
+  
+  // Videos
+  if (fileType.startsWith('video/')) return 'Video'
+  
+  // Audio
+  if (fileType.startsWith('audio/')) return 'Music'
+  
+  // Documentos de texto
+  if (fileType === 'text/plain' || 
+      fileType === 'application/msword' || 
+      fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+    return 'FileText'
+  }
+  
+  // Hojas de cálculo
+  if (fileType === 'application/vnd.ms-excel' || 
+      fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      fileType === 'text/csv') {
+    return 'Sheet'
+  }
+  
+  // Presentaciones
+  if (fileType === 'application/vnd.ms-powerpoint' || 
+      fileType === 'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+    return 'Presentation'
+  }
+  
+  // Archivos comprimidos
+  if (fileType === 'application/zip' || 
+      fileType === 'application/x-rar-compressed' || 
+      fileType === 'application/x-7z-compressed') {
+    return 'Archive'
+  }
+  
+  // Por defecto
+  return 'File'
+}
+
+export const getFileTypeLabel = (fileType: string): string => {
+  if (fileType === 'application/pdf') return 'PDF'
+  if (fileType.startsWith('image/')) return 'Imagen'
+  if (fileType.startsWith('video/')) return 'Video'
+  if (fileType.startsWith('audio/')) return 'Audio'
+  if (fileType === 'text/plain') return 'Texto'
+  if (fileType === 'text/csv') return 'CSV'
+  if (fileType.includes('word')) return 'Word'
+  if (fileType.includes('excel')) return 'Excel'
+  if (fileType.includes('powerpoint')) return 'PowerPoint'
+  if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('7z')) return 'Comprimido'
+  
+  return 'Archivo'
 }

@@ -10,16 +10,17 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign } from "lucide-react"
-import { supabase, packageService } from "@/lib/supabase"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users } from "lucide-react"
+import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
 import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
-import type { TravelPackage, Destination } from "@/lib/supabase"
+import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
 
 export function AdminDashboardSimple() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [destinations, setDestinations] = useState<Destination[]>([])
+  const [agencies, setAgencies] = useState<Agency[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState<number | null>(null)
@@ -28,6 +29,21 @@ export function AdminDashboardSimple() {
   const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
   const [isLoadingRates, setIsLoadingRates] = useState(false)
   const [editingAccommodation, setEditingAccommodation] = useState<number | null>(null)
+  const [isLoadingAgencies, setIsLoadingAgencies] = useState(false)
+  const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null)
+  const [isAgencyDetailOpen, setIsAgencyDetailOpen] = useState(false)
+  
+  // Estados para manejo de archivos
+  const [uploadingFiles, setUploadingFiles] = useState<Record<FileType, boolean>>({
+    tarifario: false,
+    flyer: false,
+    piezas_redes: false
+  })
+  const [selectedFiles, setSelectedFiles] = useState<Record<FileType, File | null>>({
+    tarifario: null,
+    flyer: null,
+    piezas_redes: null
+  })
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -100,6 +116,9 @@ export function AdminDashboardSimple() {
     available_dates: "",
     transport_type: "aereo" as "aereo" | "bus" | "crucero",
     image_url: "",
+    tarifario_pdf_url: "",
+    flyer_pdf_url: "",
+    piezas_redes_pdf_url: "",
     is_special: false,
     servicios_incluidos: "",
     servicios_adicionales: "",
@@ -157,11 +176,86 @@ export function AdminDashboardSimple() {
 
       if (destinationsError) throw destinationsError
       setDestinations(destinationsData || [])
+
+      // Load agencies
+      try {
+        const agenciesData = await agencyService.getAllAgencies()
+        setAgencies(agenciesData || [])
+      } catch (error) {
+        console.warn("Error loading agencies:", error)
+        setAgencies([])
+      }
     } catch (error) {
       console.error("Error loading data:", error)
       alert("Error al cargar los datos. Verifica la conexión con Supabase.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Funciones para manejar archivos
+  const handleFileChange = (fileType: FileType, file: File | null) => {
+    setSelectedFiles(prev => ({
+      ...prev,
+      [fileType]: file
+    }))
+  }
+
+  const handleFileUpload = async (packageId: number, fileType: FileType) => {
+    const file = selectedFiles[fileType]
+    if (!file) return
+
+    setUploadingFiles(prev => ({ ...prev, [fileType]: true }))
+
+    try {
+      const result = await pdfService.uploadAndUpdatePDF(packageId, fileType, file)
+      
+      if (result.success) {
+        // Actualizar el estado local del formData
+        setFormData(prev => ({
+          ...prev,
+          [`${fileType}_pdf_url`]: result.url || ""
+        }))
+        
+        // Recargar packages para reflejar cambios
+        await loadData()
+        
+        alert(`${getFileTypeLabel(file.type)} subido exitosamente`)
+      } else {
+        alert(`Error subiendo archivo: ${result.error}`)
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error)
+      alert(`Error subiendo archivo`)
+    } finally {
+      setUploadingFiles(prev => ({ ...prev, [fileType]: false }))
+      // Limpiar el archivo seleccionado
+      setSelectedFiles(prev => ({ ...prev, [fileType]: null }))
+    }
+  }
+
+  const handleFileDelete = async (packageId: number, fileType: FileType) => {
+    if (!confirm(`¿Estás seguro de que quieres eliminar este archivo?`)) return
+
+    try {
+      const success = await pdfService.deletePDF(packageId, fileType)
+      if (success) {
+        await pdfService.updatePDFUrl(packageId, fileType, null)
+        
+        // Actualizar estado local
+        setFormData(prev => ({
+          ...prev,
+          [`${fileType}_pdf_url`]: ""
+        }))
+        
+        await loadData()
+        alert(`Archivo eliminado exitosamente`)
+      } else {
+        alert(`Error eliminando archivo`)
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error)
+      alert(`Error eliminando archivo`)
     }
   }
 
@@ -179,6 +273,9 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
+      tarifario_pdf_url: "",
+      flyer_pdf_url: "",
+      piezas_redes_pdf_url: "",
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
@@ -198,6 +295,9 @@ export function AdminDashboardSimple() {
       available_dates: pkg.available_dates?.join(", ") || "",
       transport_type: pkg.transport_type || "aereo",
       image_url: pkg.image_url || "",
+      tarifario_pdf_url: pkg.tarifario_pdf_url || "",
+      flyer_pdf_url: pkg.flyer_pdf_url || "",
+      piezas_redes_pdf_url: pkg.piezas_redes_pdf_url || "",
       is_special: pkg.is_special || false,
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
@@ -609,6 +709,9 @@ export function AdminDashboardSimple() {
         duration: formData.duration,
         available_dates: formData.available_dates.split(",").map((d) => d.trim()),
         image_url: formData.image_url || `/placeholder.svg?height=300&width=400&query=${encodeURIComponent(formData.name)}`,
+        tarifario_pdf_url: formData.tarifario_pdf_url || null,
+        flyer_pdf_url: formData.flyer_pdf_url || null,
+        piezas_redes_pdf_url: formData.piezas_redes_pdf_url || null,
         is_special: formData.is_special,
         servicios_incluidos: formData.servicios_incluidos 
           ? formData.servicios_incluidos.split(",").map((s) => s.trim()).filter(s => s.length > 0)
@@ -633,7 +736,15 @@ export function AdminDashboardSimple() {
           await saveAccommodationsForPackage(newPackage[0].id)
         }
         
-        alert("Paquete agregado exitosamente")
+        // Cambiar automáticamente al modo edición para permitir subir PDFs
+        if (newPackage && newPackage[0]) {
+          setIsAdding(false)
+          setIsEditing(newPackage[0].id)
+          await loadData()
+          alert("Paquete agregado exitosamente. Ahora puedes subir los PDFs.")
+        } else {
+          alert("Paquete agregado exitosamente")
+        }
       } else if (isEditing) {
         const { error } = await supabase.from("travel_packages").update(packageData).eq("id", isEditing)
         if (error) throw error
@@ -644,9 +755,8 @@ export function AdminDashboardSimple() {
         }
         
         alert("Paquete actualizado exitosamente")
+        await loadData()
       }
-
-      await loadData()
       handleCancel()
     } catch (error) {
       console.error("Error saving package:", error)
@@ -674,6 +784,9 @@ export function AdminDashboardSimple() {
       available_dates: "",
       transport_type: "aereo",
       image_url: "",
+      tarifario_pdf_url: "",
+      flyer_pdf_url: "",
+      piezas_redes_pdf_url: "",
       is_special: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
@@ -793,6 +906,66 @@ export function AdminDashboardSimple() {
     })
   }
 
+  // Funciones para gestión de agencias
+  const handleApproveAgency = async (id: number) => {
+    try {
+      setIsLoadingAgencies(true)
+      await agencyService.updateAgencyStatus(id, 'approved')
+      await loadData() // Recargar datos
+      alert('Agencia aprobada exitosamente')
+    } catch (error) {
+      console.error('Error al aprobar agencia:', error)
+      alert('Error al aprobar la agencia')
+    } finally {
+      setIsLoadingAgencies(false)
+    }
+  }
+
+  const handleRejectAgency = async (id: number) => {
+    if (confirm('¿Estás seguro de que quieres rechazar esta agencia?')) {
+      try {
+        setIsLoadingAgencies(true)
+        await agencyService.updateAgencyStatus(id, 'rejected')
+        await loadData() // Recargar datos
+        alert('Agencia rechazada')
+      } catch (error) {
+        console.error('Error al rechazar agencia:', error)
+        alert('Error al rechazar la agencia')
+      } finally {
+        setIsLoadingAgencies(false)
+      }
+    }
+  }
+
+  const handleViewAgencyDetail = (agency: Agency) => {
+    setSelectedAgency(agency)
+    setIsAgencyDetailOpen(true)
+  }
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      case 'pending':
+      default:
+        return 'bg-yellow-100 text-yellow-800'
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'Aprobada'
+      case 'rejected':
+        return 'Rechazada'
+      case 'pending':
+      default:
+        return 'Pendiente'
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -887,10 +1060,14 @@ export function AdminDashboardSimple() {
         {/* Tabs para diferentes secciones de administración */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Tabs defaultValue="packages" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="packages" className="flex items-center space-x-2">
                 <Package className="w-4 h-4" />
                 <span>Gestión de Paquetes</span>
+              </TabsTrigger>
+              <TabsTrigger value="agencies" className="flex items-center space-x-2">
+                <Users className="w-4 h-4" />
+                <span>Gestión de Agencias</span>
               </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center space-x-2">
                 <Settings className="w-4 h-4" />
@@ -1032,6 +1209,166 @@ export function AdminDashboardSimple() {
                             onChange={(e) => setFormData((prev) => ({ ...prev, image_url: e.target.value }))}
                             placeholder="https://ejemplo.com/imagen.jpg (opcional)"
                           />
+                        </div>
+
+                        {/* PDFs para Agencias */}
+                        <div className="md:col-span-2">
+                          <h4 className="text-lg font-medium text-gray-900 mb-4">PDFs para Agencias</h4>
+                          <div className="space-y-4">
+                            
+                            {/* Tarifario PDF */}
+                            <div className="border rounded-lg p-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                📋 Tarifario PDF
+                              </label>
+                              <div className="flex gap-2 mb-2">
+                                <Input
+                                  type="file"
+                                  accept="*/*"
+                                  onChange={(e) => handleFileChange('tarifario', e.target.files?.[0] || null)}
+                                  className="flex-1"
+                                />
+                                {isEditing && (
+                                  <Button
+                                    type="button"
+                                    onClick={() => handleFileUpload(isEditing, 'tarifario')}
+                                    disabled={!selectedFiles.tarifario || uploadingFiles.tarifario}
+                                    size="sm"
+                                  >
+                                    {uploadingFiles.tarifario ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                                {isAdding && (
+                                  <Button
+                                    type="button"
+                                    disabled
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    Guardar paquete primero
+                                  </Button>
+                                )}
+                              </div>
+                              {formData.tarifario_pdf_url && (
+                                <div className="flex gap-2 items-center">
+                                  <span className="text-sm text-green-600">✓ PDF disponible</span>
+                                  {isEditing && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleFileDelete(isEditing, 'tarifario')}
+                                    >
+                                      Eliminar
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Flyer PDF */}
+                            <div className="border rounded-lg p-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                🎨 Flyer PDF
+                              </label>
+                              <div className="flex gap-2 mb-2">
+                                <Input
+                                  type="file"
+                                  accept="*/*"
+                                  onChange={(e) => handleFileChange('flyer', e.target.files?.[0] || null)}
+                                  className="flex-1"
+                                />
+                                {isEditing && (
+                                  <Button
+                                    type="button"
+                                    onClick={() => handleFileUpload(isEditing, 'flyer')}
+                                    disabled={!selectedFiles.flyer || uploadingFiles.flyer}
+                                    size="sm"
+                                  >
+                                    {uploadingFiles.flyer ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                                {isAdding && (
+                                  <Button
+                                    type="button"
+                                    disabled
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    Guardar paquete primero
+                                  </Button>
+                                )}
+                              </div>
+                              {formData.flyer_pdf_url && (
+                                <div className="flex gap-2 items-center">
+                                  <span className="text-sm text-green-600">✓ PDF disponible</span>
+                                  {isEditing && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleFileDelete(isEditing, 'flyer')}
+                                    >
+                                      Eliminar
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Piezas Redes PDF */}
+                            <div className="border rounded-lg p-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                📱 Piezas para Redes Sociales PDF
+                              </label>
+                              <div className="flex gap-2 mb-2">
+                                <Input
+                                  type="file"
+                                  accept="*/*"
+                                  onChange={(e) => handleFileChange('piezas_redes', e.target.files?.[0] || null)}
+                                  className="flex-1"
+                                />
+                                {isEditing && (
+                                  <Button
+                                    type="button"
+                                    onClick={() => handleFileUpload(isEditing, 'piezas_redes')}
+                                    disabled={!selectedFiles.piezas_redes || uploadingFiles.piezas_redes}
+                                    size="sm"
+                                  >
+                                    {uploadingFiles.piezas_redes ? "Subiendo..." : "Subir"}
+                                  </Button>
+                                )}
+                                {isAdding && (
+                                  <Button
+                                    type="button"
+                                    disabled
+                                    size="sm"
+                                    variant="outline"
+                                  >
+                                    Guardar paquete primero
+                                  </Button>
+                                )}
+                              </div>
+                              {formData.piezas_redes_pdf_url && (
+                                <div className="flex gap-2 items-center">
+                                  <span className="text-sm text-green-600">✓ PDF disponible</span>
+                                  {isEditing && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => handleFileDelete(isEditing, 'piezas_redes')}
+                                    >
+                                      Eliminar
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Los PDFs subidos estarán disponibles para las agencias autenticadas
+                          </p>
                         </div>
                         <div className="md:col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1442,12 +1779,321 @@ export function AdminDashboardSimple() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="agencies">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Gestión de Agencias</CardTitle>
+                  <p className="text-sm text-gray-600">
+                    Administra las solicitudes de registro de agencias. Aprueba o rechaza el acceso al módulo especial.
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingAgencies ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-gray-600">Cargando agencias...</p>
+                    </div>
+                  ) : agencies.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <p className="text-gray-600">No hay agencias registradas</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {agencies.map((agency) => (
+                        <motion.div
+                          key={agency.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="border rounded-lg p-4 bg-white shadow-sm"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1 space-y-4">
+                              <div className="flex items-center gap-4 mb-2">
+                                <h3 className="font-semibold text-lg">{agency.razon_social}</h3>
+                                <Badge className={getStatusBadgeVariant(agency.status)}>
+                                  {getStatusText(agency.status)}
+                                </Badge>
+                              </div>
+                              
+                              {/* Información Legal */}
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Información Legal</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                  <div><strong>Razón Social:</strong> {agency.razon_social}</div>
+                                  <div><strong>Nombre de Fantasía:</strong> {agency.nombre_fantasia}</div>
+                                  <div><strong>CUIT:</strong> {agency.cuit}</div>
+                                  <div><strong>N° Legajo:</strong> {agency.numero_legajo}</div>
+                                </div>
+                              </div>
+
+                              {/* Información de Contacto */}
+                              <div className="bg-blue-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Información de Contacto</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                  <div><strong>Teléfono Principal:</strong> {agency.telefono_contacto_1}</div>
+                                  {agency.telefono_contacto_2 && (
+                                    <div><strong>Teléfono 2:</strong> {agency.telefono_contacto_2}</div>
+                                  )}
+                                  {agency.telefono_contacto_3 && (
+                                    <div><strong>Teléfono 3:</strong> {agency.telefono_contacto_3}</div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Información de Domicilio */}
+                              <div className="bg-green-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Domicilio</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                  <div className="md:col-span-2"><strong>Dirección:</strong> {agency.domicilio}</div>
+                                  <div><strong>Ciudad:</strong> {agency.ciudad}</div>
+                                  <div><strong>Provincia:</strong> {agency.provincia}</div>
+                                  <div><strong>País:</strong> {agency.pais}</div>
+                                </div>
+                              </div>
+
+                              {/* Información de Emails */}
+                              <div className="bg-purple-50 p-3 rounded-lg">
+                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Correos Electrónicos</h4>
+                                <div className="grid grid-cols-1 gap-2 text-sm">
+                                  <div><strong>Email Principal:</strong> {agency.email_contacto_1}</div>
+                                  {agency.email_contacto_2 && (
+                                    <div><strong>Email Secundario:</strong> {agency.email_contacto_2}</div>
+                                  )}
+                                  <div><strong>Email Administración:</strong> {agency.email_administracion}</div>
+                                </div>
+                              </div>
+
+                              <div className="text-sm text-gray-600">
+                                <p><strong>Fecha de solicitud:</strong> {new Date(agency.created_at).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            
+                            {agency.status === 'pending' && (
+                              <div className="flex flex-col gap-2 ml-4">
+                                <Button
+                                  onClick={() => handleViewAgencyDetail(agency)}
+                                  variant="outline"
+                                  size="sm"
+                                  className="mb-2"
+                                >
+                                  Ver Detalle
+                                </Button>
+                                <Button
+                                  onClick={() => handleApproveAgency(agency.id)}
+                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  size="sm"
+                                  disabled={isLoadingAgencies}
+                                >
+                                  Aprobar
+                                </Button>
+                                <Button
+                                  onClick={() => handleRejectAgency(agency.id)}
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={isLoadingAgencies}
+                                >
+                                  Rechazar
+                                </Button>
+                              </div>
+                            )}
+                            
+                            {agency.status !== 'pending' && (
+                              <div className="ml-4">
+                                <Button
+                                  onClick={() => handleViewAgencyDetail(agency)}
+                                  variant="outline"
+                                  size="sm"
+                                >
+                                  Ver Detalle
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="config">
               <SiteConfigManager />
             </TabsContent>
           </Tabs>
         </motion.div>
       </div>
+
+      {/* Modal de Detalle de Agencia */}
+      <Dialog open={isAgencyDetailOpen} onOpenChange={setIsAgencyDetailOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Detalle de Agencia - {selectedAgency?.razon_social}
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedAgency && (
+            <div className="space-y-6">
+              {/* Estado de la Agencia */}
+              <div className="flex items-center gap-4 pb-4 border-b">
+                <Badge className={getStatusBadgeVariant(selectedAgency.status)}>
+                  {getStatusText(selectedAgency.status)}
+                </Badge>
+                <span className="text-sm text-gray-600">
+                  Registrada el {new Date(selectedAgency.created_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Información Legal */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Información Legal</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Razón Social</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.razon_social}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Nombre de Fantasía</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.nombre_fantasia}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">CUIT</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.cuit}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Número de Legajo</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.numero_legajo}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de Contacto */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Información de Contacto</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Teléfono Principal</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.telefono_contacto_1}
+                    </p>
+                  </div>
+                  {selectedAgency.telefono_contacto_2 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-600">Teléfono Secundario</label>
+                      <p className="text-sm bg-white p-2 rounded border">
+                        {selectedAgency.telefono_contacto_2}
+                      </p>
+                    </div>
+                  )}
+                  {selectedAgency.telefono_contacto_3 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-600">Teléfono Terciario</label>
+                      <p className="text-sm bg-white p-2 rounded border">
+                        {selectedAgency.telefono_contacto_3}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Información de Domicilio */}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Domicilio</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2 md:col-span-2">
+                    <label className="text-sm font-medium text-gray-600">Dirección</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.domicilio}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Ciudad</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.ciudad}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Provincia</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.provincia}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">País</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.pais}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Información de Emails */}
+              <div className="bg-purple-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-lg mb-3 text-gray-800">Correos Electrónicos</h3>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Email Principal</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.email_contacto_1}
+                    </p>
+                  </div>
+                  {selectedAgency.email_contacto_2 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-600">Email Secundario</label>
+                      <p className="text-sm bg-white p-2 rounded border">
+                        {selectedAgency.email_contacto_2}
+                      </p>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-600">Email Administración</label>
+                    <p className="text-sm bg-white p-2 rounded border">
+                      {selectedAgency.email_administracion}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Acciones de Administración */}
+              {selectedAgency.status === 'pending' && (
+                <div className="flex gap-4 pt-4 border-t">
+                  <Button
+                    onClick={() => {
+                      handleApproveAgency(selectedAgency.id)
+                      setIsAgencyDetailOpen(false)
+                    }}
+                    className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                    disabled={isLoadingAgencies}
+                  >
+                    Aprobar Agencia
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      handleRejectAgency(selectedAgency.id)
+                      setIsAgencyDetailOpen(false)
+                    }}
+                    variant="destructive"
+                    className="flex-1"
+                    disabled={isLoadingAgencies}
+                  >
+                    Rechazar Agencia
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Tarifas */}
       {showRatesModal && selectedAccommodationForRates && (
