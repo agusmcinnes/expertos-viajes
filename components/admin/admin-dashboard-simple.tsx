@@ -121,6 +121,7 @@ export function AdminDashboardSimple() {
     piezas_redes_pdf_url: "",
     is_special: false,
     is_featured: false,
+    priority_order: "0",
     servicios_incluidos: "",
     servicios_adicionales: "",
     max_group_size: "",
@@ -159,12 +160,13 @@ export function AdminDashboardSimple() {
       } else {
         console.log("📦 Paquetes cargados:", packagesData?.length || 0)
         console.log("📦 IDs de paquetes:", packagesData?.map(p => p.id) || [])
-        // Add transport_type if missing and set default is_special and is_featured
+        // Add transport_type if missing and set default is_special, is_featured, and priority_order
         const packagesWithTransport = (packagesData || []).map((pkg: any) => ({
           ...pkg,
           transport_type: pkg.transport_type || "aereo",
           is_special: pkg.is_special || false,
           is_featured: pkg.is_featured || false,
+          priority_order: pkg.priority_order || 0,
         }))
         setPackages(packagesWithTransport)
         console.log("✅ Paquetes procesados y guardados en estado");
@@ -280,6 +282,7 @@ export function AdminDashboardSimple() {
       piezas_redes_pdf_url: "",
       is_special: false,
       is_featured: false,
+      priority_order: "0",
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
@@ -303,6 +306,7 @@ export function AdminDashboardSimple() {
       piezas_redes_pdf_url: pkg.piezas_redes_pdf_url || "",
       is_special: pkg.is_special || false,
       is_featured: pkg.is_featured || false,
+      priority_order: pkg.priority_order?.toString() || "0",
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
       max_group_size: (pkg as any).max_group_size?.toString() || "",
@@ -718,6 +722,7 @@ export function AdminDashboardSimple() {
         piezas_redes_pdf_url: formData.piezas_redes_pdf_url || null,
         is_special: formData.is_special,
         is_featured: formData.is_featured,
+        priority_order: formData.priority_order ? Number.parseInt(formData.priority_order) : 0,
         servicios_incluidos: formData.servicios_incluidos 
           ? formData.servicios_incluidos.split(",").map((s) => s.trim()).filter(s => s.length > 0)
           : null,
@@ -794,6 +799,7 @@ export function AdminDashboardSimple() {
       piezas_redes_pdf_url: "",
       is_special: false,
       is_featured: false,
+      priority_order: "0",
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
@@ -1445,6 +1451,22 @@ export function AdminDashboardSimple() {
                             Si se deja en blanco, no habrá límite máximo para el grupo
                           </p>
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Prioridad de Ordenamiento
+                          </label>
+                          <Input
+                            type="number"
+                            value={formData.priority_order}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, priority_order: e.target.value }))}
+                            placeholder="0"
+                            min="0"
+                            max="9999"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Mayor número = mayor prioridad (se muestra primero). 0 = sin prioridad especial
+                          </p>
+                        </div>
 
                         {/* Sección de Alojamientos */}
                         {showAccommodations && (
@@ -1738,6 +1760,9 @@ export function AdminDashboardSimple() {
                               )}
                               {pkg.is_featured && (
                                 <Badge className="bg-yellow-100 text-yellow-800">Destacado</Badge>
+                              )}
+                              {pkg.priority_order > 0 && (
+                                <Badge className="bg-blue-100 text-blue-800">Prioridad: {pkg.priority_order}</Badge>
                               )}
                             </div>
                             <p className="text-gray-600 mb-2">{pkg.description}</p>
