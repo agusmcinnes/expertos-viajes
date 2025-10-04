@@ -19,6 +19,8 @@ export interface TravelPackage {
   max_group_size?: number | null
   is_active: boolean
   is_special: boolean
+  is_featured: boolean
+  priority_order: number
   transport_type?: "aereo" | "bus" | "crucero"
   servicios_incluidos?: string[] | null
   servicios_adicionales?: string[] | null
@@ -127,6 +129,7 @@ export const packageService = {
         )
       `)
       .eq("is_active", true)
+      .order("priority_order", { ascending: false })
       .order("created_at", { ascending: false })
 
     if (error) throw error
@@ -158,6 +161,8 @@ export const packageService = {
     }
 
     const { data, error } = await query
+      .order("priority_order", { ascending: false })
+      .order("created_at", { ascending: false })
 
     if (error) throw error
     return data
@@ -178,6 +183,7 @@ export const packageService = {
         `)
         .eq("transport_type", transportType)
         .eq("is_active", true)
+        .order("priority_order", { ascending: false })
         .order("created_at", { ascending: false })
 
       if (error) {
@@ -200,6 +206,7 @@ export const packageService = {
                 )
               `)
               .eq("is_active", true)
+              .order("priority_order", { ascending: false })
               .order("created_at", { ascending: false })
 
             if (allError) throw allError
@@ -226,6 +233,7 @@ export const packageService = {
             )
           `)
           .eq("is_active", true)
+          .order("priority_order", { ascending: false })
           .order("created_at", { ascending: false })
 
         if (fallbackError) throw fallbackError
@@ -375,6 +383,28 @@ export const packageService = {
       `)
       .eq("is_active", true)
       .eq("is_special", true)
+      .order("priority_order", { ascending: false })
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Obtener paquetes destacados
+  async getFeaturedPackages() {
+    const { data, error } = await supabase
+      .from("travel_packages")
+      .select(`
+        *,
+        destinations (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("is_active", true)
+      .eq("is_featured", true)
+      .order("priority_order", { ascending: false })
       .order("created_at", { ascending: false })
 
     if (error) throw error
