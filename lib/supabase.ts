@@ -19,6 +19,7 @@ export interface TravelPackage {
   max_group_size?: number | null
   is_active: boolean
   is_special: boolean
+  is_featured: boolean
   transport_type?: "aereo" | "bus" | "crucero"
   servicios_incluidos?: string[] | null
   servicios_adicionales?: string[] | null
@@ -375,6 +376,26 @@ export const packageService = {
       `)
       .eq("is_active", true)
       .eq("is_special", true)
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data
+  },
+
+  // Obtener paquetes destacados
+  async getFeaturedPackages() {
+    const { data, error } = await supabase
+      .from("travel_packages")
+      .select(`
+        *,
+        destinations (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("is_active", true)
+      .eq("is_featured", true)
       .order("created_at", { ascending: false })
 
     if (error) throw error

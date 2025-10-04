@@ -10,40 +10,32 @@ import Link from "next/link"
 import { PackageCard } from "@/components/package-card"
 
 export function DestinationsSectionDynamic() {
-  const [activeDestination, setActiveDestination] = useState("argentina")
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     loadDestinations()
+    loadFeaturedPackages() // Cargar paquetes destacados al inicio
   }, [])
-
-  useEffect(() => {
-    if (activeDestination) {
-      loadPackagesByDestination(activeDestination)
-    }
-  }, [activeDestination])
 
   const loadDestinations = async () => {
     try {
       const data = await destinationService.getAllDestinations()
       setDestinations(data)
-      if (data.length > 0) {
-        setActiveDestination(data[0].code)
-      }
+      // NO preseleccionar ningún destino
     } catch (error) {
       console.error("Error loading destinations:", error)
     }
   }
 
-  const loadPackagesByDestination = async (destinationCode: string) => {
+  const loadFeaturedPackages = async () => {
     try {
       setIsLoading(true)
-      const data = await packageService.getPackagesByDestination(destinationCode)
+      const data = await packageService.getFeaturedPackages()
       setPackages(data)
     } catch (error) {
-      console.error("Error loading packages:", error)
+      console.error("Error loading featured packages:", error)
       setPackages([])
     } finally {
       setIsLoading(false)
@@ -75,21 +67,24 @@ export function DestinationsSectionDynamic() {
             className="text-center mb-16"
           >
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
-              Destinos <span className="text-primary">Destacados</span>
+              Paquetes <span className="text-primary">Destacados</span>
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Desde aventuras locales hasta experiencias exóticas, tenemos el viaje perfecto para vos. Explorá nuestros
-              destinos más populares y encontrá tu próxima aventura.
+              Descubrí nuestros paquetes más populares, cuidadosamente seleccionados para ofrecerte las mejores experiencias de viaje.
             </p>
           </motion.div>
 
-          {/* Destination Tabs */}
+          {/* Destination Navigation Links */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="flex flex-wrap justify-center gap-4 mb-12"
+            className="mb-8"
           >
+            <p className="text-center text-gray-600 mb-6">
+              Explorá nuestros destinos disponibles:
+            </p>
+            <div className="flex flex-wrap justify-center gap-4 mb-12">
             {destinations.map((destination, index) => (
               <motion.div
                 key={destination.id}
@@ -100,12 +95,8 @@ export function DestinationsSectionDynamic() {
               >
                 <Button
                   asChild
-                  variant={activeDestination === destination.code ? "default" : "outline"}
-                  className={`px-6 py-3 text-lg transition-all duration-300 ${
-                    activeDestination === destination.code
-                      ? "bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white transform scale-105 shadow-lg"
-                      : "border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white hover:scale-105 shadow-lg hover:shadow-xl"
-                  }`}
+                  variant="outline"
+                  className="px-6 py-3 text-lg transition-all duration-300 border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white hover:scale-105 shadow-lg hover:shadow-xl"
                 >
                   <Link href={`/destinos/${destination.code === "mediterráneo" ? "mediterraneo" : destination.code}`}>
                     {destination.name}
@@ -113,6 +104,7 @@ export function DestinationsSectionDynamic() {
                 </Button>
               </motion.div>
             ))}
+            </div>
           </motion.div>
 
           {/* Packages Grid */}

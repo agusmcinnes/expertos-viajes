@@ -120,6 +120,7 @@ export function AdminDashboardSimple() {
     flyer_pdf_url: "",
     piezas_redes_pdf_url: "",
     is_special: false,
+    is_featured: false,
     servicios_incluidos: "",
     servicios_adicionales: "",
     max_group_size: "",
@@ -158,11 +159,12 @@ export function AdminDashboardSimple() {
       } else {
         console.log("📦 Paquetes cargados:", packagesData?.length || 0)
         console.log("📦 IDs de paquetes:", packagesData?.map(p => p.id) || [])
-        // Add transport_type if missing and set default is_special
+        // Add transport_type if missing and set default is_special and is_featured
         const packagesWithTransport = (packagesData || []).map((pkg: any) => ({
           ...pkg,
           transport_type: pkg.transport_type || "aereo",
           is_special: pkg.is_special || false,
+          is_featured: pkg.is_featured || false,
         }))
         setPackages(packagesWithTransport)
         console.log("✅ Paquetes procesados y guardados en estado");
@@ -277,6 +279,7 @@ export function AdminDashboardSimple() {
       flyer_pdf_url: "",
       piezas_redes_pdf_url: "",
       is_special: false,
+      is_featured: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
@@ -299,6 +302,7 @@ export function AdminDashboardSimple() {
       flyer_pdf_url: pkg.flyer_pdf_url || "",
       piezas_redes_pdf_url: pkg.piezas_redes_pdf_url || "",
       is_special: pkg.is_special || false,
+      is_featured: pkg.is_featured || false,
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
       max_group_size: (pkg as any).max_group_size?.toString() || "",
@@ -713,6 +717,7 @@ export function AdminDashboardSimple() {
         flyer_pdf_url: formData.flyer_pdf_url || null,
         piezas_redes_pdf_url: formData.piezas_redes_pdf_url || null,
         is_special: formData.is_special,
+        is_featured: formData.is_featured,
         servicios_incluidos: formData.servicios_incluidos 
           ? formData.servicios_incluidos.split(",").map((s) => s.trim()).filter(s => s.length > 0)
           : null,
@@ -788,6 +793,7 @@ export function AdminDashboardSimple() {
       flyer_pdf_url: "",
       piezas_redes_pdf_url: "",
       is_special: false,
+      is_featured: false,
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
@@ -1392,7 +1398,7 @@ export function AdminDashboardSimple() {
                             rows={2}
                           />
                         </div>
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-2 space-y-4">
                           <div className="flex items-center space-x-2">
                             <Checkbox
                               id="is_special"
@@ -1406,6 +1412,21 @@ export function AdminDashboardSimple() {
                               className="text-sm font-medium text-gray-700 cursor-pointer"
                             >
                               Paquete de la sección especial
+                            </label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="is_featured"
+                              checked={formData.is_featured}
+                              onCheckedChange={(checked) => 
+                                setFormData((prev) => ({ ...prev, is_featured: checked as boolean }))
+                              }
+                            />
+                            <label
+                              htmlFor="is_featured"
+                              className="text-sm font-medium text-gray-700 cursor-pointer"
+                            >
+                              Paquete destacado (aparece en home)
                             </label>
                           </div>
                         </div>
@@ -1714,6 +1735,9 @@ export function AdminDashboardSimple() {
                               <Badge className="bg-green-100 text-green-800">${pkg.price}</Badge>
                               {pkg.is_special && (
                                 <Badge className="bg-purple-100 text-purple-800">Sección Especial</Badge>
+                              )}
+                              {pkg.is_featured && (
+                                <Badge className="bg-yellow-100 text-yellow-800">Destacado</Badge>
                               )}
                             </div>
                             <p className="text-gray-600 mb-2">{pkg.description}</p>

@@ -347,7 +347,7 @@ export function Header({ position = "fixed" }: HeaderProps) {
                 className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white bg-transparent transition-all duration-300 hover:scale-105"
               >
                 <Link href="/agencias/login">
-                  Iniciar Sesión
+                  Ingreso Agencias
                 </Link>
               </Button>
             )}
