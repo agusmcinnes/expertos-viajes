@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, User, Hotel, DollarSign, Check, X, Eye, Filter } from "lucide-react"
 import { reservationService, type ReservationWithDetails, type Reservation } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
+import { useToast } from "@/hooks/use-toast"
 
 export function ReservationsManager() {
+  const { toast } = useToast()
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([])
   const [filteredReservations, setFilteredReservations] = useState<ReservationWithDetails[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -59,13 +61,22 @@ export function ReservationsManager() {
       setIsProcessing(true)
       await reservationService.confirmReservation(id)
       await loadReservations()
-      alert("Reserva confirmada exitosamente")
+      toast({
+        title: "Reserva confirmada",
+        description: "La reserva se confirmó exitosamente y se actualizó el stock.",
+        duration: 5000,
+      })
       if (selectedReservation && selectedReservation.id === id) {
         setIsDetailModalOpen(false)
       }
     } catch (error) {
       console.error("Error confirming reservation:", error)
-      alert("Error al confirmar la reserva")
+      toast({
+        title: "Error al confirmar",
+        description: "No se pudo confirmar la reserva. Intenta nuevamente.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setIsProcessing(false)
     }
@@ -78,13 +89,22 @@ export function ReservationsManager() {
       setIsProcessing(true)
       await reservationService.cancelReservation(id)
       await loadReservations()
-      alert("Reserva cancelada exitosamente")
+      toast({
+        title: "Reserva cancelada",
+        description: "La reserva se canceló exitosamente y se restauró el stock.",
+        duration: 5000,
+      })
       if (selectedReservation && selectedReservation.id === id) {
         setIsDetailModalOpen(false)
       }
     } catch (error) {
       console.error("Error canceling reservation:", error)
-      alert("Error al cancelar la reserva")
+      toast({
+        title: "Error al cancelar",
+        description: "No se pudo cancelar la reserva. Intenta nuevamente.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setIsProcessing(false)
     }

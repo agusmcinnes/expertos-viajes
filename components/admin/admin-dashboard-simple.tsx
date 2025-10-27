@@ -18,8 +18,10 @@ import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
 import { StockManager } from "./stock-manager"
 import { ReservationsManager } from "./reservations-manager"
+import { useToast } from "@/hooks/use-toast"
 
 export function AdminDashboardSimple() {
+  const { toast } = useToast()
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [agencies, setAgencies] = useState<Agency[]>([])
@@ -55,7 +57,11 @@ export function AdminDashboardSimple() {
     const checkAuth = async () => {
       const isAuth = await isAdminAuthenticated()
       if (!isAuth) {
-        alert("Sesión expirada. Por favor inicia sesión de nuevo.")
+        toast({
+          title: "Sesión expirada",
+          description: "Por favor inicia sesión nuevamente.",
+          variant: "destructive",
+        })
         window.location.reload()
       }
     }
@@ -196,7 +202,11 @@ export function AdminDashboardSimple() {
       }
     } catch (error) {
       console.error("Error loading data:", error)
-      alert("Error al cargar los datos. Verifica la conexión con Supabase.")
+      toast({
+        title: "Error al cargar datos",
+        description: "No se pudieron cargar los datos. Verifica la conexión con Supabase.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -229,13 +239,24 @@ export function AdminDashboardSimple() {
         // Recargar packages para reflejar cambios
         await loadData()
         
-        alert(`${getFileTypeLabel(file.type)} subido exitosamente`)
+        toast({
+          title: "Archivo subido",
+          description: `${getFileTypeLabel(fileType)} subido exitosamente.`,
+        })
       } else {
-        alert(`Error subiendo archivo: ${result.error}`)
+        toast({
+          title: "Error al subir archivo",
+          description: result.error || "No se pudo subir el archivo.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Error uploading file:', error)
-      alert(`Error subiendo archivo`)
+      toast({
+        title: "Error al subir archivo",
+        description: "Ocurrió un error al subir el archivo. Intenta nuevamente.",
+        variant: "destructive",
+      })
     } finally {
       setUploadingFiles(prev => ({ ...prev, [fileType]: false }))
       // Limpiar el archivo seleccionado
@@ -258,13 +279,24 @@ export function AdminDashboardSimple() {
         }))
         
         await loadData()
-        alert(`Archivo eliminado exitosamente`)
+        toast({
+          title: "Archivo eliminado",
+          description: "El archivo se eliminó exitosamente.",
+        })
       } else {
-        alert(`Error eliminando archivo`)
+        toast({
+          title: "Error al eliminar archivo",
+          description: "No se pudo eliminar el archivo.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      alert(`Error eliminando archivo`)
+      toast({
+        title: "Error al eliminar archivo",
+        description: "Ocurrió un error al eliminar el archivo.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -450,10 +482,14 @@ export function AdminDashboardSimple() {
     }
   }
 
-  // Función para agregar/actualizar tarifa
+  // Función para guardar tarifas
   const handleSaveRate = async () => {
     if (!rateFormData.mes || !rateFormData.anio) {
-      alert("Por favor selecciona mes y año")
+      toast({
+        title: "Datos incompletos",
+        description: "Por favor selecciona mes y año.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -505,7 +541,10 @@ export function AdminDashboardSimple() {
         return [...filtered, newRate]
       })
       
-      alert(editingRateId ? "Tarifa actualizada (se guardará al guardar el paquete)" : "Tarifa agregada (se guardará al guardar el paquete)")
+      toast({
+        title: editingRateId ? "Tarifa actualizada" : "Tarifa agregada",
+        description: "Los cambios se guardarán al guardar el paquete.",
+      })
     } else {
       // Si es un alojamiento existente, guardar en base de datos
       try {
@@ -517,7 +556,10 @@ export function AdminDashboardSimple() {
             .eq("id", editingRateId)
 
           if (error) throw error
-          alert("Tarifa actualizada exitosamente")
+          toast({
+            title: "Tarifa actualizada",
+            description: "La tarifa se actualizó exitosamente.",
+          })
         } else {
           // Crear nueva tarifa o actualizar si ya existe para el mismo mes/año
           const { error } = await supabase
@@ -528,13 +570,20 @@ export function AdminDashboardSimple() {
             })
 
           if (error) throw error
-          alert("Tarifa guardada exitosamente")
+          toast({
+            title: "Tarifa guardada",
+            description: "La tarifa se guardó exitosamente.",
+          })
         }
         
         await loadRatesForAccommodation(selectedAccommodationForRates.id)
       } catch (error) {
         console.error("Error saving rate:", error)
-        alert("Error al guardar la tarifa")
+        toast({
+          title: "Error al guardar tarifa",
+          description: "No se pudo guardar la tarifa. Intenta nuevamente.",
+          variant: "destructive",
+        })
       }
     }
 
@@ -601,10 +650,17 @@ export function AdminDashboardSimple() {
 
         if (error) throw error
         await loadRatesForAccommodation(selectedAccommodationForRates.id)
-        alert("Tarifa eliminada exitosamente")
+        toast({
+          title: "Tarifa eliminada",
+          description: "La tarifa se eliminó exitosamente.",
+        })
       } catch (error) {
         console.error("Error deleting rate:", error)
-        alert("Error al eliminar la tarifa")
+        toast({
+          title: "Error al eliminar tarifa",
+          description: "No se pudo eliminar la tarifa. Intenta nuevamente.",
+          variant: "destructive",
+        })
       }
     }
   }
@@ -756,9 +812,15 @@ export function AdminDashboardSimple() {
           setIsAdding(false)
           setIsEditing(newPackage[0].id)
           await loadData()
-          alert("Paquete agregado exitosamente. Ahora puedes subir los PDFs.")
+          toast({
+            title: "Paquete agregado",
+            description: "El paquete se creó exitosamente. Ahora puedes subir los PDFs.",
+          })
         } else {
-          alert("Paquete agregado exitosamente")
+          toast({
+            title: "Paquete agregado",
+            description: "El paquete se creó exitosamente.",
+          })
         }
       } else if (isEditing) {
         const { error } = await supabase.from("travel_packages").update(packageData).eq("id", isEditing)
@@ -769,13 +831,20 @@ export function AdminDashboardSimple() {
           await saveAccommodationsForPackage(isEditing)
         }
         
-        alert("Paquete actualizado exitosamente")
+        toast({
+          title: "Paquete actualizado",
+          description: "El paquete se actualizó exitosamente.",
+        })
         await loadData()
       }
       handleCancel()
     } catch (error) {
       console.error("Error saving package:", error)
-      alert("Error al guardar el paquete: " + (error as Error).message)
+      toast({
+        title: "Error al guardar paquete",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -890,10 +959,17 @@ export function AdminDashboardSimple() {
         await loadData()
         
         console.log("🎉 Eliminación completada exitosamente");
-        alert(`El paquete "${packageName}" fue eliminado exitosamente`)
+        toast({
+          title: "Paquete eliminado",
+          description: `El paquete "${packageName}" fue eliminado exitosamente.`,
+        })
       } catch (error) {
         console.error("❌ Error en handleDelete:", error);
-        alert("Error al eliminar el paquete: " + (error as Error).message)
+        toast({
+          title: "Error al eliminar paquete",
+          description: (error as Error).message,
+          variant: "destructive",
+        })
         // Recargar datos en caso de error para mantener consistencia
         console.log("🔄 Recargando datos después del error...");
         await loadData()
@@ -929,10 +1005,17 @@ export function AdminDashboardSimple() {
       setIsLoadingAgencies(true)
       await agencyService.updateAgencyStatus(id, 'approved')
       await loadData() // Recargar datos
-      alert('Agencia aprobada exitosamente')
+      toast({
+        title: "Agencia aprobada",
+        description: "La agencia fue aprobada exitosamente.",
+      })
     } catch (error) {
       console.error('Error al aprobar agencia:', error)
-      alert('Error al aprobar la agencia')
+      toast({
+        title: "Error al aprobar agencia",
+        description: "No se pudo aprobar la agencia. Intenta nuevamente.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoadingAgencies(false)
     }
@@ -944,10 +1027,17 @@ export function AdminDashboardSimple() {
         setIsLoadingAgencies(true)
         await agencyService.updateAgencyStatus(id, 'rejected')
         await loadData() // Recargar datos
-        alert('Agencia rechazada')
+        toast({
+          title: "Agencia rechazada",
+          description: "La agencia fue rechazada.",
+        })
       } catch (error) {
         console.error('Error al rechazar agencia:', error)
-        alert('Error al rechazar la agencia')
+        toast({
+          title: "Error al rechazar agencia",
+          description: "No se pudo rechazar la agencia. Intenta nuevamente.",
+          variant: "destructive",
+        })
       } finally {
         setIsLoadingAgencies(false)
       }

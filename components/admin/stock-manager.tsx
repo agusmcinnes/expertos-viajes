@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Calendar, Hotel, Edit, Trash2, Plus, Package as PackageIcon } from "lucide-react"
 import { supabase, stockService, type PackageStock, type TravelPackage } from "@/lib/supabase"
 import { motion } from "framer-motion"
+import { useToast } from "@/hooks/use-toast"
 
 interface Accommodation {
   id: number
@@ -29,6 +30,7 @@ interface StockManagerProps {
 }
 
 export function StockManager({ destinations = [] }: StockManagerProps) {
+  const { toast } = useToast()
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null)
   const [selectedPackage, setSelectedPackage] = useState<TravelPackage | null>(null)
@@ -74,7 +76,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
 
       if (error || !data) {
         console.warn('❌ No se encontraron tarifas:', { mes, anio, error })
-        setTarifaWarning(`⚠️ No hay tarifas configuradas para ${mes}/${anio}. Las reservas no podrán calcular precios.`)
+        setTarifaWarning(`No hay tarifas configuradas para ${mes}/${anio}. Las reservas no podrán calcular precios.`)
       } else {
         console.log('✅ Tarifas encontradas:', data)
         setTarifaWarning(null)
@@ -248,13 +250,21 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
   const handleSave = async () => {
     // Validar campos según el modo
     if (!selectedPackageId || !formData.accommodation_id) {
-      alert("Por favor completa todos los campos obligatorios")
+      toast({
+        title: "Campos incompletos",
+        description: "Por favor completa todos los campos obligatorios.",
+        variant: "destructive",
+      })
       return
     }
     
     // Si no es flexible, la fecha es obligatoria
     if (!formData.flexible_dates && !formData.fecha_salida) {
-      alert("Por favor selecciona una fecha de salida")
+      toast({
+        title: "Fecha requerida",
+        description: "Por favor selecciona una fecha de salida o activa fechas flexibles.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -284,10 +294,17 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
 
       await loadStock(selectedPackageId)
       handleCloseModal()
-      alert(editingStock ? "Stock actualizado exitosamente" : "Stock creado exitosamente")
+      toast({
+        title: editingStock ? "Stock actualizado" : "Stock creado",
+        description: editingStock ? "El stock se actualizó exitosamente." : "El stock se creó exitosamente.",
+      })
     } catch (error) {
       console.error("Error saving stock:", error)
-      alert("Error al guardar el stock: " + (error as Error).message)
+      toast({
+        title: "Error al guardar",
+        description: "Error al guardar el stock: " + (error as Error).message,
+        variant: "destructive",
+      })
     }
   }
 
@@ -299,10 +316,17 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
       if (selectedPackageId) {
         await loadStock(selectedPackageId)
       }
-      alert("Stock eliminado exitosamente")
+      toast({
+        title: "Stock eliminado",
+        description: "El registro de stock se eliminó exitosamente.",
+      })
     } catch (error) {
       console.error("Error deleting stock:", error)
-      alert("Error al eliminar el stock")
+      toast({
+        title: "Error al eliminar",
+        description: "No se pudo eliminar el stock. Intenta nuevamente.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -451,7 +475,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
                               {item.accommodations?.name || 'Alojamiento no encontrado'}
                             </h4>
                             {(item as any).flexible_dates ? (
-                              <Badge className="bg-blue-100 text-blue-800">📅 Fechas Flexibles</Badge>
+                              <Badge className="bg-blue-100 text-blue-800">Fechas Flexibles</Badge>
                             ) : item.is_available ? (
                               <Badge className="bg-green-100 text-green-800">Disponible</Badge>
                             ) : (
@@ -569,7 +593,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
                   htmlFor="flexible_dates"
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
-                  📅 Fechas Flexibles
+                  Fechas Flexibles
                 </label>
                 <Badge variant="secondary" className="ml-2">
                   Sin fecha específica
@@ -579,7 +603,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
             
             {formData.flexible_dates && (
               <div className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-3">
-                <strong>ℹ️ Modo Fechas Flexibles:</strong>
+                <strong>Modo Fechas Flexibles:</strong>
                 <ul className="list-disc ml-5 mt-2 space-y-1">
                   <li>Los usuarios podrán elegir cualquier fecha de salida</li>
                   <li>La fecha elegida debe tener tarifas configuradas en accommodation_rates</li>
@@ -629,7 +653,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
                 </Select>
               ) : (
                 <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded p-3">
-                  ⚠️ Este paquete no tiene fechas disponibles configuradas. 
+                  Este paquete no tiene fechas disponibles configuradas. 
                   <br />
                   Por favor, edita el paquete y agrega fechas en el campo "available_dates".
                 </div>
@@ -689,7 +713,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
                 htmlFor="is_available" 
                 className="text-sm font-medium text-gray-700 cursor-pointer"
               >
-                ✅ Disponible para reservas
+                Disponible para reservas
               </label>
             </div>
 
