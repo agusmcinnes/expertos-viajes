@@ -13,6 +13,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import { ContactFormFunctional } from "./contact-form-functional"
+import { ReservationForm } from "./reservation-form"
 
 interface PackageDetailPageProps {
   packageId: string
@@ -45,11 +46,22 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showContactForm, setShowContactForm] = useState(false)
+  const [showReservationForm, setShowReservationForm] = useState(false)
   const [showAllDates, setShowAllDates] = useState(false)
 
   useEffect(() => {
     loadPackageData()
   }, [packageId])
+
+  // Scroll al inicio cuando se abre el modal de reserva
+  useEffect(() => {
+    if (showReservationForm) {
+      // Pequeño delay para asegurar que el modal esté montado
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }, 100)
+    }
+  }, [showReservationForm])
 
   const loadPackageData = async () => {
     try {
@@ -507,10 +519,20 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                     </div>
                   )}
 
-                  <div className="pt-4 border-t">
+                  <div className="pt-4 border-t space-y-3">
+                    <Button 
+                      onClick={() => setShowReservationForm(true)}
+                      className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white text-sm sm:text-base"
+                      size="lg"
+                    >
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Reservar Ahora
+                    </Button>
+                    
                     <Button 
                       onClick={() => setShowContactForm(true)}
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-white text-sm sm:text-base"
+                      variant="outline"
+                      className="w-full border-2 text-sm sm:text-base"
                       size="lg"
                     >
                       <Mail className="w-4 h-4 mr-2" />
@@ -560,6 +582,41 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 // Aquí podrías agregar una notificación de éxito
               }}
             />
+          </motion.div>
+        </div>
+      )}
+
+      {/* Modal de formulario de reserva */}
+      {showReservationForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-4 overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-lg p-4 sm:p-6 max-w-4xl w-full my-8 max-h-[90vh] flex flex-col"
+          >
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
+              <h2 className="text-xl sm:text-2xl font-bold pr-2">Reserva tu viaje</h2>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowReservationForm(false)}
+                className="flex-shrink-0"
+              >
+                ✕
+              </Button>
+            </div>
+            
+            <div className="overflow-y-auto flex-1 pr-2">
+              <ReservationForm 
+                packageId={parseInt(packageId)}
+                packageName={package_.name}
+                onSuccess={() => {
+                  setShowReservationForm(false)
+                  // Aquí podrías agregar una notificación de éxito
+                }}
+                onClose={() => setShowReservationForm(false)}
+              />
+            </div>
           </motion.div>
         </div>
       )}

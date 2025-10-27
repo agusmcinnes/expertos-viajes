@@ -10,12 +10,14 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users } from "lucide-react"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar } from "lucide-react"
 import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
 import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
+import { StockManager } from "./stock-manager"
+import { ReservationsManager } from "./reservations-manager"
 
 export function AdminDashboardSimple() {
   const [packages, setPackages] = useState<TravelPackage[]>([])
@@ -32,6 +34,9 @@ export function AdminDashboardSimple() {
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false)
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null)
   const [isAgencyDetailOpen, setIsAgencyDetailOpen] = useState(false)
+  
+  // Filtros
+  const [filterDestination, setFilterDestination] = useState<string>("all")
   
   // Estados para manejo de archivos
   const [uploadingFiles, setUploadingFiles] = useState<Record<FileType, boolean>>({
@@ -978,6 +983,16 @@ export function AdminDashboardSimple() {
     }
   }
 
+  // Función para filtrar paquetes
+  const getFilteredPackages = () => {
+    if (filterDestination === "all") {
+      return packages
+    }
+    return packages.filter(pkg => pkg.destination_id?.toString() === filterDestination)
+  }
+
+  const filteredPackages = getFilteredPackages()
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -1072,25 +1087,33 @@ export function AdminDashboardSimple() {
         {/* Tabs para diferentes secciones de administración */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Tabs defaultValue="packages" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="packages" className="flex items-center space-x-2">
                 <Package className="w-4 h-4" />
-                <span>Gestión de Paquetes</span>
+                <span>Paquetes</span>
+              </TabsTrigger>
+              <TabsTrigger value="stock" className="flex items-center space-x-2">
+                <Hotel className="w-4 h-4" />
+                <span>Stock</span>
+              </TabsTrigger>
+              <TabsTrigger value="reservations" className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4" />
+                <span>Reservas</span>
               </TabsTrigger>
               <TabsTrigger value="agencies" className="flex items-center space-x-2">
                 <Users className="w-4 h-4" />
-                <span>Gestión de Agencias</span>
+                <span>Agencias</span>
               </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center space-x-2">
                 <Settings className="w-4 h-4" />
-                <span>Configuración del Sitio</span>
+                <span>Configuración</span>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="packages">
               <Card>
                 <CardHeader>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center mb-4">
                     <CardTitle>Gestión de Paquetes</CardTitle>
                     <Button
                       onClick={handleAdd}
@@ -1099,6 +1122,29 @@ export function AdminDashboardSimple() {
                       <Plus className="w-4 h-4 mr-2" />
                       Agregar Paquete
                     </Button>
+                  </div>
+                  
+                  {/* Filtro por destino */}
+                  <div className="flex items-center gap-3 pt-4 border-t">
+                    <label className="text-sm font-medium text-gray-700">Filtrar por destino:</label>
+                    <Select value={filterDestination} onValueChange={setFilterDestination}>
+                      <SelectTrigger className="w-[250px]">
+                        <SelectValue placeholder="Todos los destinos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los destinos</SelectItem>
+                        {destinations.map((dest) => (
+                          <SelectItem key={dest.id} value={dest.id.toString()}>
+                            {dest.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {filterDestination !== "all" && (
+                      <Badge variant="secondary" className="ml-2">
+                        {filteredPackages.length} paquete(s) encontrado(s)
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1715,7 +1761,8 @@ export function AdminDashboardSimple() {
 
                   {/* Packages List */}
                   <div className="space-y-4">
-                    {packages.map((pkg, index) => (
+                    {filteredPackages.length > 0 ? (
+                      filteredPackages.map((pkg, index) => (
                       <motion.div
                         key={pkg.id}
                         initial={{ opacity: 0, x: -20 }}
@@ -1814,9 +1861,22 @@ export function AdminDashboardSimple() {
                           </div>
                         </div>
                       </motion.div>
-                    ))}
+                    ))
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No se encontraron paquetes con el filtro seleccionado</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => setFilterDestination("all")}
+                        >
+                          Ver todos los paquetes
+                        </Button>
+                      </div>
+                    )}
 
-                    {packages.length === 0 && (
+                    {packages.length === 0 && filterDestination === "all" && (
                       <div className="text-center py-12 text-gray-500">
                         <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p>No hay paquetes disponibles</p>
@@ -1965,6 +2025,14 @@ export function AdminDashboardSimple() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="stock">
+              <StockManager destinations={destinations} />
+            </TabsContent>
+
+            <TabsContent value="reservations">
+              <ReservationsManager />
             </TabsContent>
 
             <TabsContent value="config">
