@@ -411,14 +411,14 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const selectedAccommodationData = accommodations.find(a => a.id === selectedAccommodation)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="border-b pb-4">
-        <h2 className="text-2xl font-bold mb-2">Reservar: {packageName}</h2>
-        <div className="flex items-center gap-2">
-          <Badge variant={step === 1 ? "default" : "secondary"}>1. Selección</Badge>
-          <Badge variant={step === 2 ? "default" : "secondary"}>2. Datos Personales</Badge>
-          <Badge variant={step === 3 ? "default" : "secondary"}>3. Confirmación</Badge>
+      <div className="border-b pb-3 sm:pb-4">
+        <h2 className="text-lg sm:text-2xl font-bold mb-2 sm:mb-3 pr-4">Reservar: {packageName}</h2>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <Badge variant={step === 1 ? "default" : "secondary"} className="text-xs sm:text-sm">1. Selección</Badge>
+          <Badge variant={step === 2 ? "default" : "secondary"} className="text-xs sm:text-sm">2. Datos</Badge>
+          <Badge variant={step === 3 ? "default" : "secondary"} className="text-xs sm:text-sm">3. Confirmación</Badge>
         </div>
       </div>
 
@@ -472,9 +472,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         <div className="space-y-6">
           {/* Selección de Alojamiento */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center text-lg">
-                <Hotel className="w-5 h-5 mr-2" />
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center text-base sm:text-lg">
+                <Hotel className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                 Seleccionar Alojamiento
               </CardTitle>
             </CardHeader>
@@ -515,13 +515,13 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
           {/* Selección de Fecha */}
           {selectedAccommodation && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <Calendar className="w-5 h-5 mr-2" />
-                  {hasFlexibleStock ? "Elige tu Fecha de Salida" : "Seleccionar Fecha de Salida"}
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex items-center text-base sm:text-lg">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  <span className="leading-tight">{hasFlexibleStock ? "Elige tu Fecha" : "Fecha de Salida"}</span>
                 </CardTitle>
                 {hasFlexibleStock && (
-                  <p className="text-sm text-blue-600 mt-2">
+                  <p className="text-xs sm:text-sm text-blue-600 mt-2">
                     📅 Este paquete tiene fechas flexibles. Elige cualquier fecha y verificaremos la disponibilidad de tarifas.
                   </p>
                 )}
@@ -573,45 +573,47 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
           {/* Selección de Habitaciones */}
           {selectedDate && selectedStock && (
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <Users className="w-5 h-5 mr-2" />
-                  Seleccionar Habitaciones
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex items-center text-base sm:text-lg">
+                  <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                  Habitaciones
                 </CardTitle>
-                <p className="text-sm text-gray-600">
-                  Elige la cantidad de habitaciones que necesitas
+                <p className="text-xs sm:text-sm text-gray-600">
+                  Elige la cantidad que necesitas
                 </p>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 sm:space-y-4">
                 {/* Habitaciones Dobles */}
                 {selectedStock.stock_dbl > 0 && (
-                  <div className="border rounded-lg p-4 bg-blue-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold">Habitaciones Dobles</h4>
-                        <p className="text-xs text-gray-600">Capacidad: 2 personas</p>
+                  <div className="border rounded-lg p-3 sm:p-4 bg-blue-50">
+                    <div className="flex items-start justify-between mb-2 sm:mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base">Dobles</h4>
+                        <p className="text-xs text-gray-600">2 personas</p>
                       </div>
-                      <Badge className="bg-green-600">Disponible</Badge>
+                      <Badge className="bg-green-600 text-xs flex-shrink-0 ml-2">Disponible</Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Cantidad:</span>
-                      <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-medium">Cantidad:</span>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setRoomsData(prev => ({ ...prev, dbl: Math.max(0, prev.dbl - 1) }))}
                           disabled={roomsData.dbl === 0}
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
-                        <span className="text-lg font-bold w-12 text-center">{roomsData.dbl}</span>
+                        <span className="text-base sm:text-lg font-bold w-8 sm:w-12 text-center">{roomsData.dbl}</span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setRoomsData(prev => ({ ...prev, dbl: Math.min(selectedStock.stock_dbl, prev.dbl + 1) }))}
                           disabled={roomsData.dbl >= selectedStock.stock_dbl}
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                       </div>
                     </div>
@@ -620,33 +622,35 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
                 {/* Habitaciones Triples */}
                 {selectedStock.stock_tpl > 0 && (
-                  <div className="border rounded-lg p-4 bg-green-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold">Habitaciones Triples</h4>
-                        <p className="text-xs text-gray-600">Capacidad: 3 personas</p>
+                  <div className="border rounded-lg p-3 sm:p-4 bg-green-50">
+                    <div className="flex items-start justify-between mb-2 sm:mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base">Triples</h4>
+                        <p className="text-xs text-gray-600">3 personas</p>
                       </div>
-                      <Badge className="bg-green-600">Disponible</Badge>
+                      <Badge className="bg-green-600 text-xs flex-shrink-0 ml-2">Disponible</Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Cantidad:</span>
-                      <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-medium">Cantidad:</span>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setRoomsData(prev => ({ ...prev, tpl: Math.max(0, prev.tpl - 1) }))}
                           disabled={roomsData.tpl === 0}
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
-                        <span className="text-lg font-bold w-12 text-center">{roomsData.tpl}</span>
+                        <span className="text-base sm:text-lg font-bold w-8 sm:w-12 text-center">{roomsData.tpl}</span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setRoomsData(prev => ({ ...prev, tpl: Math.min(selectedStock.stock_tpl, prev.tpl + 1) }))}
                           disabled={roomsData.tpl >= selectedStock.stock_tpl}
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                       </div>
                     </div>
@@ -655,33 +659,35 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
                 {/* Habitaciones Cuádruples */}
                 {selectedStock.stock_cpl > 0 && (
-                  <div className="border rounded-lg p-4 bg-purple-50">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <h4 className="font-semibold">Habitaciones Cuádruples</h4>
-                        <p className="text-xs text-gray-600">Capacidad: 4 personas</p>
+                  <div className="border rounded-lg p-3 sm:p-4 bg-purple-50">
+                    <div className="flex items-start justify-between mb-2 sm:mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-semibold text-sm sm:text-base">Cuádruples</h4>
+                        <p className="text-xs text-gray-600">4 personas</p>
                       </div>
-                      <Badge className="bg-green-600">Disponible</Badge>
+                      <Badge className="bg-green-600 text-xs flex-shrink-0 ml-2">Disponible</Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Cantidad:</span>
-                      <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-medium">Cantidad:</span>
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setRoomsData(prev => ({ ...prev, cpl: Math.max(0, prev.cpl - 1) }))}
                           disabled={roomsData.cpl === 0}
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                         >
-                          <Minus className="w-4 h-4" />
+                          <Minus className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
-                        <span className="text-lg font-bold w-12 text-center">{roomsData.cpl}</span>
+                        <span className="text-base sm:text-lg font-bold w-8 sm:w-12 text-center">{roomsData.cpl}</span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => setRoomsData(prev => ({ ...prev, cpl: Math.min(selectedStock.stock_cpl, prev.cpl + 1) }))}
                           disabled={roomsData.cpl >= selectedStock.stock_cpl}
+                          className="h-8 w-8 sm:h-9 sm:w-9 p-0"
                         >
-                          <Plus className="w-4 h-4" />
+                          <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                       </div>
                     </div>
@@ -690,10 +696,10 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
                 {/* Resumen de Habitaciones */}
                 {hasRooms() && (
-                  <div className="bg-gray-50 border rounded-lg p-4">
+                  <div className="bg-gray-50 border rounded-lg p-3 sm:p-4">
                     <div className="flex justify-between items-center">
-                      <span className="font-medium">Total de habitaciones:</span>
-                      <span className="text-2xl font-bold">{getTotalRooms()}</span>
+                      <span className="font-medium text-sm sm:text-base">Total de habitaciones:</span>
+                      <span className="text-xl sm:text-2xl font-bold">{getTotalRooms()}</span>
                     </div>
                   </div>
                 )}
@@ -704,26 +710,28 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
           {/* Precio Calculado */}
           {calculatedPrice !== null && (
             <Card className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-200">
-              <CardHeader>
-                <CardTitle className="flex items-center text-lg">
-                  <DollarSign className="w-5 h-5 mr-2" />
+              <CardHeader className="pb-3 sm:pb-6">
+                <CardTitle className="flex items-center text-base sm:text-lg">
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Precio Total
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {priceBreakdown.map((item, index) => (
-                    <div key={index} className="flex justify-between items-center text-sm">
-                      <span>
+                    <div key={index} className="flex justify-between items-start gap-2 text-xs sm:text-sm">
+                      <span className="flex-1">
                         {item.cantidad}x {item.tipo_habitacion.toUpperCase()} 
-                        ({item.adultos} adultos{item.menores > 0 && `, ${item.menores} menores`})
+                        <span className="block sm:inline sm:ml-1 text-gray-600">
+                          ({item.adultos} adultos{item.menores > 0 && `, ${item.menores} menores`})
+                        </span>
                       </span>
-                      <span className="font-medium">{formatCurrency(item.subtotal)}</span>
+                      <span className="font-medium flex-shrink-0">{formatCurrency(item.subtotal)}</span>
                     </div>
                   ))}
-                  <div className="border-t pt-3 flex justify-between items-center">
-                    <span className="text-xl font-bold">Total:</span>
-                    <span className="text-3xl font-bold text-green-600">
+                  <div className="border-t pt-2 sm:pt-3 flex justify-between items-center">
+                    <span className="text-base sm:text-xl font-bold">Total:</span>
+                    <span className="text-xl sm:text-3xl font-bold text-green-600">
                       {formatCurrency(calculatedPrice)}
                     </span>
                   </div>
@@ -733,25 +741,25 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
           )}
 
           {/* Botones de Navegación */}
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 sm:p-3 text-xs sm:text-sm text-red-800">
                 {error}
               </div>
             )}
             {!hasRooms() && !error && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-yellow-800">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2.5 sm:p-3 text-xs sm:text-sm text-yellow-800">
                 ℹ️ Selecciona al menos una habitación para continuar
               </div>
             )}
             {hasRooms() && calculatedPrice === null && !error && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 sm:p-3 text-xs sm:text-sm text-blue-800">
                 ⏳ Calculando precio...
               </div>
             )}
-            <div className="flex gap-3">
+            <div className="flex gap-2 sm:gap-3">
               {onClose && (
-                <Button onClick={onClose} variant="outline" className="flex-1">
+                <Button onClick={onClose} variant="outline" className="flex-1 text-sm sm:text-base">
                   Cancelar
                 </Button>
               )}
@@ -765,9 +773,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                   setStep(2)
                 }}
                 disabled={!hasRooms() || calculatedPrice === null}
-                className="flex-1 bg-primary hover:bg-primary/90"
+                className="flex-1 bg-primary hover:bg-primary/90 text-sm sm:text-base"
               >
-                Continuar con Datos Personales
+                Continuar
               </Button>
             </div>
           </div>
@@ -776,55 +784,60 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       {/* Step 2: Datos Personales */}
       {step === 2 && !success && (
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Datos Personales</CardTitle>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-base sm:text-lg">Datos Personales</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Nombre Completo *</label>
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2 md:col-span-1">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Nombre Completo *</label>
                   <Input
                     value={personalData.nombre}
                     onChange={(e) => setPersonalData(prev => ({ ...prev, nombre: e.target.value }))}
                     placeholder="Juan Pérez"
+                    className="text-sm sm:text-base"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Email *</label>
+                <div className="sm:col-span-2 md:col-span-1">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Email *</label>
                   <Input
                     type="email"
                     value={personalData.email}
                     onChange={(e) => setPersonalData(prev => ({ ...prev, email: e.target.value }))}
                     placeholder="juan@ejemplo.com"
+                    className="text-sm sm:text-base"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Teléfono *</label>
+                <div className="sm:col-span-2 md:col-span-1">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Teléfono *</label>
                   <Input
                     type="tel"
                     value={personalData.telefono}
                     onChange={(e) => setPersonalData(prev => ({ ...prev, telefono: e.target.value }))}
                     placeholder="+54 9 11 1234-5678"
+                    className="text-sm sm:text-base"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">DNI (opcional)</label>
+                <div className="sm:col-span-2 md:col-span-1">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">DNI (opcional)</label>
                   <Input
                     value={personalData.dni}
                     onChange={(e) => setPersonalData(prev => ({ ...prev, dni: e.target.value }))}
                     placeholder="12345678"
+                    className="text-sm sm:text-base"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Comentarios adicionales</label>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5 sm:mb-2">Comentarios adicionales</label>
                 <Textarea
                   value={personalData.comentarios}
                   onChange={(e) => setPersonalData(prev => ({ ...prev, comentarios: e.target.value }))}
-                  placeholder="Agrega cualquier información adicional que consideres importante..."
-                  rows={4}
+                  placeholder="Agrega cualquier información adicional..."
+                  rows={3}
+                  className="text-sm sm:text-base resize-none"
                 />
               </div>
             </CardContent>
@@ -832,29 +845,29 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
           {/* Resumen de Reserva */}
           <Card className="bg-gray-50">
-            <CardHeader>
-              <CardTitle className="text-lg">Resumen de tu Reserva</CardTitle>
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="text-base sm:text-lg">Resumen de tu Reserva</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
+            <CardContent className="space-y-2 sm:space-y-3 text-xs sm:text-sm">
+              <div className="flex justify-between gap-2">
                 <span className="text-gray-600">Paquete:</span>
-                <span className="font-medium">{packageName}</span>
+                <span className="font-medium text-right">{packageName}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-gray-600">Alojamiento:</span>
-                <span className="font-medium">{selectedAccommodationData?.name}</span>
+                <span className="font-medium text-right">{selectedAccommodationData?.name}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-gray-600">Fecha de salida:</span>
-                <span className="font-medium">{formatDate(selectedDate)}</span>
+                <span className="font-medium text-right">{formatDate(selectedDate)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between gap-2">
                 <span className="text-gray-600">Habitaciones:</span>
                 <span className="font-medium">{getTotalRooms()}</span>
               </div>
-              <div className="border-t pt-3 flex justify-between items-center">
-                <span className="text-lg font-bold">Precio Total:</span>
-                <span className="text-2xl font-bold text-green-600">
+              <div className="border-t pt-2 sm:pt-3 flex justify-between items-center gap-2">
+                <span className="text-base sm:text-lg font-bold">Precio Total:</span>
+                <span className="text-xl sm:text-2xl font-bold text-green-600">
                   {formatCurrency(calculatedPrice!)}
                 </span>
               </div>
@@ -862,22 +875,26 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
           </Card>
 
           {/* Botones de Navegación */}
-          <div className="flex gap-3">
-            <Button onClick={() => setStep(1)} variant="outline" className="flex-1">
+          <div className="flex gap-2 sm:gap-3">
+            <Button onClick={() => setStep(1)} variant="outline" className="flex-1 text-sm sm:text-base">
               Volver
             </Button>
             <Button
               onClick={handleSubmit}
               disabled={isSubmitting || !personalData.nombre || !personalData.email || !personalData.telefono}
-              className="flex-1 bg-green-600 hover:bg-green-700"
+              className="flex-1 bg-green-600 hover:bg-green-700 text-sm sm:text-base"
             >
               {isSubmitting ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Procesando...
+                  <span className="hidden sm:inline">Procesando...</span>
+                  <span className="sm:hidden">...</span>
                 </>
               ) : (
-                'Confirmar Reserva'
+                <>
+                  <span className="hidden sm:inline">Confirmar Reserva</span>
+                  <span className="sm:hidden">Confirmar</span>
+                </>
               )}
             </Button>
           </div>

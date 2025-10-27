@@ -430,20 +430,20 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                                     <div className="flex justify-between items-center mb-3">
                                       <h5 className="font-semibold text-lg">{getMonthName(rate.mes)} {rate.anio}</h5>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                      <div className="flex justify-between">
+                                    <div className="flex flex-col gap-2 text-sm">
+                                      <div className="flex justify-between py-2 border-b">
                                         <span className="text-gray-600">Doble:</span>
                                         <span className="font-medium">{formatCurrency(rate.tarifa_dbl)}</span>
                                       </div>
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between py-2 border-b">
                                         <span className="text-gray-600">Triple:</span>
                                         <span className="font-medium">{formatCurrency(rate.tarifa_tpl)}</span>
                                       </div>
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between py-2 border-b">
                                         <span className="text-gray-600">Cuádruple:</span>
                                         <span className="font-medium">{formatCurrency(rate.tarifa_cpl)}</span>
                                       </div>
-                                      <div className="flex justify-between">
+                                      <div className="flex justify-between py-2">
                                         <span className="text-gray-600">Menor:</span>
                                         <span className="font-medium">{formatCurrency(rate.tarifa_menor)}</span>
                                       </div>
@@ -588,25 +588,25 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
 
       {/* Modal de formulario de reserva */}
       {showReservationForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-2 sm:p-4 overflow-y-auto">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-4 sm:p-6 max-w-4xl w-full my-8 max-h-[90vh] flex flex-col"
+            className="bg-white rounded-lg p-3 sm:p-4 md:p-6 max-w-4xl w-full my-4 sm:my-8 max-h-[80vh] sm:max-h-[90vh] flex flex-col"
           >
-            <div className="flex justify-between items-center mb-4 flex-shrink-0">
-              <h2 className="text-xl sm:text-2xl font-bold pr-2">Reserva tu viaje</h2>
+            <div className="flex justify-between items-center mb-3 sm:mb-4 flex-shrink-0">
+              <h2 className="text-lg sm:text-xl md:text-2xl font-bold pr-2">Reserva tu viaje</h2>
               <Button 
                 variant="outline" 
                 size="sm"
                 onClick={() => setShowReservationForm(false)}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 p-0"
               >
                 ✕
               </Button>
             </div>
             
-            <div className="overflow-y-auto flex-1 pr-2">
+            <div className="overflow-y-auto flex-1 pr-1 sm:pr-2 -mr-1 sm:-mr-2">
               <ReservationForm 
                 packageId={parseInt(packageId)}
                 packageName={package_.name}

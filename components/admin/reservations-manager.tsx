@@ -120,7 +120,8 @@ export function ReservationsManager() {
   }
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
+    // Agregar 'T00:00:00' para evitar problemas de timezone
+    const date = new Date(dateString + 'T00:00:00')
     return date.toLocaleDateString('es-AR', {
       year: 'numeric',
       month: 'long',
