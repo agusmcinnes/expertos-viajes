@@ -1176,10 +1176,7 @@ export interface Reservation {
   cliente_nombre: string
   cliente_email: string
   cliente_telefono: string
-  cliente_dni?: string | null
-  cantidad_personas: number
   comentarios?: string | null
-  precio_total: number
   estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada'
   created_at: string
   updated_at: string
@@ -1190,16 +1187,26 @@ export interface ReservationDetail {
   reservation_id: number
   tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
   cantidad: number
-  adultos: number
-  menores: number
-  precio_unitario: number
-  precio_subtotal: number
+  subtipo_habitacion?: 'matrimonial' | 'twin' | null
+  created_at: string
+}
+
+export interface ReservationPassenger {
+  id: number
+  reservation_id: number
+  tipo_pasajero: 'titular' | 'acompañante'
+  nombre: string
+  apellido: string
+  fecha_nacimiento: string // ISO date string
+  cuil?: string | null // Solo para titular
   created_at: string
 }
 
 export interface ReservationWithDetails extends Reservation {
   details: ReservationDetail[]
   reservation_details: ReservationDetail[]
+  passengers?: ReservationPassenger[]
+  reservation_passengers?: ReservationPassenger[]
   travel_packages?: TravelPackage
   accommodations?: Accommodation
 }
@@ -1211,14 +1218,18 @@ export interface CreateReservationData {
   cliente_nombre: string
   cliente_email: string
   cliente_telefono: string
-  cliente_dni?: string
-  cantidad_personas: number
   comentarios?: string
   details: {
     tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
     cantidad: number
-    adultos: number
-    menores: number
+    subtipo_habitacion?: 'matrimonial' | 'twin' | null
+  }[]
+  passengers: {
+    tipo_pasajero: 'titular' | 'acompañante'
+    nombre: string
+    apellido: string
+    fecha_nacimiento: string
+    cuil?: string
   }[]
 }
 
@@ -1300,11 +1311,18 @@ export const stockService = {
     fechaSalida: string,
     details: { tipo_habitacion: 'dbl' | 'tpl' | 'cpl', cantidad: number }[]
   ): Promise<{ available: boolean, message?: string }> {
+    console.log('🔍 Buscando stock para:', { packageId, accommodationId, fechaSalida })
+
     // Primero buscar stock específico para esa fecha
     let stock = await this.getStock(packageId, accommodationId, fechaSalida)
-    
+
+    if (stock) {
+      console.log('✅ Stock específico encontrado:', stock)
+    }
+
     // Si no hay stock específico, buscar stock flexible
     if (!stock) {
+      console.log('⚠️ No hay stock específico, buscando stock flexible...')
       const { data: flexibleStock, error } = await supabase
         .from('package_stock')
         .select('*')
@@ -1313,22 +1331,31 @@ export const stockService = {
         .eq('flexible_dates', true)
         .eq('is_available', true)
         .single()
-      
+
+      if (error) {
+        console.error('❌ Error buscando stock flexible:', error)
+      }
+
       if (!error && flexibleStock) {
         stock = flexibleStock as PackageStock
-        console.log('🎯 Usando stock flexible para validación')
+        console.log('🎯 Usando stock flexible para validación:', stock)
       }
     }
-    
+
     if (!stock) {
+      console.error('❌ No se encontró stock (ni específico ni flexible)')
       return { available: false, message: 'No hay stock configurado para esta fecha' }
     }
 
+    console.log('📊 Verificando disponibilidad por tipo de habitación...')
     for (const detail of details) {
       const stockField = `stock_${detail.tipo_habitacion}` as keyof PackageStock
       const availableStock = stock[stockField] as number
-      
+
+      console.log(`  - ${detail.tipo_habitacion.toUpperCase()}: Disponible=${availableStock}, Solicitado=${detail.cantidad}`)
+
       if (availableStock < detail.cantidad) {
+        console.error(`❌ Stock insuficiente para ${detail.tipo_habitacion}`)
         return {
           available: false,
           message: `Stock insuficiente para habitaciones ${detail.tipo_habitacion.toUpperCase()}. Disponible: ${availableStock}, Solicitado: ${detail.cantidad}`
@@ -1336,77 +1363,50 @@ export const stockService = {
       }
     }
 
+    console.log('✅ Disponibilidad confirmada')
     return { available: true }
   }
 }
 
 // Servicio para gestión de reservas
 export const reservationService = {
-  // Calcular precio de una reserva
-  async calculatePrice(
-    accommodationId: number,
-    fechaSalida: string,
-    details: { tipo_habitacion: 'dbl' | 'tpl' | 'cpl', cantidad: number, adultos: number, menores: number }[]
-  ): Promise<{ total: number, breakdown: any[] }> {
-    // Extraer mes y año
-    const date = new Date(fechaSalida)
-    const mes = date.getMonth() + 1
-    const anio = date.getFullYear()
-
-    // Obtener tarifas
-    const { data: rate, error } = await supabase
-      .from('accommodation_rates')
-      .select('*')
-      .eq('accommodation_id', accommodationId)
-      .eq('mes', mes)
-      .eq('anio', anio)
-      .single()
-
-    if (error || !rate) {
-      throw new Error(`No se encontraron tarifas para ${mes}/${anio}`)
-    }
-
-    let total = 0
-    const breakdown: any[] = []
-
-    for (const detail of details) {
-      let precioHab = 0
-      
-      switch (detail.tipo_habitacion) {
-        case 'dbl':
-          precioHab = rate.tarifa_dbl || 0
-          break
-        case 'tpl':
-          precioHab = rate.tarifa_tpl || 0
-          break
-        case 'cpl':
-          precioHab = rate.tarifa_cpl || 0
-          break
-      }
-
-      const precioMenor = rate.tarifa_menor || 0
-      const subtotal = (detail.cantidad * precioHab) + (detail.menores * precioMenor)
-      
-      total += subtotal
-      
-      breakdown.push({
-        tipo_habitacion: detail.tipo_habitacion,
-        cantidad: detail.cantidad,
-        adultos: detail.adultos,
-        menores: detail.menores,
-        precio_unitario: precioHab,
-        precio_menor: precioMenor,
-        subtotal
-      })
-    }
-
-    return { total, breakdown }
-  },
-
   // Crear una nueva reserva
   async createReservation(reservationData: CreateReservationData) {
     try {
-      // 1. Verificar disponibilidad de stock
+      console.log('📝 Datos de reserva recibidos:', reservationData)
+
+      // 1. Validar que hay al menos un pasajero titular
+      const hasTitular = reservationData.passengers.some(p => p.tipo_pasajero === 'titular')
+      if (!hasTitular) {
+        console.error('❌ No hay titular')
+        return {
+          success: false,
+          error: 'Debe incluir al menos un pasajero titular'
+        }
+      }
+
+      // 2. Calcular capacidad total de las habitaciones
+      const totalCapacity = reservationData.details.reduce((sum, detail) => {
+        let roomCapacity = 0
+        if (detail.tipo_habitacion === 'dbl') roomCapacity = 2
+        else if (detail.tipo_habitacion === 'tpl') roomCapacity = 3
+        else if (detail.tipo_habitacion === 'cpl') roomCapacity = 4
+        return sum + (detail.cantidad * roomCapacity)
+      }, 0)
+
+      console.log('👥 Capacidad total:', totalCapacity, '| Pasajeros:', reservationData.passengers.length)
+
+      // 3. Validar que la cantidad de pasajeros no exceda la capacidad
+      if (reservationData.passengers.length > totalCapacity) {
+        console.error('❌ Excede capacidad')
+        return {
+          success: false,
+          error: `La cantidad de pasajeros (${reservationData.passengers.length}) excede la capacidad de las habitaciones (${totalCapacity})`
+        }
+      }
+
+      // 4. Verificar disponibilidad de stock
+      console.log('🔍 Verificando disponibilidad de stock...')
       const availability = await stockService.checkAvailability(
         reservationData.package_id,
         reservationData.accommodation_id,
@@ -1414,21 +1414,18 @@ export const reservationService = {
         reservationData.details
       )
 
+      console.log('✅ Resultado de disponibilidad:', availability)
+
       if (!availability.available) {
+        console.error('❌ No hay disponibilidad:', availability.message)
         return {
           success: false,
           error: availability.message || 'No hay disponibilidad para esta reserva'
         }
       }
 
-      // 2. Calcular precio
-      const { total, breakdown } = await this.calculatePrice(
-        reservationData.accommodation_id,
-        reservationData.fecha_salida,
-        reservationData.details
-      )
-
-      // 3. Crear la reserva
+      // 5. Crear la reserva
+      console.log('💾 Insertando reserva en BD...')
       const { data: reservation, error: reservationError } = await supabase
         .from('reservations')
         .insert([{
@@ -1438,45 +1435,69 @@ export const reservationService = {
           cliente_nombre: reservationData.cliente_nombre,
           cliente_email: reservationData.cliente_email,
           cliente_telefono: reservationData.cliente_telefono,
-          cliente_dni: reservationData.cliente_dni,
-          cantidad_personas: reservationData.cantidad_personas,
           comentarios: reservationData.comentarios,
-          precio_total: total,
           estado: 'pendiente'
         }])
         .select()
         .single()
 
-      if (reservationError) throw reservationError
+      if (reservationError) {
+        console.error('❌ Error insertando reserva:', reservationError)
+        throw reservationError
+      }
 
-      // 4. Crear los detalles de la reserva
-      const detailsToInsert = breakdown.map(item => ({
+      console.log('✅ Reserva creada con ID:', reservation.id)
+
+      // 6. Crear los detalles de la reserva
+      console.log('💾 Insertando detalles de habitaciones...')
+      const detailsToInsert = reservationData.details.map(detail => ({
         reservation_id: reservation.id,
-        tipo_habitacion: item.tipo_habitacion,
-        cantidad: item.cantidad,
-        adultos: item.adultos,
-        menores: item.menores,
-        precio_unitario: item.precio_unitario,
-        precio_subtotal: item.subtotal
+        tipo_habitacion: detail.tipo_habitacion,
+        cantidad: detail.cantidad,
+        subtipo_habitacion: detail.subtipo_habitacion
       }))
 
       const { error: detailsError } = await supabase
         .from('reservation_details')
         .insert(detailsToInsert)
 
-      if (detailsError) throw detailsError
+      if (detailsError) {
+        console.error('❌ Error insertando detalles:', detailsError)
+        throw detailsError
+      }
 
-      // 5. Reducir stock (solo si la reserva está confirmada automáticamente)
-      // Por ahora no reducimos stock hasta que el admin confirme
-      // await this.reduceStock(reservation)
+      console.log('✅ Detalles de habitaciones insertados')
+
+      // 7. Crear los pasajeros
+      console.log('💾 Insertando pasajeros...')
+      const passengersToInsert = reservationData.passengers.map(passenger => ({
+        reservation_id: reservation.id,
+        tipo_pasajero: passenger.tipo_pasajero,
+        nombre: passenger.nombre,
+        apellido: passenger.apellido,
+        fecha_nacimiento: passenger.fecha_nacimiento,
+        cuil: passenger.cuil
+      }))
+
+      const { error: passengersError } = await supabase
+        .from('reservation_passengers')
+        .insert(passengersToInsert)
+
+      if (passengersError) {
+        console.error('❌ Error insertando pasajeros:', passengersError)
+        throw passengersError
+      }
+
+      console.log('✅ Pasajeros insertados')
+      console.log('🎉 Reserva creada exitosamente!')
 
       return {
         success: true,
-        reservation,
-        breakdown
+        reservation
       }
     } catch (error) {
-      console.error('Error creating reservation:', error)
+      console.error('❌ Error creating reservation:', error)
+      console.error('❌ Error completo:', JSON.stringify(error, null, 2))
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error al crear la reserva'
@@ -1500,7 +1521,8 @@ export const reservationService = {
           name,
           stars
         ),
-        reservation_details (*)
+        reservation_details (*),
+        reservation_passengers (*)
       `)
       .order('created_at', { ascending: false })
 
@@ -1524,7 +1546,8 @@ export const reservationService = {
           name,
           stars
         ),
-        reservation_details (*)
+        reservation_details (*),
+        reservation_passengers (*)
       `)
       .eq('estado', estado)
       .order('created_at', { ascending: false })
@@ -1551,7 +1574,8 @@ export const reservationService = {
           stars,
           regimen
         ),
-        reservation_details (*)
+        reservation_details (*),
+        reservation_passengers (*)
       `)
       .eq('id', id)
       .single()

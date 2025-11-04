@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Calendar, Hotel, Edit, Trash2, Plus, Package as PackageIcon } from "lucide-react"
 import { supabase, stockService, type PackageStock, type TravelPackage } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -40,7 +41,13 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingStock, setEditingStock] = useState<PackageStock | null>(null)
   const [tarifaWarning, setTarifaWarning] = useState<string | null>(null)
-  
+
+  // Estado para modal de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    stockId: number | null
+  }>({ open: false, stockId: null })
+
   // Filtros
   const [filterDestination, setFilterDestination] = useState<string>("all")
 
@@ -308,11 +315,15 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
     }
   }
 
-  const handleDelete = async (stockId: number) => {
-    if (!confirm("¿Estás seguro de eliminar este registro de stock?")) return
+  const handleDelete = (stockId: number) => {
+    setConfirmDialog({ open: true, stockId })
+  }
+
+  const confirmDelete = async () => {
+    if (!confirmDialog.stockId) return
 
     try {
-      await stockService.deleteStock(stockId)
+      await stockService.deleteStock(confirmDialog.stockId)
       if (selectedPackageId) {
         await loadStock(selectedPackageId)
       }
@@ -735,6 +746,18 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de confirmación para eliminar */}
+      <AlertDialogConfirm
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ open, stockId: null })}
+        title="Eliminar Stock"
+        description="¿Estás seguro de que quieres eliminar este registro de stock? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        onConfirm={confirmDelete}
+        variant="destructive"
+      />
     </div>
   )
 }

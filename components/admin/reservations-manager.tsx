@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, User, Hotel, DollarSign, Check, X, Eye, Filter } from "lucide-react"
+import { Calendar, User, Hotel, Check, X, Eye, Filter } from "lucide-react"
 import { reservationService, type ReservationWithDetails, type Reservation } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
@@ -20,6 +21,13 @@ export function ReservationsManager() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [isProcessing, setIsProcessing] = useState(false)
+
+  // Estados para modales de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    type: 'confirm' | 'cancel' | null
+    reservationId: number | null
+  }>({ open: false, type: null, reservationId: null })
 
   useEffect(() => {
     loadReservations()
@@ -54,69 +62,57 @@ export function ReservationsManager() {
     setIsDetailModalOpen(true)
   }
 
-  const handleConfirm = async (id: number) => {
-    if (!confirm("¿Confirmar esta reserva? Esto reducirá el stock disponible.")) return
+  const handleConfirm = (id: number) => {
+    setConfirmDialog({ open: true, type: 'confirm', reservationId: id })
+  }
+
+  const handleCancel = (id: number) => {
+    setConfirmDialog({ open: true, type: 'cancel', reservationId: id })
+  }
+
+  const executeAction = async () => {
+    if (!confirmDialog.reservationId || !confirmDialog.type) return
 
     try {
       setIsProcessing(true)
-      await reservationService.confirmReservation(id)
+
+      if (confirmDialog.type === 'confirm') {
+        await reservationService.confirmReservation(confirmDialog.reservationId)
+        toast({
+          title: "Reserva confirmada",
+          description: "La reserva se confirmó exitosamente y se actualizó el stock.",
+          duration: 5000,
+        })
+      } else if (confirmDialog.type === 'cancel') {
+        await reservationService.cancelReservation(confirmDialog.reservationId)
+        toast({
+          title: "Reserva cancelada",
+          description: "La reserva se canceló exitosamente y se restauró el stock.",
+          duration: 5000,
+        })
+      }
+
       await loadReservations()
-      toast({
-        title: "Reserva confirmada",
-        description: "La reserva se confirmó exitosamente y se actualizó el stock.",
-        duration: 5000,
-      })
-      if (selectedReservation && selectedReservation.id === id) {
+
+      if (selectedReservation && selectedReservation.id === confirmDialog.reservationId) {
         setIsDetailModalOpen(false)
       }
     } catch (error) {
-      console.error("Error confirming reservation:", error)
+      console.error("Error processing reservation:", error)
+      const errorTitle = confirmDialog.type === 'confirm' ? "Error al confirmar" : "Error al cancelar"
+      const errorDesc = confirmDialog.type === 'confirm'
+        ? "No se pudo confirmar la reserva. Intenta nuevamente."
+        : "No se pudo cancelar la reserva. Intenta nuevamente."
+
       toast({
-        title: "Error al confirmar",
-        description: "No se pudo confirmar la reserva. Intenta nuevamente.",
+        title: errorTitle,
+        description: errorDesc,
         variant: "destructive",
         duration: 5000,
       })
     } finally {
       setIsProcessing(false)
     }
-  }
-
-  const handleCancel = async (id: number) => {
-    if (!confirm("¿Cancelar esta reserva? Si estaba confirmada, se restaurará el stock.")) return
-
-    try {
-      setIsProcessing(true)
-      await reservationService.cancelReservation(id)
-      await loadReservations()
-      toast({
-        title: "Reserva cancelada",
-        description: "La reserva se canceló exitosamente y se restauró el stock.",
-        duration: 5000,
-      })
-      if (selectedReservation && selectedReservation.id === id) {
-        setIsDetailModalOpen(false)
-      }
-    } catch (error) {
-      console.error("Error canceling reservation:", error)
-      toast({
-        title: "Error al cancelar",
-        description: "No se pudo cancelar la reserva. Intenta nuevamente.",
-        variant: "destructive",
-        duration: 5000,
-      })
-    } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
   }
 
   const formatDate = (dateString: string) => {
@@ -292,8 +288,8 @@ export function ReservationsManager() {
                             <span><strong>Salida:</strong> {formatDate(reservation.fecha_salida)}</span>
                           </div>
                           <div className="flex items-center gap-2 text-gray-600">
-                            <DollarSign className="w-4 h-4" />
-                            <span><strong>Total:</strong> {formatCurrency(reservation.precio_total)}</span>
+                            <User className="w-4 h-4" />
+                            <span><strong>Pasajeros:</strong> {reservation.reservation_passengers?.length || 0}</span>
                           </div>
                         </div>
 
@@ -402,12 +398,6 @@ export function ReservationsManager() {
                     <span className="text-gray-600">Teléfono:</span>
                     <span className="font-medium">{selectedReservation.cliente_telefono}</span>
                   </div>
-                  {selectedReservation.cliente_dni && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">DNI:</span>
-                      <span className="font-medium">{selectedReservation.cliente_dni}</span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
@@ -420,26 +410,70 @@ export function ReservationsManager() {
                   <div className="space-y-3">
                     {selectedReservation.reservation_details.map((detail) => (
                       <div key={detail.id} className="border rounded-lg p-3 bg-gray-50">
-                        <div className="flex justify-between items-start mb-2">
+                        <div className="flex justify-between items-center">
                           <div>
                             <h4 className="font-semibold">
                               {detail.cantidad}x Habitación {getTipoHabitacionLabel(detail.tipo_habitacion)}
                             </h4>
-                            <p className="text-sm text-gray-600">
-                              {detail.adultos} adultos{detail.menores > 0 && ` + ${detail.menores} menores`}
-                            </p>
+                            {detail.subtipo_habitacion && (
+                              <p className="text-sm text-gray-600">
+                                <Badge variant="secondary" className="mt-1">
+                                  {detail.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Twin (2 camas)'}
+                                </Badge>
+                              </p>
+                            )}
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm text-gray-600">Precio unitario</p>
-                            <p className="font-medium">{formatCurrency(detail.precio_unitario)}</p>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center pt-2 border-t">
-                          <span className="text-sm text-gray-600">Subtotal:</span>
-                          <span className="font-bold">{formatCurrency(detail.precio_subtotal)}</span>
                         </div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Lista de Pasajeros */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg">Pasajeros</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {selectedReservation.reservation_passengers && selectedReservation.reservation_passengers.length > 0 ? (
+                      selectedReservation.reservation_passengers.map((passenger, index) => (
+                        <div key={passenger.id} className="border rounded-lg p-3 bg-gray-50">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge variant={passenger.tipo_pasajero === 'titular' ? 'default' : 'secondary'}>
+                                  {passenger.tipo_pasajero === 'titular' ? 'Titular' : 'Acompañante'}
+                                </Badge>
+                                <span className="font-semibold">
+                                  {passenger.nombre} {passenger.apellido}
+                                </span>
+                              </div>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                <p>
+                                  <strong>Fecha de Nacimiento:</strong>{' '}
+                                  {new Date(passenger.fecha_nacimiento).toLocaleDateString('es-AR', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </p>
+                                {passenger.cuil && (
+                                  <p>
+                                    <strong>CUIL:</strong> {passenger.cuil}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center py-4">
+                        No hay información de pasajeros registrada
+                      </p>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -458,16 +492,16 @@ export function ReservationsManager() {
                 </Card>
               )}
 
-              {/* Total */}
-              <Card className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-200">
+              {/* Nota sobre precio */}
+              <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200">
                 <CardContent className="p-6">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Precio Total</p>
-                      <p className="text-xs text-gray-500">{selectedReservation.cantidad_personas} personas</p>
-                    </div>
-                    <p className="text-3xl font-bold text-green-600">
-                      {formatCurrency(selectedReservation.precio_total)}
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-1">💰 Precio</p>
+                    <p className="text-lg font-bold text-blue-600">
+                      A COTIZAR POR AGENTE
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      El precio será cotizado manualmente y comunicado al cliente
                     </p>
                   </div>
                 </CardContent>
@@ -502,6 +536,22 @@ export function ReservationsManager() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de confirmación */}
+      <AlertDialogConfirm
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ open, type: null, reservationId: null })}
+        title={confirmDialog.type === 'confirm' ? "Confirmar Reserva" : "Cancelar Reserva"}
+        description={
+          confirmDialog.type === 'confirm'
+            ? "¿Estás seguro de que quieres confirmar esta reserva? Esto reducirá el stock disponible."
+            : "¿Estás seguro de que quieres cancelar esta reserva? Si estaba confirmada, se restaurará el stock."
+        }
+        confirmText={confirmDialog.type === 'confirm' ? "Confirmar" : "Cancelar Reserva"}
+        cancelText="Volver"
+        onConfirm={executeAction}
+        variant={confirmDialog.type === 'cancel' ? "destructive" : "default"}
+      />
     </div>
   )
 }

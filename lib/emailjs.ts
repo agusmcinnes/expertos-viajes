@@ -67,46 +67,81 @@ export const sendAgencyNotification = async (data: AgencyNotificationData): Prom
   }
 }
 
+// Interfaces para el nuevo sistema de reservas
+interface RoomDetail {
+  tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
+  cantidad: number
+  subtipo_habitacion?: 'matrimonial' | 'twin' | null
+}
+
+interface Passenger {
+  tipo_pasajero: 'titular' | 'acompañante'
+  nombre: string
+  apellido: string
+  fecha_nacimiento: string
+  cuil?: string
+}
+
 // Función para notificar nueva reserva al admin
 export interface ReservationNotificationData {
-  package_name: string
-  accommodation_name: string
-  fecha_salida: string
-  cliente_nombre: string
-  cliente_email: string
-  cliente_telefono: string
-  cliente_dni?: string
-  cantidad_personas: number
-  precio_total: number
-  detalles_habitaciones: string // Formato: "2x Dobles (4 adultos), 1x Triple (2 adultos, 1 menor)"
-  comentarios?: string
-  reservation_id: number
+  packageName: string
+  accommodation: string
+  departureDate: string
+  clientName: string
+  clientEmail: string
+  clientPhone: string
+  rooms: RoomDetail[]
+  passengers: Passenger[]
+  comments?: string
+  reservationId: number
 }
 
 export const sendReservationNotification = async (data: ReservationNotificationData): Promise<boolean> => {
   try {
+    // Formatear habitaciones
+    const roomTypeName = (tipo: string) => {
+      if (tipo === 'dbl') return 'Doble'
+      if (tipo === 'tpl') return 'Triple'
+      if (tipo === 'cpl') return 'Cuádruple'
+      return tipo
+    }
+
+    const roomDetails = data.rooms.map(room => {
+      let detail = `${roomTypeName(room.tipo_habitacion)}`
+      if (room.subtipo_habitacion) {
+        detail += ` (${room.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Twin'})`
+      }
+      return detail
+    }).join(', ')
+
+    // Formatear pasajeros
+    const passengersDetail = data.passengers.map((p, index) => {
+      const tipo = p.tipo_pasajero === 'titular' ? 'TITULAR' : 'Acompañante'
+      return `${index + 1}. ${tipo}: ${p.nombre} ${p.apellido} (Nacimiento: ${p.fecha_nacimiento})${p.cuil ? ` - CUIL: ${p.cuil}` : ''}`
+    }).join('\n')
+
     const result = await emailjs.send(
       process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
       process.env.NEXT_PUBLIC_EMAILJS_RESERVATION_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '',
       {
-        package_name: data.package_name,
-        accommodation_name: data.accommodation_name,
-        fecha_salida: data.fecha_salida,
-        cliente_nombre: data.cliente_nombre,
-        cliente_email: data.cliente_email,
-        cliente_telefono: data.cliente_telefono,
-        cliente_dni: data.cliente_dni || 'No proporcionado',
-        cantidad_personas: data.cantidad_personas.toString(),
-        precio_total: `USD ${data.precio_total.toLocaleString()}`,
-        detalles_habitaciones: data.detalles_habitaciones,
-        comentarios: data.comentarios || 'Sin comentarios adicionales',
-        reservation_id: data.reservation_id.toString(),
+        package_name: data.packageName,
+        accommodation_name: data.accommodation,
+        fecha_salida: data.departureDate,
+        cliente_nombre: data.clientName,
+        cliente_email: data.clientEmail,
+        cliente_telefono: data.clientPhone,
+        cantidad_personas: data.passengers.length.toString(),
+        detalles_habitaciones: roomDetails,
+        detalles_pasajeros: passengersDetail,
+        comentarios: data.comments || 'Sin comentarios adicionales',
+        reservation_id: data.reservationId.toString(),
         to_name: 'Administrador - Expertos en Viajes',
         admin_email: process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@expertosenvajes.com',
-        subject: `Nueva Reserva #${data.reservation_id} - ${data.package_name}`
+        subject: `Nueva Reserva #${data.reservationId} - ${data.packageName}`,
+        precio_info: 'PRECIO A COTIZAR POR AGENTE'
       }
     )
-    
+
     console.log('Reservation notification sent successfully:', result.text)
     return true
   } catch (error) {
@@ -117,50 +152,65 @@ export const sendReservationNotification = async (data: ReservationNotificationD
 
 // Función para enviar confirmación de reserva al cliente
 export interface ReservationConfirmationData {
-  package_name: string
-  accommodation_name: string
-  fecha_salida: string
-  cliente_nombre: string
-  cliente_email: string
-  cantidad_personas: number
-  precio_total: number
-  detalles_habitaciones: string
-  reservation_id: number
+  packageName: string
+  accommodation: string
+  departureDate: string
+  clientName: string
+  clientEmail: string
+  rooms: RoomDetail[]
+  reservationId: number
 }
 
 export const sendReservationConfirmation = async (data: ReservationConfirmationData): Promise<boolean> => {
   try {
+    // Formatear habitaciones
+    const roomTypeName = (tipo: string) => {
+      if (tipo === 'dbl') return 'Doble'
+      if (tipo === 'tpl') return 'Triple'
+      if (tipo === 'cpl') return 'Cuádruple'
+      return tipo
+    }
+
+    const roomDetails = data.rooms.map(room => {
+      let detail = `${roomTypeName(room.tipo_habitacion)}`
+      if (room.subtipo_habitacion) {
+        detail += ` (${room.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Twin'})`
+      }
+      return detail
+    }).join(', ')
+
     const result = await emailjs.send(
       process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
       process.env.NEXT_PUBLIC_EMAILJS_CONFIRMATION_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '',
       {
-        package_name: data.package_name,
-        accommodation_name: data.accommodation_name,
-        fecha_salida: data.fecha_salida,
-        cliente_nombre: data.cliente_nombre,
-        cantidad_personas: data.cantidad_personas.toString(),
-        precio_total: `USD ${data.precio_total.toLocaleString()}`,
-        detalles_habitaciones: data.detalles_habitaciones,
-        reservation_id: data.reservation_id.toString(),
-        to_email: data.cliente_email,
-        subject: `Confirmación de Reserva #${data.reservation_id} - ${data.package_name}`,
+        package_name: data.packageName,
+        accommodation_name: data.accommodation,
+        fecha_salida: data.departureDate,
+        cliente_nombre: data.clientName,
+        detalles_habitaciones: roomDetails,
+        reservation_id: data.reservationId.toString(),
+        to_email: data.clientEmail,
+        subject: `Confirmación de Reserva #${data.reservationId} - ${data.packageName}`,
         message: `
-Estimado/a ${data.cliente_nombre},
+Estimado/a ${data.clientName},
 
 ¡Gracias por confiar en Expertos en Viajes!
 
 Hemos recibido tu pre-reserva con los siguientes detalles:
 
-📦 Paquete: ${data.package_name}
-🏨 Alojamiento: ${data.accommodation_name}
-📅 Fecha de salida: ${data.fecha_salida}
-👥 Personas: ${data.cantidad_personas}
-🛏️ Habitaciones: ${data.detalles_habitaciones}
-💰 Precio Total: USD ${data.precio_total.toLocaleString()}
+📦 Paquete: ${data.packageName}
+🏨 Alojamiento: ${data.accommodation}
+📅 Fecha de salida: ${data.departureDate}
+🛏️ Habitaciones: ${roomDetails}
 
-Número de reserva: #${data.reservation_id}
+Número de reserva: #${data.reservationId}
 
-Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo a la brevedad para confirmar la disponibilidad y coordinar los detalles del pago.
+💰 PRECIO: Nuestro equipo cotizará el precio de tu reserva y te lo enviará a la brevedad.
+
+Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo para:
+✓ Confirmar la disponibilidad
+✓ Enviarte la cotización detallada
+✓ Coordinar los detalles del pago
 
 Si tienes alguna consulta, no dudes en contactarnos.
 
@@ -169,7 +219,7 @@ Equipo de Expertos en Viajes
         `.trim()
       }
     )
-    
+
     console.log('Reservation confirmation sent successfully:', result.text)
     return true
   } catch (error) {

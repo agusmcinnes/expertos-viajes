@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar } from "lucide-react"
 import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
 import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
@@ -51,6 +52,15 @@ export function AdminDashboardSimple() {
     flyer: null,
     piezas_redes: null
   })
+
+  // Estado para modal de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    description: string
+    onConfirm: (() => void) | null
+    variant?: "default" | "destructive"
+  }>({ open: false, title: "", description: "", onConfirm: null, variant: "default" })
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -264,9 +274,17 @@ export function AdminDashboardSimple() {
     }
   }
 
-  const handleFileDelete = async (packageId: number, fileType: FileType) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar este archivo?`)) return
+  const handleFileDelete = (packageId: number, fileType: FileType) => {
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Archivo",
+      description: `¿Estás seguro de que quieres eliminar este archivo?`,
+      variant: "destructive",
+      onConfirm: () => executeFileDelete(packageId, fileType)
+    })
+  }
 
+  const executeFileDelete = async (packageId: number, fileType: FileType) => {
     try {
       const success = await pdfService.deletePDF(packageId, fileType)
       if (success) {
@@ -626,9 +644,17 @@ export function AdminDashboardSimple() {
   }
 
   // Función para eliminar tarifa
-  const handleDeleteRate = async (rateId: number) => {
-    if (!confirm("¿Estás seguro de eliminar esta tarifa?")) return
+  const handleDeleteRate = (rateId: number) => {
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Tarifa",
+      description: "¿Estás seguro de que quieres eliminar esta tarifa? Esta acción no se puede deshacer.",
+      variant: "destructive",
+      onConfirm: () => executeDeleteRate(rateId)
+    })
+  }
 
+  const executeDeleteRate = async (rateId: number) => {
     if (selectedAccommodationForRates.isNew) {
       // Eliminar de lista temporal y del estado del modal
       setAccommodationRates(prev => {
@@ -894,20 +920,29 @@ export function AdminDashboardSimple() {
     })
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
     console.log("🚀 HandleDelete iniciado para ID:", id);
-    
+
     // Encontrar el paquete que se va a eliminar para mostrar su nombre
     const packageToDelete = packages.find(pkg => pkg.id === id)
     const packageName = packageToDelete?.name || `paquete ${id}`
-    
+
     console.log("📦 Paquete a eliminar:", packageToDelete);
-    
-    if (confirm(`¿Estás seguro de que querés eliminar "${packageName}"?`)) {
-      try {
-        console.log("✅ Usuario confirmó eliminación");
-        console.log("🔄 Iniciando proceso de eliminación...");
-        setIsDeleting(true)
+
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Paquete",
+      description: `¿Estás seguro de que querés eliminar "${packageName}"? Esta acción no se puede deshacer.`,
+      variant: "destructive",
+      onConfirm: () => executeDeletePackage(id, packageName)
+    })
+  }
+
+  const executeDeletePackage = async (id: number, packageName: string) => {
+    try {
+      console.log("✅ Usuario confirmó eliminación");
+      console.log("🔄 Iniciando proceso de eliminación...");
+      setIsDeleting(true)
         
         // Test directo con supabase
         console.log("🧪 Testing direct supabase call...");
@@ -977,9 +1012,6 @@ export function AdminDashboardSimple() {
         console.log("🏁 Finalizando handleDelete...");
         setIsDeleting(false)
       }
-    } else {
-      console.log("❌ Usuario canceló la eliminación");
-    }
   }
 
   // Función para renderizar estrellas
@@ -1021,26 +1053,34 @@ export function AdminDashboardSimple() {
     }
   }
 
-  const handleRejectAgency = async (id: number) => {
-    if (confirm('¿Estás seguro de que quieres rechazar esta agencia?')) {
-      try {
-        setIsLoadingAgencies(true)
-        await agencyService.updateAgencyStatus(id, 'rejected')
-        await loadData() // Recargar datos
-        toast({
-          title: "Agencia rechazada",
-          description: "La agencia fue rechazada.",
-        })
-      } catch (error) {
-        console.error('Error al rechazar agencia:', error)
-        toast({
-          title: "Error al rechazar agencia",
-          description: "No se pudo rechazar la agencia. Intenta nuevamente.",
-          variant: "destructive",
-        })
-      } finally {
-        setIsLoadingAgencies(false)
-      }
+  const handleRejectAgency = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      title: "Rechazar Agencia",
+      description: "¿Estás seguro de que quieres rechazar esta agencia?",
+      variant: "destructive",
+      onConfirm: () => executeRejectAgency(id)
+    })
+  }
+
+  const executeRejectAgency = async (id: number) => {
+    try {
+      setIsLoadingAgencies(true)
+      await agencyService.updateAgencyStatus(id, 'rejected')
+      await loadData() // Recargar datos
+      toast({
+        title: "Agencia rechazada",
+        description: "La agencia fue rechazada.",
+      })
+    } catch (error) {
+      console.error('Error al rechazar agencia:', error)
+      toast({
+        title: "Error al rechazar agencia",
+        description: "No se pudo rechazar la agencia. Intenta nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingAgencies(false)
     }
   }
 
@@ -2499,6 +2539,22 @@ export function AdminDashboardSimple() {
           </motion.div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <AlertDialogConfirm
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ open, title: "", description: "", onConfirm: null })}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        onConfirm={() => {
+          if (confirmDialog.onConfirm) {
+            confirmDialog.onConfirm()
+          }
+        }}
+        variant={confirmDialog.variant}
+      />
     </div>
   )
 }
