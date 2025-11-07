@@ -14,6 +14,16 @@ import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import { ContactFormFunctional } from "./contact-form-functional"
 import { ReservationForm } from "./reservation-form"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface PackageDetailPageProps {
   packageId: string
@@ -47,6 +57,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
   const [error, setError] = useState<string | null>(null)
   const [showContactForm, setShowContactForm] = useState(false)
   const [showReservationForm, setShowReservationForm] = useState(false)
+  const [showPromoAlert, setShowPromoAlert] = useState(false)
   const [showAllDates, setShowAllDates] = useState(false)
 
   useEffect(() => {
@@ -520,8 +531,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                   )}
 
                   <div className="pt-4 border-t space-y-3">
-                    <Button 
-                      onClick={() => setShowReservationForm(true)}
+                    <Button
+                      onClick={() => setShowPromoAlert(true)}
                       className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white text-sm sm:text-base"
                       size="lg"
                     >
@@ -554,6 +565,39 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
           </div>
         </div>
       </div>
+
+      {/* AlertDialog de Información Promocional */}
+      <AlertDialog open={showPromoAlert} onOpenChange={setShowPromoAlert}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl sm:text-2xl">
+              ¡Beneficio por Autogestión!
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4 text-sm sm:text-base">
+              <p className="text-gray-700">
+                <strong>Por auto gestionar tu reserva accedés a una tarifa promocionada</strong>, lo verás reflejado en tu liquidación.
+              </p>
+              <p className="text-gray-600">
+                Completar el formulario no genera gastos. No compartiremos tu información personal y no te solicitaremos datos de tus medios de pago en esta instancia.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowPromoAlert(false)
+                setShowReservationForm(true)
+              }}
+              className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600"
+            >
+              Entendido, continuar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modal de formulario de contacto */}
       {showContactForm && (

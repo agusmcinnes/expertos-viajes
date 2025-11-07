@@ -1198,7 +1198,11 @@ export interface ReservationPassenger {
   nombre: string
   apellido: string
   fecha_nacimiento: string // ISO date string
-  cuil?: string | null // Solo para titular
+  dni?: string | null // DNI del pasajero (formato texto)
+  email?: string | null // Email del pasajero
+  telefono?: string | null // Teléfono del pasajero
+  edad_al_viajar?: number | null // Edad que tendrá al momento del viaje
+  datos_pendientes?: boolean | null // Si marcó "lo completo después"
   created_at: string
 }
 
@@ -1220,7 +1224,7 @@ export interface CreateReservationData {
   cliente_telefono: string
   comentarios?: string
   details: {
-    tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
+    tipo_habitacion: 'dbl' | 'tpl' | 'cpl' | 'qpl'
     cantidad: number
     subtipo_habitacion?: 'matrimonial' | 'twin' | null
   }[]
@@ -1229,7 +1233,11 @@ export interface CreateReservationData {
     nombre: string
     apellido: string
     fecha_nacimiento: string
-    cuil?: string
+    dni?: string
+    email?: string
+    telefono?: string
+    edad_al_viajar?: number
+    datos_pendientes?: boolean
   }[]
 }
 
@@ -1476,7 +1484,11 @@ export const reservationService = {
         nombre: passenger.nombre,
         apellido: passenger.apellido,
         fecha_nacimiento: passenger.fecha_nacimiento,
-        cuil: passenger.cuil
+        dni: passenger.dni,
+        email: passenger.email,
+        telefono: passenger.telefono,
+        edad_al_viajar: passenger.edad_al_viajar,
+        datos_pendientes: passenger.datos_pendientes || false
       }))
 
       const { error: passengersError } = await supabase

@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, Hotel, Users, Check, AlertCircle, Plus, Minus, X, Edit } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Calendar, Hotel, Users, Check, AlertCircle, Plus, Minus, X, Edit, Info } from "lucide-react"
 import { supabase, stockService, reservationService, type CreateReservationData } from "@/lib/supabase"
 import { sendReservationNotification, sendReservationConfirmation } from "@/lib/emailjs"
 import { motion, AnimatePresence } from "framer-motion"
@@ -20,6 +21,7 @@ interface Accommodation {
   name: string
   stars: number
   regimen?: string | null
+  hasStock?: boolean // Indica si tiene disponibilidad para la fecha seleccionada
 }
 
 interface ReservationFormProps {
@@ -35,11 +37,12 @@ interface StockAvailable {
   stock_dbl: number
   stock_tpl: number
   stock_cpl: number
+  stock_qpl: number
   flexible_dates?: boolean
 }
 
 interface RoomDetail {
-  tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
+  tipo_habitacion: 'dbl' | 'tpl' | 'cpl' | 'qpl'
   cantidad: number
   subtipo_habitacion?: 'matrimonial' | 'twin' | null
 }
@@ -49,7 +52,10 @@ interface Passenger {
   nombre: string
   apellido: string
   fecha_nacimiento: string
-  cuil?: string
+  dni?: string
+  email?: string
+  telefono?: string
+  datos_pendientes?: boolean // Si marcó "lo completo después"
 }
 
 export function ReservationForm({ packageId, packageName, onSuccess, onClose }: ReservationFormProps) {
@@ -71,13 +77,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   // Datos del formulario
   const [roomsData, setRoomsData] = useState<RoomDetail[]>([])
   const [passengers, setPassengers] = useState<Passenger[]>([])
-
-  const [contactData, setContactData] = useState({
-    nombre: "",
-    email: "",
-    telefono: "",
-    comentarios: ""
-  })
+  const [comentarios, setComentarios] = useState("")
 
   // Cargar fechas disponibles al montar
   useEffect(() => {
@@ -118,7 +118,10 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         nombre: "",
         apellido: "",
         fecha_nacimiento: "",
-        cuil: ""
+        dni: "",
+        email: "",
+        telefono: "",
+        datos_pendientes: false
       }])
     }
   }, [step, passengers.length])
@@ -166,7 +169,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     try {
       setIsLoadingAccommodations(true)
 
-      // Obtener alojamientos que tienen stock para esta fecha
+      // 1. Obtener alojamientos que tienen stock para esta fecha
       const { data: stockData, error: stockError } = await supabase
         .from("package_stock")
         .select("accommodation_id")
@@ -176,23 +179,60 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       if (stockError) throw stockError
 
-      const accommodationIds = Array.from(new Set(stockData?.map(s => s.accommodation_id) || []))
+      const accommodationIdsWithStock = Array.from(new Set(stockData?.map(s => s.accommodation_id) || []))
 
-      if (accommodationIds.length === 0) {
-        setAccommodations([])
-        return
-      }
-
-      // Cargar información de los alojamientos
+      // 2. Cargar TODOS los alojamientos del paquete (no solo los que tienen stock)
       const { data: accomData, error: accomError } = await supabase
         .from("accommodations")
         .select("*")
         .eq("paquete_id", packageId)
-        .in("id", accommodationIds)
         .order("name")
 
       if (accomError) throw accomError
-      setAccommodations(accomData || [])
+
+      // 3. Deduplicar por NOMBRE (porque el mismo hotel puede tener múltiples IDs para diferentes fechas)
+      const uniqueAccommodationsMap: { [key: string]: Accommodation } = {}
+
+      ;(accomData || []).forEach(accom => {
+        // Usar el nombre como key para deduplicar
+        const key = accom.name.trim().toLowerCase()
+
+        if (!uniqueAccommodationsMap[key]) {
+          // Primera vez que vemos este hotel
+          uniqueAccommodationsMap[key] = {
+            id: accom.id,
+            name: accom.name,
+            stars: accom.stars,
+            regimen: accom.regimen,
+            hasStock: accommodationIdsWithStock.includes(accom.id)
+          }
+        } else {
+          // Ya existe este hotel, actualizar hasStock si este tiene stock
+          // Esto es importante porque un hotel puede aparecer varias veces:
+          // una con stock y otra sin stock
+          if (accommodationIdsWithStock.includes(accom.id)) {
+            uniqueAccommodationsMap[key].hasStock = true
+            // Actualizar el ID al que tiene stock
+            uniqueAccommodationsMap[key].id = accom.id
+          }
+        }
+      })
+
+      // Convertir a array y ordenar
+      const accommodationsWithAvailability = Object.values(uniqueAccommodationsMap)
+        .sort((a, b) => {
+          // Primero los que tienen stock, luego los que no
+          if (a.hasStock && !b.hasStock) return -1
+          if (!a.hasStock && b.hasStock) return 1
+          // Si ambos tienen o no tienen stock, ordenar por nombre
+          return a.name.localeCompare(b.name)
+        })
+
+      console.log('Alojamientos cargados (deduplicados por nombre):', accommodationsWithAvailability.length)
+      console.log('Con stock:', accommodationsWithAvailability.filter(a => a.hasStock).length)
+      console.log('Sin stock:', accommodationsWithAvailability.filter(a => !a.hasStock).length)
+
+      setAccommodations(accommodationsWithAvailability)
     } catch (error) {
       console.error("Error loading accommodations:", error)
       setError("Error al cargar los alojamientos")
@@ -233,30 +273,33 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     }, 0)
   }
 
-  const getStockForRoomType = (tipo: 'dbl' | 'tpl' | 'cpl') => {
+  const getStockForRoomType = (tipo: 'dbl' | 'tpl' | 'cpl' | 'qpl') => {
     if (availableDates.length === 0) return 0
     const stock = availableDates[0]
     if (tipo === 'dbl') return stock.stock_dbl
     if (tipo === 'tpl') return stock.stock_tpl
     if (tipo === 'cpl') return stock.stock_cpl
+    if (tipo === 'qpl') return stock.stock_qpl
     return 0
   }
 
-  const getRoomTypeName = (tipo: 'dbl' | 'tpl' | 'cpl') => {
+  const getRoomTypeName = (tipo: 'dbl' | 'tpl' | 'cpl' | 'qpl') => {
     if (tipo === 'dbl') return 'Doble'
     if (tipo === 'tpl') return 'Triple'
     if (tipo === 'cpl') return 'Cuádruple'
+    if (tipo === 'qpl') return 'Quíntuple'
     return tipo
   }
 
-  const getRoomCapacity = (tipo: 'dbl' | 'tpl' | 'cpl') => {
+  const getRoomCapacity = (tipo: 'dbl' | 'tpl' | 'cpl' | 'qpl') => {
     if (tipo === 'dbl') return 2
     if (tipo === 'tpl') return 3
     if (tipo === 'cpl') return 4
+    if (tipo === 'qpl') return 5
     return 0
   }
 
-  const addRoom = (tipo: 'dbl' | 'tpl' | 'cpl') => {
+  const addRoom = (tipo: 'dbl' | 'tpl' | 'cpl' | 'qpl') => {
     const currentCount = roomsData.filter(r => r.tipo_habitacion === tipo).reduce((sum, r) => sum + r.cantidad, 0)
     const stockAvailable = getStockForRoomType(tipo)
 
@@ -272,7 +315,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     setRoomsData([...roomsData, {
       tipo_habitacion: tipo,
       cantidad: 1,
-      subtipo_habitacion: tipo === 'dbl' ? 'matrimonial' : null
+      subtipo_habitacion: 'matrimonial' // Todas las habitaciones tienen subtipo por defecto
     }])
   }
 
@@ -303,7 +346,10 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
       nombre: "",
       apellido: "",
       fecha_nacimiento: "",
-      cuil: undefined
+      dni: "",
+      email: "",
+      telefono: "",
+      datos_pendientes: false
     }])
   }
 
@@ -317,7 +363,10 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         nombre: "",
         apellido: "",
         fecha_nacimiento: "",
-        cuil: ""
+        dni: "",
+        email: "",
+        telefono: "",
+        datos_pendientes: false
       }])
     } else {
       // Si es acompañante, solo eliminarlo
@@ -325,7 +374,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     }
   }
 
-  const updatePassenger = (index: number, field: keyof Passenger, value: string) => {
+  const updatePassenger = (index: number, field: keyof Passenger, value: string | boolean) => {
     const newPassengers = [...passengers]
     newPassengers[index] = { ...newPassengers[index], [field]: value }
     setPassengers(newPassengers)
@@ -342,37 +391,23 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const canProceedToStep4 = () => {
     if (roomsData.length === 0) return false
 
-    // Validar que todas las habitaciones dobles tengan subtipo
-    const allDoublesHaveSubtype = roomsData
-      .filter(r => r.tipo_habitacion === 'dbl')
-      .every(r => r.subtipo_habitacion !== null)
+    // Validar que todas las habitaciones tengan subtipo
+    const allRoomsHaveSubtype = roomsData.every(r => r.subtipo_habitacion !== null)
 
-    return allDoublesHaveSubtype
-  }
-
-  const canProceedToStep5 = () => {
-    // Validar que haya al menos un pasajero titular completo y mayor de 18
-    if (!isTitularComplete() || !isTitularAdult()) return false
-
-    // Validar que todos los acompañantes estén completos
-    const acompanantes = passengers.filter(p => p.tipo_pasajero === 'acompañante')
-    for (const acomp of acompanantes) {
-      if (!acomp.nombre.trim() || !acomp.apellido.trim() || !acomp.fecha_nacimiento) {
-        return false
-      }
-    }
-
-    return true
+    return allRoomsHaveSubtype
   }
 
   const isTitularComplete = () => {
     const titular = passengers.find(p => p.tipo_pasajero === 'titular')
     if (!titular) return false
 
+    // El titular SIEMPRE debe tener todos los campos completos
     return titular.nombre.trim() !== '' &&
            titular.apellido.trim() !== '' &&
-           titular.cuil?.trim() !== '' &&
-           titular.fecha_nacimiento !== ''
+           titular.fecha_nacimiento !== '' &&
+           titular.dni?.trim() !== '' &&
+           titular.email?.trim() !== '' &&
+           titular.telefono?.trim() !== ''
   }
 
   const isTitularAdult = () => {
@@ -392,6 +427,15 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     return differenceInYears(new Date(), birthDate)
   }
 
+  // Calcular edad al momento del viaje
+  const getAgeAtTravel = (fechaNacimiento: string) => {
+    if (!fechaNacimiento || !selectedDate) return null
+
+    const birthDate = new Date(fechaNacimiento)
+    const travelDate = new Date(selectedDate)
+    return differenceInYears(travelDate, birthDate)
+  }
+
   const canSubmit = () => {
     // Validar que haya al menos un pasajero titular
     const hasTitular = passengers.some(p => p.tipo_pasajero === 'titular')
@@ -409,21 +453,22 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                        p.apellido.trim() !== "" &&
                        p.fecha_nacimiento !== ""
 
-      if (p.tipo_pasajero === 'titular') {
-        return baseValid && p.cuil && p.cuil.trim() !== ""
+      // Si marcó "datos pendientes", solo validar datos básicos
+      if (p.datos_pendientes) {
+        return baseValid
       }
 
-      return baseValid
+      // Si no marcó "datos pendientes", validar que todos los campos estén completos
+      return baseValid &&
+             p.dni?.trim() !== "" &&
+             p.email?.trim() !== "" &&
+             p.telefono?.trim() !== ""
     })
 
     if (!allPassengersValid) return false
 
-    // Validar datos de contacto
-    const contactValid = contactData.nombre.trim() !== "" &&
-                        contactData.email.trim() !== "" &&
-                        contactData.telefono.trim() !== ""
-
-    return contactValid
+    // Ya no necesitamos validar datos de contacto porque se toman del titular
+    return true
   }
 
   const handleSubmit = async () => {
@@ -433,16 +478,28 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
       setIsSubmitting(true)
       setError(null)
 
+      // Calcular edad al viajar para cada pasajero
+      const passengersWithAge = passengers.map(p => ({
+        ...p,
+        edad_al_viajar: p.fecha_nacimiento ? getAgeAtTravel(p.fecha_nacimiento) : undefined
+      }))
+
+      // Obtener datos del titular para usar como contacto
+      const titular = passengers.find(p => p.tipo_pasajero === 'titular')
+      if (!titular) {
+        throw new Error('No se encontró el titular')
+      }
+
       const reservationData: CreateReservationData = {
         package_id: packageId,
         accommodation_id: selectedAccommodation,
         fecha_salida: selectedDate,
-        cliente_nombre: contactData.nombre,
-        cliente_email: contactData.email,
-        cliente_telefono: contactData.telefono,
-        comentarios: contactData.comentarios || undefined,
+        cliente_nombre: `${titular.nombre} ${titular.apellido}`,
+        cliente_email: titular.email || '',
+        cliente_telefono: titular.telefono || '',
+        comentarios: comentarios || undefined,
         details: roomsData,
-        passengers: passengers
+        passengers: passengersWithAge
       }
 
       const result = await reservationService.createReservation(reservationData)
@@ -458,19 +515,19 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         await sendReservationNotification({
           packageName,
           reservationId: result.reservation.id,
-          clientName: contactData.nombre,
-          clientEmail: contactData.email,
-          clientPhone: contactData.telefono,
+          clientName: `${titular.nombre} ${titular.apellido}`,
+          clientEmail: titular.email || '',
+          clientPhone: titular.telefono || '',
           accommodation: accommodations.find(a => a.id === selectedAccommodation)?.name || "",
           departureDate: selectedDate,
           rooms: roomsData,
-          passengers: passengers,
-          comments: contactData.comentarios
+          passengers: passengersWithAge,
+          comments: comentarios
         })
 
         await sendReservationConfirmation({
-          clientEmail: contactData.email,
-          clientName: contactData.nombre,
+          clientEmail: titular.email || '',
+          clientName: `${titular.nombre} ${titular.apellido}`,
           packageName,
           reservationId: result.reservation.id,
           accommodation: accommodations.find(a => a.id === selectedAccommodation)?.name || "",
@@ -579,7 +636,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
               </p>
             )}
             <p className="text-sm text-gray-600">
-              Enviamos un correo de confirmación a {contactData.email}
+              {passengers.find(p => p.tipo_pasajero === 'titular')?.email &&
+                `Enviamos un correo de confirmación a ${passengers.find(p => p.tipo_pasajero === 'titular')?.email}`}
             </p>
           </motion.div>
         )}
@@ -659,6 +717,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             <Button
               onClick={() => setStep(2)}
               disabled={!canProceedToStep2()}
+              className="text-white"
             >
               Continuar
             </Button>
@@ -701,11 +760,26 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                   </SelectTrigger>
                   <SelectContent>
                     {accommodations.map((acc) => (
-                      <SelectItem key={acc.id} value={acc.id.toString()}>
-                        <div className="flex items-center gap-2">
-                          <span>{acc.name}</span>
-                          <span className="text-yellow-500">{'★'.repeat(acc.stars)}</span>
-                          {acc.regimen && <span className="text-gray-500 text-sm">• {acc.regimen}</span>}
+                      <SelectItem
+                        key={`accom-${acc.id}`}
+                        value={acc.id.toString()}
+                        disabled={!acc.hasStock}
+                      >
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={!acc.hasStock ? 'text-gray-400' : ''}>{acc.name}</span>
+                          <span className={!acc.hasStock ? 'text-gray-300' : 'text-yellow-500'}>
+                            {'★'.repeat(acc.stars)}
+                          </span>
+                          {acc.regimen && (
+                            <span className={`text-sm ${!acc.hasStock ? 'text-gray-300' : 'text-gray-500'}`}>
+                              • {acc.regimen}
+                            </span>
+                          )}
+                          {!acc.hasStock && (
+                            <Badge variant="destructive" className="text-xs ml-1">
+                              SIN DISPONIBILIDAD
+                            </Badge>
+                          )}
                         </div>
                       </SelectItem>
                     ))}
@@ -722,6 +796,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             <Button
               onClick={() => setStep(3)}
               disabled={!canProceedToStep3()}
+              className="text-white"
             >
               Continuar
             </Button>
@@ -745,7 +820,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             <CardContent className="space-y-4">
               {/* Cards para agregar habitaciones */}
               <div className="grid grid-cols-1 gap-4">
-                {(['dbl', 'tpl', 'cpl'] as const).map((tipo) => {
+                {(['dbl', 'tpl', 'cpl', 'qpl'] as const).map((tipo) => {
                   const agregadas = roomsData.filter(r => r.tipo_habitacion === tipo).length
                   const stockDisponible = getStockForRoomType(tipo)
                   const puedeAgregar = agregadas < stockDisponible
@@ -776,9 +851,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                             onClick={() => addRoom(tipo)}
                             disabled={!puedeAgregar}
                             size="lg"
-                            className="w-10 h-10 rounded-full p-0 text-2xl"
+                            className="w-10 h-10 rounded-full p-0 text-2xl text-white"
                           >
-                            <Plus className="text-white w-6 h-6" />
+                            <Plus className="w-6 h-6" />
                           </Button>
                         </div>
                       </CardContent>
@@ -814,31 +889,30 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                 </Badge>
                               </div>
 
-                              {room.tipo_habitacion === 'dbl' && (
-                                <div className="mt-2">
-                                  <label className="text-xs font-medium text-gray-600 block mb-1">
-                                    Tipo de cama:
-                                  </label>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant={room.subtipo_habitacion === 'matrimonial' ? 'default' : 'outline'}
-                                      onClick={() => updateRoomSubtype(index, 'matrimonial')}
-                                      className="text-xs"
-                                    >
-                                      Matrimonial
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant={room.subtipo_habitacion === 'twin' ? 'default' : 'outline'}
-                                      onClick={() => updateRoomSubtype(index, 'twin')}
-                                      className="text-xs"
-                                    >
-                                      Twin (2 camas)
-                                    </Button>
-                                  </div>
+                              {/* Selector de subtipo para TODAS las habitaciones */}
+                              <div className="mt-2">
+                                <label className="text-xs font-medium text-gray-600 block mb-1">
+                                  Tipo de cama:
+                                </label>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant={room.subtipo_habitacion === 'matrimonial' ? 'default' : 'outline'}
+                                    onClick={() => updateRoomSubtype(index, 'matrimonial')}
+                                    className={`text-xs ${room.subtipo_habitacion === 'matrimonial' ? 'text-white' : ''}`}
+                                  >
+                                    Matrimonial
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant={room.subtipo_habitacion === 'twin' ? 'default' : 'outline'}
+                                    onClick={() => updateRoomSubtype(index, 'twin')}
+                                    className={`text-xs ${room.subtipo_habitacion === 'twin' ? 'text-white' : ''}`}
+                                  >
+                                    Camas Separadas
+                                  </Button>
                                 </div>
-                              )}
+                              </div>
                             </div>
 
                             <Button
@@ -870,12 +944,13 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                 } else {
                   toast({
                     title: "Selección incompleta",
-                    description: "Por favor selecciona el tipo de cama para todas las habitaciones dobles",
+                    description: "Por favor selecciona el tipo de cama para todas las habitaciones",
                     variant: "destructive"
                   })
                 }
               }}
               disabled={roomsData.length === 0}
+              className="text-white"
             >
               Continuar
             </Button>
@@ -924,7 +999,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                     {passengers.filter(p => p.tipo_pasajero === 'titular').map((titular) => (
                       <div key="titular-info" className="text-sm space-y-1">
                         <p><strong>Nombre:</strong> {titular.nombre} {titular.apellido}</p>
-                        <p><strong>CUIL:</strong> {titular.cuil}</p>
+                        <p><strong>DNI:</strong> {titular.dni}</p>
                         <p><strong>Fecha de Nacimiento:</strong> {new Date(titular.fecha_nacimiento).toLocaleDateString('es-AR', {
                           year: 'numeric',
                           month: 'long',
@@ -960,12 +1035,34 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
-                            CUIL *
+                            DNI *
                           </label>
                           <Input
-                            value={passengers[0]?.cuil || ''}
-                            onChange={(e) => updatePassenger(0, 'cuil', e.target.value)}
-                            placeholder="20-12345678-9"
+                            value={passengers[0]?.dni || ''}
+                            onChange={(e) => updatePassenger(0, 'dni', e.target.value)}
+                            placeholder="12.345.678 o 12345678"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email *
+                          </label>
+                          <Input
+                            type="email"
+                            value={passengers[0]?.email || ''}
+                            onChange={(e) => updatePassenger(0, 'email', e.target.value)}
+                            placeholder="correo@ejemplo.com"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Teléfono *
+                          </label>
+                          <Input
+                            type="tel"
+                            value={passengers[0]?.telefono || ''}
+                            onChange={(e) => updatePassenger(0, 'telefono', e.target.value)}
+                            placeholder="+54 9 11 1234-5678"
                           />
                         </div>
                         <div className="sm:col-span-2">
@@ -983,6 +1080,20 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                             maxYear={new Date().getFullYear()}
                             minYear={1920}
                           />
+
+                          {/* Campo de edad al momento del viaje */}
+                          {passengers[0]?.fecha_nacimiento && selectedDate && (
+                            <div className="mt-2 flex items-center gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-md p-2">
+                              <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                              <div>
+                                <strong>Edad al viajar:</strong> {getAgeAtTravel(passengers[0].fecha_nacimiento)} años
+                                <p className="text-xs text-gray-600 mt-0.5">
+                                  La edad debe ser la que tenga al momento de viajar
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
                           {passengers[0]?.fecha_nacimiento && !isTitularAdult() && (
                             <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                               <AlertCircle className="w-3 h-3" />
@@ -991,6 +1102,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                           )}
                         </div>
                       </div>
+
                       <Button
                         onClick={() => {
                           if (!isTitularComplete()) {
@@ -1015,7 +1127,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                           })
                         }}
                         disabled={!isTitularComplete() || !isTitularAdult()}
-                        className="w-full"
+                        className="w-full text-white"
                       >
                         Confirmar Datos
                       </Button>
@@ -1061,6 +1173,40 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                 </Button>
                               </div>
 
+                              {/* Checkbox "Lo completo después" para acompañante - ARRIBA DE TODO */}
+                              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-300 mb-4 cursor-pointer"
+                                onClick={() => {
+                                  const newPassengers = [...passengers]
+                                  const currentValue = Boolean(newPassengers[index].datos_pendientes)
+                                  const newValue = !currentValue
+                                  newPassengers[index] = {
+                                    ...newPassengers[index],
+                                    datos_pendientes: newValue,
+                                    dni: newValue ? '' : newPassengers[index].dni,
+                                    email: newValue ? '' : newPassengers[index].email,
+                                    telefono: newValue ? '' : newPassengers[index].telefono
+                                  }
+                                  setPassengers(newPassengers)
+                                }}
+                              >
+                                <Checkbox
+                                  id={`acomp-${index}-datos-pendientes`}
+                                  checked={Boolean(passenger.datos_pendientes)}
+                                  className="pointer-events-none"
+                                />
+                                <div className="flex-1">
+                                  <label
+                                    htmlFor={`acomp-${index}-datos-pendientes`}
+                                    className="text-sm text-gray-700 leading-tight block pointer-events-none"
+                                  >
+                                    <strong>Lo completo después</strong>
+                                    <p className="text-xs text-gray-600 mt-0.5">
+                                      Si te falta algún documento, marcá esta opción y completá solo los datos básicos.
+                                    </p>
+                                  </label>
+                                </div>
+                              </div>
+
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1097,7 +1243,58 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                     maxYear={new Date().getFullYear()}
                                     minYear={1920}
                                   />
+
+                                  {/* Campo de edad al momento del viaje */}
+                                  {passenger.fecha_nacimiento && selectedDate && (
+                                    <div className="mt-2 flex items-center gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-md p-2">
+                                      <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                      <div>
+                                        <strong>Edad al viajar:</strong> {getAgeAtTravel(passenger.fecha_nacimiento)} años
+                                        <p className="text-xs text-gray-600 mt-0.5">
+                                          La edad debe ser la que tenga al momento de viajar
+                                        </p>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
+
+                                {/* Campos opcionales solo si NO marcó "lo completo después" */}
+                                {!passenger.datos_pendientes && (
+                                  <>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        DNI *
+                                      </label>
+                                      <Input
+                                        value={passenger.dni || ''}
+                                        onChange={(e) => updatePassenger(index, 'dni', e.target.value)}
+                                        placeholder="12.345.678"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Email *
+                                      </label>
+                                      <Input
+                                        type="email"
+                                        value={passenger.email || ''}
+                                        onChange={(e) => updatePassenger(index, 'email', e.target.value)}
+                                        placeholder="correo@ejemplo.com"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Teléfono *
+                                      </label>
+                                      <Input
+                                        type="tel"
+                                        value={passenger.telefono || ''}
+                                        onChange={(e) => updatePassenger(index, 'telefono', e.target.value)}
+                                        placeholder="+54 9 11 1234-5678"
+                                      />
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
@@ -1114,92 +1311,36 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             </CardContent>
           </Card>
 
+          {/* Campo de Comentarios */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Comentarios Adicionales</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={comentarios}
+                onChange={(e) => setComentarios(e.target.value)}
+                placeholder="Información adicional sobre la reserva (opcional)..."
+                rows={3}
+              />
+            </CardContent>
+          </Card>
+
           <div className="flex justify-between gap-2">
             <Button variant="outline" onClick={() => setStep(3)}>
               Atrás
             </Button>
             <Button
-              onClick={() => setStep(5)}
-              disabled={!canProceedToStep5()}
-            >
-              Continuar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 5: Datos de Contacto */}
-      {step === 5 && !success && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                Datos de Contacto
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre completo *
-                  </label>
-                  <Input
-                    value={contactData.nombre}
-                    onChange={(e) => setContactData({...contactData, nombre: e.target.value})}
-                    placeholder="Nombre y apellido"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <Input
-                    type="email"
-                    value={contactData.email}
-                    onChange={(e) => setContactData({...contactData, email: e.target.value})}
-                    placeholder="tu@email.com"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Teléfono *
-                  </label>
-                  <Input
-                    type="tel"
-                    value={contactData.telefono}
-                    onChange={(e) => setContactData({...contactData, telefono: e.target.value})}
-                    placeholder="+54 9 11 1234-5678"
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Comentarios adicionales
-                  </label>
-                  <Textarea
-                    value={contactData.comentarios}
-                    onChange={(e) => setContactData({...contactData, comentarios: e.target.value})}
-                    placeholder="Información adicional sobre la reserva..."
-                    rows={3}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-between gap-2">
-            <Button variant="outline" onClick={() => setStep(4)}>
-              Atrás
-            </Button>
-            <Button
               onClick={handleSubmit}
               disabled={!canSubmit() || isSubmitting}
+              className="text-white"
             >
               {isSubmitting ? "Procesando..." : "Confirmar Reserva"}
             </Button>
           </div>
         </div>
       )}
+
     </div>
   )
 }

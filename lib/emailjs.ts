@@ -79,7 +79,11 @@ interface Passenger {
   nombre: string
   apellido: string
   fecha_nacimiento: string
-  cuil?: string
+  dni?: string
+  email?: string
+  telefono?: string
+  edad_al_viajar?: number
+  datos_pendientes?: boolean
 }
 
 // Función para notificar nueva reserva al admin
@@ -117,7 +121,22 @@ export const sendReservationNotification = async (data: ReservationNotificationD
     // Formatear pasajeros
     const passengersDetail = data.passengers.map((p, index) => {
       const tipo = p.tipo_pasajero === 'titular' ? 'TITULAR' : 'Acompañante'
-      return `${index + 1}. ${tipo}: ${p.nombre} ${p.apellido} (Nacimiento: ${p.fecha_nacimiento})${p.cuil ? ` - CUIL: ${p.cuil}` : ''}`
+      let detail = `${index + 1}. ${tipo}: ${p.nombre} ${p.apellido}`
+
+      if (p.edad_al_viajar) {
+        detail += ` (${p.edad_al_viajar} años al viajar)`
+      }
+      detail += ` - Fecha Nacimiento: ${p.fecha_nacimiento}`
+
+      if (p.datos_pendientes) {
+        detail += ' - ⚠️ DATOS PENDIENTES DE COMPLETAR'
+      } else {
+        if (p.dni) detail += ` - DNI: ${p.dni}`
+        if (p.email) detail += ` - Email: ${p.email}`
+        if (p.telefono) detail += ` - Tel: ${p.telefono}`
+      }
+
+      return detail
     }).join('\n')
 
     const result = await emailjs.send(
