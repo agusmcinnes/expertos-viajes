@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Lock, User, Plane } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface AdminLoginProps {
   onLogin: () => void
 }
 
 export function AdminLogin({ onLogin }: AdminLoginProps) {
+  const { toast } = useToast()
   const [credentials, setCredentials] = useState({ username: "", password: "" })
   const [isLoading, setIsLoading] = useState(false)
 
@@ -35,7 +37,11 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
       onLogin()
     } catch (error: any) {
       console.error("❌ Error de autenticación:", error)
-      alert("Credenciales incorrectas: " + (error.message || "Error desconocido"))
+      toast({
+        title: "Error de autenticación",
+        description: error.message || "Credenciales incorrectas. Verifica tu usuario y contraseña.",
+        variant: "destructive",
+      })
     }
 
     setIsLoading(false)

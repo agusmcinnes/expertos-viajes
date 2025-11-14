@@ -1148,3 +1148,529 @@ export const getFileTypeLabel = (fileType: string): string => {
   
   return 'Archivo'
 }
+
+// =====================================================
+// SISTEMA DE RESERVAS Y GESTIÓN DE STOCK
+// =====================================================
+
+// Tipos para el sistema de reservas
+export interface PackageStock {
+  id: number
+  package_id: number
+  accommodation_id: number
+  fecha_salida: string | null // ISO date string, null para fechas flexibles
+  stock_dbl: number
+  stock_tpl: number
+  stock_cpl: number
+  is_available: boolean
+  flexible_dates?: boolean // Indica si el stock tiene fechas flexibles
+  created_at: string
+  updated_at: string
+}
+
+export interface Reservation {
+  id: number
+  package_id: number
+  accommodation_id: number
+  fecha_salida: string
+  cliente_nombre: string
+  cliente_email: string
+  cliente_telefono: string
+  comentarios?: string | null
+  estado: 'pendiente' | 'confirmada' | 'cancelada' | 'completada'
+  created_at: string
+  updated_at: string
+}
+
+export interface ReservationDetail {
+  id: number
+  reservation_id: number
+  tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
+  cantidad: number
+  subtipo_habitacion?: 'matrimonial' | 'twin' | null
+  created_at: string
+}
+
+export interface ReservationPassenger {
+  id: number
+  reservation_id: number
+  tipo_pasajero: 'titular' | 'acompañante'
+  nombre: string
+  apellido: string
+  fecha_nacimiento: string // ISO date string
+  dni?: string | null // DNI del pasajero (formato texto)
+  email?: string | null // Email del pasajero
+  telefono?: string | null // Teléfono del pasajero
+  edad_al_viajar?: number | null // Edad que tendrá al momento del viaje
+  datos_pendientes?: boolean | null // Si marcó "lo completo después"
+  created_at: string
+}
+
+export interface ReservationWithDetails extends Reservation {
+  details: ReservationDetail[]
+  reservation_details: ReservationDetail[]
+  passengers?: ReservationPassenger[]
+  reservation_passengers?: ReservationPassenger[]
+  travel_packages?: TravelPackage
+  accommodations?: Accommodation
+}
+
+export interface CreateReservationData {
+  package_id: number
+  accommodation_id: number
+  fecha_salida: string
+  cliente_nombre: string
+  cliente_email: string
+  cliente_telefono: string
+  comentarios?: string
+  details: {
+    tipo_habitacion: 'dbl' | 'tpl' | 'cpl' | 'qpl'
+    cantidad: number
+    subtipo_habitacion?: 'matrimonial' | 'twin' | null
+  }[]
+  passengers: {
+    tipo_pasajero: 'titular' | 'acompañante'
+    nombre: string
+    apellido: string
+    fecha_nacimiento: string
+    dni?: string
+    email?: string
+    telefono?: string
+    edad_al_viajar?: number
+    datos_pendientes?: boolean
+  }[]
+}
+
+// Servicio para gestión de stock
+export const stockService = {
+  // Obtener stock disponible para un paquete/alojamiento/fecha
+  async getStock(packageId: number, accommodationId: number, fechaSalida: string) {
+    const { data, error } = await supabase
+      .from('package_stock')
+      .select('*')
+      .eq('package_id', packageId)
+      .eq('accommodation_id', accommodationId)
+      .eq('fecha_salida', fechaSalida)
+      .eq('is_available', true)
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error
+    return data
+  },
+
+  // Obtener todo el stock de un paquete
+  async getStockByPackage(packageId: number) {
+    const { data, error } = await supabase
+      .from('package_stock')
+      .select(`
+        *,
+        accommodations (
+          id,
+          name,
+          stars
+        )
+      `)
+      .eq('package_id', packageId)
+      .order('fecha_salida', { ascending: true })
+
+    if (error) throw error
+    return data
+  },
+
+  // Crear o actualizar stock
+  async upsertStock(stockData: Omit<PackageStock, 'id' | 'created_at' | 'updated_at'>) {
+    const { data, error } = await supabase
+      .from('package_stock')
+      .upsert([stockData], {
+        onConflict: 'package_id,accommodation_id,fecha_salida,flexible_dates'
+      })
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Actualizar stock existente
+  async updateStock(id: number, updates: Partial<PackageStock>) {
+    const { data, error } = await supabase
+      .from('package_stock')
+      .update(updates)
+      .eq('id', id)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Eliminar stock
+  async deleteStock(id: number) {
+    const { error } = await supabase
+      .from('package_stock')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+  },
+
+  // Verificar disponibilidad de stock para una reserva
+  async checkAvailability(
+    packageId: number,
+    accommodationId: number,
+    fechaSalida: string,
+    details: { tipo_habitacion: 'dbl' | 'tpl' | 'cpl', cantidad: number }[]
+  ): Promise<{ available: boolean, message?: string }> {
+    console.log('🔍 Buscando stock para:', { packageId, accommodationId, fechaSalida })
+
+    // Primero buscar stock específico para esa fecha
+    let stock = await this.getStock(packageId, accommodationId, fechaSalida)
+
+    if (stock) {
+      console.log('✅ Stock específico encontrado:', stock)
+    }
+
+    // Si no hay stock específico, buscar stock flexible
+    if (!stock) {
+      console.log('⚠️ No hay stock específico, buscando stock flexible...')
+      const { data: flexibleStock, error } = await supabase
+        .from('package_stock')
+        .select('*')
+        .eq('package_id', packageId)
+        .eq('accommodation_id', accommodationId)
+        .eq('flexible_dates', true)
+        .eq('is_available', true)
+        .single()
+
+      if (error) {
+        console.error('❌ Error buscando stock flexible:', error)
+      }
+
+      if (!error && flexibleStock) {
+        stock = flexibleStock as PackageStock
+        console.log('🎯 Usando stock flexible para validación:', stock)
+      }
+    }
+
+    if (!stock) {
+      console.error('❌ No se encontró stock (ni específico ni flexible)')
+      return { available: false, message: 'No hay stock configurado para esta fecha' }
+    }
+
+    console.log('📊 Verificando disponibilidad por tipo de habitación...')
+    for (const detail of details) {
+      const stockField = `stock_${detail.tipo_habitacion}` as keyof PackageStock
+      const availableStock = stock[stockField] as number
+
+      console.log(`  - ${detail.tipo_habitacion.toUpperCase()}: Disponible=${availableStock}, Solicitado=${detail.cantidad}`)
+
+      if (availableStock < detail.cantidad) {
+        console.error(`❌ Stock insuficiente para ${detail.tipo_habitacion}`)
+        return {
+          available: false,
+          message: `Stock insuficiente para habitaciones ${detail.tipo_habitacion.toUpperCase()}. Disponible: ${availableStock}, Solicitado: ${detail.cantidad}`
+        }
+      }
+    }
+
+    console.log('✅ Disponibilidad confirmada')
+    return { available: true }
+  }
+}
+
+// Servicio para gestión de reservas
+export const reservationService = {
+  // Crear una nueva reserva
+  async createReservation(reservationData: CreateReservationData) {
+    try {
+      console.log('📝 Datos de reserva recibidos:', reservationData)
+
+      // 1. Validar que hay al menos un pasajero titular
+      const hasTitular = reservationData.passengers.some(p => p.tipo_pasajero === 'titular')
+      if (!hasTitular) {
+        console.error('❌ No hay titular')
+        return {
+          success: false,
+          error: 'Debe incluir al menos un pasajero titular'
+        }
+      }
+
+      // 2. Calcular capacidad total de las habitaciones
+      const totalCapacity = reservationData.details.reduce((sum, detail) => {
+        let roomCapacity = 0
+        if (detail.tipo_habitacion === 'dbl') roomCapacity = 2
+        else if (detail.tipo_habitacion === 'tpl') roomCapacity = 3
+        else if (detail.tipo_habitacion === 'cpl') roomCapacity = 4
+        return sum + (detail.cantidad * roomCapacity)
+      }, 0)
+
+      console.log('👥 Capacidad total:', totalCapacity, '| Pasajeros:', reservationData.passengers.length)
+
+      // 3. Validar que la cantidad de pasajeros no exceda la capacidad
+      if (reservationData.passengers.length > totalCapacity) {
+        console.error('❌ Excede capacidad')
+        return {
+          success: false,
+          error: `La cantidad de pasajeros (${reservationData.passengers.length}) excede la capacidad de las habitaciones (${totalCapacity})`
+        }
+      }
+
+      // 4. Verificar disponibilidad de stock
+      console.log('🔍 Verificando disponibilidad de stock...')
+      const availability = await stockService.checkAvailability(
+        reservationData.package_id,
+        reservationData.accommodation_id,
+        reservationData.fecha_salida,
+        reservationData.details
+      )
+
+      console.log('✅ Resultado de disponibilidad:', availability)
+
+      if (!availability.available) {
+        console.error('❌ No hay disponibilidad:', availability.message)
+        return {
+          success: false,
+          error: availability.message || 'No hay disponibilidad para esta reserva'
+        }
+      }
+
+      // 5. Crear la reserva
+      console.log('💾 Insertando reserva en BD...')
+      const { data: reservation, error: reservationError } = await supabase
+        .from('reservations')
+        .insert([{
+          package_id: reservationData.package_id,
+          accommodation_id: reservationData.accommodation_id,
+          fecha_salida: reservationData.fecha_salida,
+          cliente_nombre: reservationData.cliente_nombre,
+          cliente_email: reservationData.cliente_email,
+          cliente_telefono: reservationData.cliente_telefono,
+          comentarios: reservationData.comentarios,
+          estado: 'pendiente'
+        }])
+        .select()
+        .single()
+
+      if (reservationError) {
+        console.error('❌ Error insertando reserva:', reservationError)
+        throw reservationError
+      }
+
+      console.log('✅ Reserva creada con ID:', reservation.id)
+
+      // 6. Crear los detalles de la reserva
+      console.log('💾 Insertando detalles de habitaciones...')
+      const detailsToInsert = reservationData.details.map(detail => ({
+        reservation_id: reservation.id,
+        tipo_habitacion: detail.tipo_habitacion,
+        cantidad: detail.cantidad,
+        subtipo_habitacion: detail.subtipo_habitacion
+      }))
+
+      const { error: detailsError } = await supabase
+        .from('reservation_details')
+        .insert(detailsToInsert)
+
+      if (detailsError) {
+        console.error('❌ Error insertando detalles:', detailsError)
+        throw detailsError
+      }
+
+      console.log('✅ Detalles de habitaciones insertados')
+
+      // 7. Crear los pasajeros
+      console.log('💾 Insertando pasajeros...')
+      const passengersToInsert = reservationData.passengers.map(passenger => ({
+        reservation_id: reservation.id,
+        tipo_pasajero: passenger.tipo_pasajero,
+        nombre: passenger.nombre,
+        apellido: passenger.apellido,
+        fecha_nacimiento: passenger.fecha_nacimiento,
+        dni: passenger.dni,
+        email: passenger.email,
+        telefono: passenger.telefono,
+        edad_al_viajar: passenger.edad_al_viajar,
+        datos_pendientes: passenger.datos_pendientes || false
+      }))
+
+      const { error: passengersError } = await supabase
+        .from('reservation_passengers')
+        .insert(passengersToInsert)
+
+      if (passengersError) {
+        console.error('❌ Error insertando pasajeros:', passengersError)
+        throw passengersError
+      }
+
+      console.log('✅ Pasajeros insertados')
+      console.log('🎉 Reserva creada exitosamente!')
+
+      return {
+        success: true,
+        reservation
+      }
+    } catch (error) {
+      console.error('❌ Error creating reservation:', error)
+      console.error('❌ Error completo:', JSON.stringify(error, null, 2))
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error al crear la reserva'
+      }
+    }
+  },
+
+  // Obtener todas las reservas
+  async getAllReservations() {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select(`
+        *,
+        travel_packages (
+          id,
+          name,
+          image_url
+        ),
+        accommodations (
+          id,
+          name,
+          stars
+        ),
+        reservation_details (*),
+        reservation_passengers (*)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as ReservationWithDetails[]
+  },
+
+  // Obtener reservas por estado
+  async getReservationsByStatus(estado: Reservation['estado']) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select(`
+        *,
+        travel_packages (
+          id,
+          name,
+          image_url
+        ),
+        accommodations (
+          id,
+          name,
+          stars
+        ),
+        reservation_details (*),
+        reservation_passengers (*)
+      `)
+      .eq('estado', estado)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data as ReservationWithDetails[]
+  },
+
+  // Obtener reserva por ID
+  async getReservationById(id: number) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .select(`
+        *,
+        travel_packages (
+          id,
+          name,
+          image_url,
+          description
+        ),
+        accommodations (
+          id,
+          name,
+          stars,
+          regimen
+        ),
+        reservation_details (*),
+        reservation_passengers (*)
+      `)
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return data as ReservationWithDetails
+  },
+
+  // Actualizar estado de reserva
+  async updateReservationStatus(id: number, estado: Reservation['estado']) {
+    const { data, error } = await supabase
+      .from('reservations')
+      .update({ estado })
+      .eq('id', id)
+      .select()
+
+    if (error) throw error
+    return data[0]
+  },
+
+  // Confirmar reserva (reduce stock)
+  async confirmReservation(id: number) {
+    const reservation = await this.getReservationById(id)
+    
+    // Actualizar estado
+    await this.updateReservationStatus(id, 'confirmada')
+    
+    // Reducir stock
+    for (const detail of reservation.reservation_details) {
+      const stock = await stockService.getStock(
+        reservation.package_id,
+        reservation.accommodation_id,
+        reservation.fecha_salida
+      )
+
+      if (stock) {
+        const updates: Partial<PackageStock> = {}
+        
+        if (detail.tipo_habitacion === 'dbl') {
+          updates.stock_dbl = stock.stock_dbl - detail.cantidad
+        } else if (detail.tipo_habitacion === 'tpl') {
+          updates.stock_tpl = stock.stock_tpl - detail.cantidad
+        } else if (detail.tipo_habitacion === 'cpl') {
+          updates.stock_cpl = stock.stock_cpl - detail.cantidad
+        }
+
+        await stockService.updateStock(stock.id, updates)
+      }
+    }
+
+    return await this.getReservationById(id)
+  },
+
+  // Cancelar reserva (restaura stock si estaba confirmada)
+  async cancelReservation(id: number) {
+    const reservation = await this.getReservationById(id)
+    
+    // Si estaba confirmada, restaurar stock
+    if (reservation.estado === 'confirmada') {
+      for (const detail of reservation.reservation_details) {
+        const stock = await stockService.getStock(
+          reservation.package_id,
+          reservation.accommodation_id,
+          reservation.fecha_salida
+        )
+
+        if (stock) {
+          const updates: Partial<PackageStock> = {}
+          
+          if (detail.tipo_habitacion === 'dbl') {
+            updates.stock_dbl = stock.stock_dbl + detail.cantidad
+          } else if (detail.tipo_habitacion === 'tpl') {
+            updates.stock_tpl = stock.stock_tpl + detail.cantidad
+          } else if (detail.tipo_habitacion === 'cpl') {
+            updates.stock_cpl = stock.stock_cpl + detail.cantidad
+          }
+
+          await stockService.updateStock(stock.id, updates)
+        }
+      }
+    }
+
+    // Actualizar estado
+    return await this.updateReservationStatus(id, 'cancelada')
+  }
+}

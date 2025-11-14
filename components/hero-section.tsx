@@ -86,14 +86,14 @@ export function HeroSection() {
                 <div className="text-white/80 text-sm">viajeros felices en los últimos 3 años</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">+ 75%</div>
+                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">+75%</div>
                 <div className="text-white/80 text-sm">de nuestros clientes viajan de nuevo con nosotros</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">+ 20</div>
+                <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">+20</div>
                 <div className="text-white/80 text-sm">años de experiencia</div>
               </div>
-              <div className="text-center">
+              <div className="text-center mb-10">
                 <div className="text-2xl lg:text-3xl font-bold text-secondary mb-2">100%</div>
                 <div className="text-white/80 text-sm">Staff altamente capacitado</div>
               </div>

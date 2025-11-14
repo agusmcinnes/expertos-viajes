@@ -9,8 +9,10 @@ import { Save, Settings, RefreshCw } from "lucide-react"
 import { siteConfigService } from "@/lib/supabase"
 import type { SiteConfig } from "@/lib/supabase"
 import { motion } from "framer-motion"
+import { useToast } from "@/hooks/use-toast"
 
 export function SiteConfigManager() {
+  const { toast } = useToast()
   const [configs, setConfigs] = useState<SiteConfig[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -65,9 +67,17 @@ export function SiteConfigManager() {
       
       setEditingConfig(null)
       setTempValue("")
+      toast({
+        title: "Configuración guardada",
+        description: "Los cambios se guardaron exitosamente.",
+      })
     } catch (error) {
       console.error("Error saving config:", error)
-      alert("Error al guardar la configuración")
+      toast({
+        title: "Error al guardar",
+        description: "No se pudo guardar la configuración. Intenta nuevamente.",
+        variant: "destructive",
+      })
     } finally {
       setIsSaving(false)
     }

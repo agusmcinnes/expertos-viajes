@@ -10,14 +10,19 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users } from "lucide-react"
+import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar } from "lucide-react"
 import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
 import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
+import { StockManager } from "./stock-manager"
+import { ReservationsManager } from "./reservations-manager"
+import { useToast } from "@/hooks/use-toast"
 
 export function AdminDashboardSimple() {
+  const { toast } = useToast()
   const [packages, setPackages] = useState<TravelPackage[]>([])
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [agencies, setAgencies] = useState<Agency[]>([])
@@ -33,6 +38,9 @@ export function AdminDashboardSimple() {
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null)
   const [isAgencyDetailOpen, setIsAgencyDetailOpen] = useState(false)
   
+  // Filtros
+  const [filterDestination, setFilterDestination] = useState<string>("all")
+  
   // Estados para manejo de archivos
   const [uploadingFiles, setUploadingFiles] = useState<Record<FileType, boolean>>({
     tarifario: false,
@@ -45,12 +53,25 @@ export function AdminDashboardSimple() {
     piezas_redes: null
   })
 
+  // Estado para modal de confirmación
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    description: string
+    onConfirm: (() => void) | null
+    variant?: "default" | "destructive"
+  }>({ open: false, title: "", description: "", onConfirm: null, variant: "default" })
+
   // Verificar autenticación al cargar
   useEffect(() => {
     const checkAuth = async () => {
       const isAuth = await isAdminAuthenticated()
       if (!isAuth) {
-        alert("Sesión expirada. Por favor inicia sesión de nuevo.")
+        toast({
+          title: "Sesión expirada",
+          description: "Por favor inicia sesión nuevamente.",
+          variant: "destructive",
+        })
         window.location.reload()
       }
     }
@@ -191,7 +212,11 @@ export function AdminDashboardSimple() {
       }
     } catch (error) {
       console.error("Error loading data:", error)
-      alert("Error al cargar los datos. Verifica la conexión con Supabase.")
+      toast({
+        title: "Error al cargar datos",
+        description: "No se pudieron cargar los datos. Verifica la conexión con Supabase.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -224,13 +249,24 @@ export function AdminDashboardSimple() {
         // Recargar packages para reflejar cambios
         await loadData()
         
-        alert(`${getFileTypeLabel(file.type)} subido exitosamente`)
+        toast({
+          title: "Archivo subido",
+          description: `${getFileTypeLabel(fileType)} subido exitosamente.`,
+        })
       } else {
-        alert(`Error subiendo archivo: ${result.error}`)
+        toast({
+          title: "Error al subir archivo",
+          description: result.error || "No se pudo subir el archivo.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Error uploading file:', error)
-      alert(`Error subiendo archivo`)
+      toast({
+        title: "Error al subir archivo",
+        description: "Ocurrió un error al subir el archivo. Intenta nuevamente.",
+        variant: "destructive",
+      })
     } finally {
       setUploadingFiles(prev => ({ ...prev, [fileType]: false }))
       // Limpiar el archivo seleccionado
@@ -238,9 +274,17 @@ export function AdminDashboardSimple() {
     }
   }
 
-  const handleFileDelete = async (packageId: number, fileType: FileType) => {
-    if (!confirm(`¿Estás seguro de que quieres eliminar este archivo?`)) return
+  const handleFileDelete = (packageId: number, fileType: FileType) => {
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Archivo",
+      description: `¿Estás seguro de que quieres eliminar este archivo?`,
+      variant: "destructive",
+      onConfirm: () => executeFileDelete(packageId, fileType)
+    })
+  }
 
+  const executeFileDelete = async (packageId: number, fileType: FileType) => {
     try {
       const success = await pdfService.deletePDF(packageId, fileType)
       if (success) {
@@ -253,13 +297,24 @@ export function AdminDashboardSimple() {
         }))
         
         await loadData()
-        alert(`Archivo eliminado exitosamente`)
+        toast({
+          title: "Archivo eliminado",
+          description: "El archivo se eliminó exitosamente.",
+        })
       } else {
-        alert(`Error eliminando archivo`)
+        toast({
+          title: "Error al eliminar archivo",
+          description: "No se pudo eliminar el archivo.",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      alert(`Error eliminando archivo`)
+      toast({
+        title: "Error al eliminar archivo",
+        description: "Ocurrió un error al eliminar el archivo.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -445,10 +500,14 @@ export function AdminDashboardSimple() {
     }
   }
 
-  // Función para agregar/actualizar tarifa
+  // Función para guardar tarifas
   const handleSaveRate = async () => {
     if (!rateFormData.mes || !rateFormData.anio) {
-      alert("Por favor selecciona mes y año")
+      toast({
+        title: "Datos incompletos",
+        description: "Por favor selecciona mes y año.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -500,7 +559,10 @@ export function AdminDashboardSimple() {
         return [...filtered, newRate]
       })
       
-      alert(editingRateId ? "Tarifa actualizada (se guardará al guardar el paquete)" : "Tarifa agregada (se guardará al guardar el paquete)")
+      toast({
+        title: editingRateId ? "Tarifa actualizada" : "Tarifa agregada",
+        description: "Los cambios se guardarán al guardar el paquete.",
+      })
     } else {
       // Si es un alojamiento existente, guardar en base de datos
       try {
@@ -512,7 +574,10 @@ export function AdminDashboardSimple() {
             .eq("id", editingRateId)
 
           if (error) throw error
-          alert("Tarifa actualizada exitosamente")
+          toast({
+            title: "Tarifa actualizada",
+            description: "La tarifa se actualizó exitosamente.",
+          })
         } else {
           // Crear nueva tarifa o actualizar si ya existe para el mismo mes/año
           const { error } = await supabase
@@ -523,13 +588,20 @@ export function AdminDashboardSimple() {
             })
 
           if (error) throw error
-          alert("Tarifa guardada exitosamente")
+          toast({
+            title: "Tarifa guardada",
+            description: "La tarifa se guardó exitosamente.",
+          })
         }
         
         await loadRatesForAccommodation(selectedAccommodationForRates.id)
       } catch (error) {
         console.error("Error saving rate:", error)
-        alert("Error al guardar la tarifa")
+        toast({
+          title: "Error al guardar tarifa",
+          description: "No se pudo guardar la tarifa. Intenta nuevamente.",
+          variant: "destructive",
+        })
       }
     }
 
@@ -572,9 +644,17 @@ export function AdminDashboardSimple() {
   }
 
   // Función para eliminar tarifa
-  const handleDeleteRate = async (rateId: number) => {
-    if (!confirm("¿Estás seguro de eliminar esta tarifa?")) return
+  const handleDeleteRate = (rateId: number) => {
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Tarifa",
+      description: "¿Estás seguro de que quieres eliminar esta tarifa? Esta acción no se puede deshacer.",
+      variant: "destructive",
+      onConfirm: () => executeDeleteRate(rateId)
+    })
+  }
 
+  const executeDeleteRate = async (rateId: number) => {
     if (selectedAccommodationForRates.isNew) {
       // Eliminar de lista temporal y del estado del modal
       setAccommodationRates(prev => {
@@ -596,10 +676,17 @@ export function AdminDashboardSimple() {
 
         if (error) throw error
         await loadRatesForAccommodation(selectedAccommodationForRates.id)
-        alert("Tarifa eliminada exitosamente")
+        toast({
+          title: "Tarifa eliminada",
+          description: "La tarifa se eliminó exitosamente.",
+        })
       } catch (error) {
         console.error("Error deleting rate:", error)
-        alert("Error al eliminar la tarifa")
+        toast({
+          title: "Error al eliminar tarifa",
+          description: "No se pudo eliminar la tarifa. Intenta nuevamente.",
+          variant: "destructive",
+        })
       }
     }
   }
@@ -751,9 +838,15 @@ export function AdminDashboardSimple() {
           setIsAdding(false)
           setIsEditing(newPackage[0].id)
           await loadData()
-          alert("Paquete agregado exitosamente. Ahora puedes subir los PDFs.")
+          toast({
+            title: "Paquete agregado",
+            description: "El paquete se creó exitosamente. Ahora puedes subir los PDFs.",
+          })
         } else {
-          alert("Paquete agregado exitosamente")
+          toast({
+            title: "Paquete agregado",
+            description: "El paquete se creó exitosamente.",
+          })
         }
       } else if (isEditing) {
         const { error } = await supabase.from("travel_packages").update(packageData).eq("id", isEditing)
@@ -764,13 +857,20 @@ export function AdminDashboardSimple() {
           await saveAccommodationsForPackage(isEditing)
         }
         
-        alert("Paquete actualizado exitosamente")
+        toast({
+          title: "Paquete actualizado",
+          description: "El paquete se actualizó exitosamente.",
+        })
         await loadData()
       }
       handleCancel()
     } catch (error) {
       console.error("Error saving package:", error)
-      alert("Error al guardar el paquete: " + (error as Error).message)
+      toast({
+        title: "Error al guardar paquete",
+        description: (error as Error).message,
+        variant: "destructive",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -820,20 +920,29 @@ export function AdminDashboardSimple() {
     })
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
     console.log("🚀 HandleDelete iniciado para ID:", id);
-    
+
     // Encontrar el paquete que se va a eliminar para mostrar su nombre
     const packageToDelete = packages.find(pkg => pkg.id === id)
     const packageName = packageToDelete?.name || `paquete ${id}`
-    
+
     console.log("📦 Paquete a eliminar:", packageToDelete);
-    
-    if (confirm(`¿Estás seguro de que querés eliminar "${packageName}"?`)) {
-      try {
-        console.log("✅ Usuario confirmó eliminación");
-        console.log("🔄 Iniciando proceso de eliminación...");
-        setIsDeleting(true)
+
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Paquete",
+      description: `¿Estás seguro de que querés eliminar "${packageName}"? Esta acción no se puede deshacer.`,
+      variant: "destructive",
+      onConfirm: () => executeDeletePackage(id, packageName)
+    })
+  }
+
+  const executeDeletePackage = async (id: number, packageName: string) => {
+    try {
+      console.log("✅ Usuario confirmó eliminación");
+      console.log("🔄 Iniciando proceso de eliminación...");
+      setIsDeleting(true)
         
         // Test directo con supabase
         console.log("🧪 Testing direct supabase call...");
@@ -885,10 +994,17 @@ export function AdminDashboardSimple() {
         await loadData()
         
         console.log("🎉 Eliminación completada exitosamente");
-        alert(`El paquete "${packageName}" fue eliminado exitosamente`)
+        toast({
+          title: "Paquete eliminado",
+          description: `El paquete "${packageName}" fue eliminado exitosamente.`,
+        })
       } catch (error) {
         console.error("❌ Error en handleDelete:", error);
-        alert("Error al eliminar el paquete: " + (error as Error).message)
+        toast({
+          title: "Error al eliminar paquete",
+          description: (error as Error).message,
+          variant: "destructive",
+        })
         // Recargar datos en caso de error para mantener consistencia
         console.log("🔄 Recargando datos después del error...");
         await loadData()
@@ -896,9 +1012,6 @@ export function AdminDashboardSimple() {
         console.log("🏁 Finalizando handleDelete...");
         setIsDeleting(false)
       }
-    } else {
-      console.log("❌ Usuario canceló la eliminación");
-    }
   }
 
   // Función para renderizar estrellas
@@ -924,28 +1037,50 @@ export function AdminDashboardSimple() {
       setIsLoadingAgencies(true)
       await agencyService.updateAgencyStatus(id, 'approved')
       await loadData() // Recargar datos
-      alert('Agencia aprobada exitosamente')
+      toast({
+        title: "Agencia aprobada",
+        description: "La agencia fue aprobada exitosamente.",
+      })
     } catch (error) {
       console.error('Error al aprobar agencia:', error)
-      alert('Error al aprobar la agencia')
+      toast({
+        title: "Error al aprobar agencia",
+        description: "No se pudo aprobar la agencia. Intenta nuevamente.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoadingAgencies(false)
     }
   }
 
-  const handleRejectAgency = async (id: number) => {
-    if (confirm('¿Estás seguro de que quieres rechazar esta agencia?')) {
-      try {
-        setIsLoadingAgencies(true)
-        await agencyService.updateAgencyStatus(id, 'rejected')
-        await loadData() // Recargar datos
-        alert('Agencia rechazada')
-      } catch (error) {
-        console.error('Error al rechazar agencia:', error)
-        alert('Error al rechazar la agencia')
-      } finally {
-        setIsLoadingAgencies(false)
-      }
+  const handleRejectAgency = (id: number) => {
+    setConfirmDialog({
+      open: true,
+      title: "Rechazar Agencia",
+      description: "¿Estás seguro de que quieres rechazar esta agencia?",
+      variant: "destructive",
+      onConfirm: () => executeRejectAgency(id)
+    })
+  }
+
+  const executeRejectAgency = async (id: number) => {
+    try {
+      setIsLoadingAgencies(true)
+      await agencyService.updateAgencyStatus(id, 'rejected')
+      await loadData() // Recargar datos
+      toast({
+        title: "Agencia rechazada",
+        description: "La agencia fue rechazada.",
+      })
+    } catch (error) {
+      console.error('Error al rechazar agencia:', error)
+      toast({
+        title: "Error al rechazar agencia",
+        description: "No se pudo rechazar la agencia. Intenta nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoadingAgencies(false)
     }
   }
 
@@ -977,6 +1112,16 @@ export function AdminDashboardSimple() {
         return 'Pendiente'
     }
   }
+
+  // Función para filtrar paquetes
+  const getFilteredPackages = () => {
+    if (filterDestination === "all") {
+      return packages
+    }
+    return packages.filter(pkg => pkg.destination_id?.toString() === filterDestination)
+  }
+
+  const filteredPackages = getFilteredPackages()
 
   if (isLoading) {
     return (
@@ -1072,25 +1217,33 @@ export function AdminDashboardSimple() {
         {/* Tabs para diferentes secciones de administración */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Tabs defaultValue="packages" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="packages" className="flex items-center space-x-2">
                 <Package className="w-4 h-4" />
-                <span>Gestión de Paquetes</span>
+                <span>Paquetes</span>
+              </TabsTrigger>
+              <TabsTrigger value="stock" className="flex items-center space-x-2">
+                <Hotel className="w-4 h-4" />
+                <span>Stock</span>
+              </TabsTrigger>
+              <TabsTrigger value="reservations" className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4" />
+                <span>Reservas</span>
               </TabsTrigger>
               <TabsTrigger value="agencies" className="flex items-center space-x-2">
                 <Users className="w-4 h-4" />
-                <span>Gestión de Agencias</span>
+                <span>Agencias</span>
               </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center space-x-2">
                 <Settings className="w-4 h-4" />
-                <span>Configuración del Sitio</span>
+                <span>Configuración</span>
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="packages">
               <Card>
                 <CardHeader>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center mb-4">
                     <CardTitle>Gestión de Paquetes</CardTitle>
                     <Button
                       onClick={handleAdd}
@@ -1099,6 +1252,29 @@ export function AdminDashboardSimple() {
                       <Plus className="w-4 h-4 mr-2" />
                       Agregar Paquete
                     </Button>
+                  </div>
+                  
+                  {/* Filtro por destino */}
+                  <div className="flex items-center gap-3 pt-4 border-t">
+                    <label className="text-sm font-medium text-gray-700">Filtrar por destino:</label>
+                    <Select value={filterDestination} onValueChange={setFilterDestination}>
+                      <SelectTrigger className="w-[250px]">
+                        <SelectValue placeholder="Todos los destinos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los destinos</SelectItem>
+                        {destinations.map((dest) => (
+                          <SelectItem key={dest.id} value={dest.id.toString()}>
+                            {dest.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {filterDestination !== "all" && (
+                      <Badge variant="secondary" className="ml-2">
+                        {filteredPackages.length} paquete(s) encontrado(s)
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -1715,7 +1891,8 @@ export function AdminDashboardSimple() {
 
                   {/* Packages List */}
                   <div className="space-y-4">
-                    {packages.map((pkg, index) => (
+                    {filteredPackages.length > 0 ? (
+                      filteredPackages.map((pkg, index) => (
                       <motion.div
                         key={pkg.id}
                         initial={{ opacity: 0, x: -20 }}
@@ -1814,9 +1991,22 @@ export function AdminDashboardSimple() {
                           </div>
                         </div>
                       </motion.div>
-                    ))}
+                    ))
+                    ) : (
+                      <div className="text-center py-12 text-gray-500">
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No se encontraron paquetes con el filtro seleccionado</p>
+                        <Button 
+                          variant="outline" 
+                          className="mt-4"
+                          onClick={() => setFilterDestination("all")}
+                        >
+                          Ver todos los paquetes
+                        </Button>
+                      </div>
+                    )}
 
-                    {packages.length === 0 && (
+                    {packages.length === 0 && filterDestination === "all" && (
                       <div className="text-center py-12 text-gray-500">
                         <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                         <p>No hay paquetes disponibles</p>
@@ -1965,6 +2155,14 @@ export function AdminDashboardSimple() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="stock">
+              <StockManager destinations={destinations} />
+            </TabsContent>
+
+            <TabsContent value="reservations">
+              <ReservationsManager />
             </TabsContent>
 
             <TabsContent value="config">
@@ -2341,6 +2539,22 @@ export function AdminDashboardSimple() {
           </motion.div>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <AlertDialogConfirm
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ open, title: "", description: "", onConfirm: null })}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        onConfirm={() => {
+          if (confirmDialog.onConfirm) {
+            confirmDialog.onConfirm()
+          }
+        }}
+        variant={confirmDialog.variant}
+      />
     </div>
   )
 }
