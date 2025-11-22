@@ -29,7 +29,7 @@ export function ContactFormSection({
     {
       icon: Phone,
       title: "Teléfono",
-      details: ["+54 9 379 4030711", "+54 9 379 4142376"],
+      details: ["+54 9 379 4030711", "+54 9 3795 870001"],
       color: "text-green-600",
     },
     {

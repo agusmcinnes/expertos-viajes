@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 
 export function WhatsAppButton() {
   const handleWhatsAppClick = () => {
-    const url = `https://api.whatsapp.com/send/?phone=%2B543794142376&text&type=phone_number&app_absent=0`
+    const url = `https://api.whatsapp.com/send/?phone=%2B5493795870001&text&type=phone_number&app_absent=0`
     window.open(url, "_blank")
   }
 
