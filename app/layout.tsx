@@ -1,6 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
+import Script from "next/script"
 import "./globals.css"
 import { ScrollToTop } from "@/components/scroll-to-top"
 import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/components/json-ld"
@@ -9,10 +10,10 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.expertosenviajes.com.ar/'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.expertosenturismo.com.ar/'),
   title: {
-    default: "Expertos en Viajes - Tu próximo destino soñado",
-    template: "%s | Expertos en Viajes"
+    default: "Expertos en Turismo - Tu próximo destino soñado",
+    template: "%s | Expertos en Turismo"
   },
   description: "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut. Contamos desde viajes en bus hasta viajes aéreos. Contáctanos y descubre el mundo con nosotros.",
   keywords: ["viajes", "turismo", "agencia de viajes", "paquetes turísticos", "destinos", "aventura", "vacaciones", "Chubut", "Argentina", "cruceros", "viajes en bus", "viajes aéreos"],
@@ -78,6 +79,36 @@ export default function RootLayout({
         <meta name="ICBM" content="-43.2994,-65.1018" />
       </head>
       <body className={inter.className}>
+        {/* Meta Pixel Code */}
+        <Script
+          id="meta-pixel"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              !function(f,b,e,v,n,t,s)
+              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+              n.queue=[];t=b.createElement(e);t.async=!0;
+              t.src=v;s=b.getElementsByTagName(e)[0];
+              s.parentNode.insertBefore(t,s)}(window, document,'script',
+              'https://connect.facebook.net/en_US/fbevents.js');
+              fbq('init', '1475188480379267');
+              fbq('track', 'PageView');
+            `,
+          }}
+        />
+        <noscript>
+          <img
+            height="1"
+            width="1"
+            style={{ display: 'none' }}
+            src="https://www.facebook.com/tr?id=1475188480379267&ev=PageView&noscript=1"
+            alt=""
+          />
+        </noscript>
+        {/* End Meta Pixel Code */}
+
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={websiteJsonLd} />
         {children}
