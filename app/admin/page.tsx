@@ -4,6 +4,8 @@ import { useState } from "react"
 import { AdminLogin } from "@/components/admin/admin-login"
 import { AdminDashboardSimple } from "@/components/admin/admin-dashboard-simple"
 
+export const dynamic = "force-dynamic"
+
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
