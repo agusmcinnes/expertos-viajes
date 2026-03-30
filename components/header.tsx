@@ -13,9 +13,10 @@ import { isAgencyAuthenticated, getCurrentAgency, logoutAgency } from "@/lib/age
 
 interface HeaderProps {
   position?: "fixed" | "sticky"
+  solid?: boolean
 }
 
-export function Header({ position = "fixed" }: HeaderProps) {
+export function Header({ position = "fixed", solid = false }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [destinations, setDestinations] = useState<Destination[]>([])
@@ -138,7 +139,7 @@ export function Header({ position = "fixed" }: HeaderProps) {
   }
 
   // Dynamic text colors based on scroll state or menu open
-  const isHeaderSolid = scrolled || isMenuOpen
+  const isHeaderSolid = solid || scrolled || isMenuOpen
   const navTextColor = isHeaderSolid ? "text-gray-700" : "text-white"
   const navHoverColor = isHeaderSolid ? "hover:text-primary" : "hover:text-white/80"
   const logoFilter = isHeaderSolid ? "" : "brightness-0 invert"

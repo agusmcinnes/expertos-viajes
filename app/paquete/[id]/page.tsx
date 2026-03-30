@@ -39,7 +39,7 @@ export default async function PaquetePage({ params }: { params: { id: string } }
         </div>
       </div>
     }>
-      <Header position="sticky" />
+      <Header position="sticky" solid />
       <PackageDetailPage packageId={id} />
     </Suspense>
   )
