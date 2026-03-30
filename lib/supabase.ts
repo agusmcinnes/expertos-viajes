@@ -25,6 +25,7 @@ export interface TravelPackage {
   is_featured: boolean
   priority_order: number
   transport_type?: "aereo" | "bus" | "crucero"
+  ciudades?: string[] | null
   servicios_incluidos?: string[] | null
   servicios_adicionales?: string[] | null
   tarifario_pdf_url?: string | null

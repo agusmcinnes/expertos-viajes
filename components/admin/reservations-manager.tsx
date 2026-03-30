@@ -167,47 +167,55 @@ export function ReservationsManager() {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="border-t-4 border-t-primary border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+                <p className="text-sm text-primary-600">Total</p>
+                <p className="text-2xl font-bold font-heading text-primary-900">{stats.total}</p>
               </div>
-              <Calendar className="w-8 h-8 text-gray-400" />
+              <div className="w-10 h-10 p-2 rounded-xl bg-primary-100 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-primary-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-4 border-t-amber-400 border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Pendientes</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.pendientes}</p>
+                <p className="text-sm text-amber-600">Pendientes</p>
+                <p className="text-2xl font-bold font-heading text-amber-600">{stats.pendientes}</p>
               </div>
-              <Calendar className="w-8 h-8 text-yellow-400" />
+              <div className="w-10 h-10 p-2 rounded-xl bg-amber-100 flex items-center justify-center">
+                <Calendar className="w-5 h-5 text-amber-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-4 border-t-emerald-500 border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Confirmadas</p>
-                <p className="text-2xl font-bold text-green-600">{stats.confirmadas}</p>
+                <p className="text-sm text-emerald-600">Confirmadas</p>
+                <p className="text-2xl font-bold font-heading text-emerald-600">{stats.confirmadas}</p>
               </div>
-              <Check className="w-8 h-8 text-green-400" />
+              <div className="w-10 h-10 p-2 rounded-xl bg-emerald-100 flex items-center justify-center">
+                <Check className="w-5 h-5 text-emerald-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="border-t-4 border-t-red-400 border-0 shadow-md">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Canceladas</p>
-                <p className="text-2xl font-bold text-red-600">{stats.canceladas}</p>
+                <p className="text-sm text-red-500">Canceladas</p>
+                <p className="text-2xl font-bold font-heading text-red-600">{stats.canceladas}</p>
               </div>
-              <X className="w-8 h-8 text-red-400" />
+              <div className="w-10 h-10 p-2 rounded-xl bg-red-100 flex items-center justify-center">
+                <X className="w-5 h-5 text-red-500" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -217,14 +225,14 @@ export function ReservationsManager() {
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <CardTitle className="flex items-center">
-              <Calendar className="w-5 h-5 mr-2" />
+            <CardTitle className="flex items-center font-heading text-primary-900">
+              <Calendar className="w-5 h-5 mr-2 text-primary-600" />
               Gestión de Reservas
             </CardTitle>
             
             {/* Filtros */}
             <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-500" />
+              <Filter className="w-4 h-4 text-primary-400" />
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filtrar por estado" />
@@ -247,10 +255,10 @@ export function ReservationsManager() {
               <p className="text-gray-600">Cargando reservas...</p>
             </div>
           ) : filteredReservations.length === 0 ? (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg">
-              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">No hay reservas {filterStatus !== 'all' && `con estado "${filterStatus}"`}</p>
-              <p className="text-sm text-gray-500">Las reservas aparecerán aquí cuando los usuarios las realicen</p>
+            <div className="text-center py-12 border-2 border-dashed border-primary-200 rounded-xl">
+              <Calendar className="w-12 h-12 text-primary-300 mx-auto mb-4" />
+              <p className="text-primary-600 mb-2">No hay reservas {filterStatus !== 'all' && `con estado "${filterStatus}"`}</p>
+              <p className="text-sm text-primary-400">Las reservas aparecerán aquí cuando los usuarios las realicen</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -262,7 +270,7 @@ export function ReservationsManager() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ delay: index * 0.05 }}
-                    className="border rounded-lg p-4 bg-white hover:shadow-md transition-shadow"
+                    className="border border-primary-100 rounded-xl p-5 bg-white hover:shadow-lg hover:shadow-primary/5 transition-all"
                   >
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                       {/* Info Principal */}
@@ -315,7 +323,7 @@ export function ReservationsManager() {
                             size="sm"
                             onClick={() => handleConfirm(reservation.id)}
                             disabled={isProcessing}
-                            className="flex-1 lg:flex-none bg-green-600 hover:bg-green-700 text-white"
+                            className="flex-1 lg:flex-none bg-primary hover:bg-primary-700 text-white"
                           >
                             <Check className="w-4 h-4 mr-2" />
                             Confirmar
@@ -348,7 +356,7 @@ export function ReservationsManager() {
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
+            <DialogTitle className="flex items-center gap-3 font-heading text-primary-900">
               <span>Detalle de Reserva #{selectedReservation?.id}</span>
               {selectedReservation && getStatusBadge(selectedReservation.estado)}
             </DialogTitle>
@@ -359,7 +367,7 @@ export function ReservationsManager() {
               {/* Información del Paquete */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Información del Viaje</CardTitle>
+                  <CardTitle className="text-lg font-heading text-primary-800">Información del Viaje</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -383,7 +391,7 @@ export function ReservationsManager() {
               {/* Información del Cliente */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Datos del Cliente</CardTitle>
+                  <CardTitle className="text-lg font-heading text-primary-800">Datos del Cliente</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -404,12 +412,12 @@ export function ReservationsManager() {
               {/* Detalles de Habitaciones */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Habitaciones Reservadas</CardTitle>
+                  <CardTitle className="text-lg font-heading text-primary-800">Habitaciones Reservadas</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {selectedReservation.reservation_details.map((detail) => (
-                      <div key={detail.id} className="border rounded-lg p-3 bg-gray-50">
+                      <div key={detail.id} className="border border-primary-100 rounded-xl p-4 bg-primary-50/30">
                         <div className="flex justify-between items-center">
                           <div>
                             <h4 className="font-semibold">
@@ -433,13 +441,13 @@ export function ReservationsManager() {
               {/* Lista de Pasajeros */}
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-lg">Pasajeros</CardTitle>
+                  <CardTitle className="text-lg font-heading text-primary-800">Pasajeros</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {selectedReservation.reservation_passengers && selectedReservation.reservation_passengers.length > 0 ? (
                       selectedReservation.reservation_passengers.map((passenger, index) => (
-                        <div key={passenger.id} className="border rounded-lg p-3 bg-gray-50">
+                        <div key={passenger.id} className="border border-primary-100 rounded-xl p-4 bg-primary-50/30">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
@@ -482,7 +490,7 @@ export function ReservationsManager() {
               {selectedReservation.comentarios && (
                 <Card>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">Comentarios del Cliente</CardTitle>
+                    <CardTitle className="text-lg font-heading text-primary-800">Comentarios del Cliente</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-gray-700 whitespace-pre-wrap">
@@ -493,11 +501,11 @@ export function ReservationsManager() {
               )}
 
               {/* Nota sobre precio */}
-              <Card className="bg-gradient-to-br from-blue-50 to-purple-50 border-2 border-blue-200">
+              <Card className="bg-gradient-to-br from-primary-50 to-secondary-50 border-2 border-primary-200 rounded-xl">
                 <CardContent className="p-6">
                   <div className="text-center">
                     <p className="text-sm text-gray-600 mb-1">💰 Precio</p>
-                    <p className="text-lg font-bold text-blue-600">
+                    <p className="text-lg font-bold text-primary-700">
                       A COTIZAR POR AGENTE
                     </p>
                     <p className="text-xs text-gray-500 mt-2">
@@ -513,7 +521,7 @@ export function ReservationsManager() {
                   <Button
                     onClick={() => handleConfirm(selectedReservation.id)}
                     disabled={isProcessing}
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1 bg-primary hover:bg-primary-700"
                   >
                     <Check className="w-4 h-4 mr-2" />
                     Confirmar Reserva

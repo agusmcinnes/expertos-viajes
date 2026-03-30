@@ -101,8 +101,8 @@ export function SiteConfigManager() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Settings className="w-5 h-5" />
+          <CardTitle className="flex items-center space-x-2 font-heading text-primary-900">
+            <Settings className="w-5 h-5 text-primary-600" />
             <span>Configuración del Sitio</span>
           </CardTitle>
         </CardHeader>
@@ -110,8 +110,8 @@ export function SiteConfigManager() {
           <div className="space-y-4">
             {[1, 2].map((i) => (
               <div key={i} className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
+                <div className="h-4 bg-primary-100 rounded w-1/4 mb-2"></div>
+                <div className="h-10 bg-primary-100 rounded"></div>
               </div>
             ))}
           </div>
@@ -124,8 +124,8 @@ export function SiteConfigManager() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center space-x-2">
-            <Settings className="w-5 h-5" />
+          <CardTitle className="flex items-center space-x-2 font-heading text-primary-900">
+            <Settings className="w-5 h-5 text-primary-600" />
             <span>Configuración del Sitio</span>
           </CardTitle>
           <Button
@@ -156,18 +156,18 @@ export function SiteConfigManager() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="border border-gray-200 rounded-lg p-4 space-y-3"
+              className="border border-primary-100 rounded-xl p-5 space-y-3 bg-white hover:shadow-sm transition-shadow"
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-semibold text-gray-900">
+                  <Label className="text-sm font-semibold text-primary-900">
                     {getConfigDisplayName(config.config_key)}
                   </Label>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-primary-400 mt-1">
                     {getConfigDescription(config.config_key)}
                   </p>
                 </div>
-                <div className="text-xs text-gray-400">
+                <div className="text-xs text-primary-300">
                   Actualizado: {new Date(config.updated_at).toLocaleDateString()}
                 </div>
               </div>
@@ -185,7 +185,7 @@ export function SiteConfigManager() {
                       size="sm"
                       onClick={() => saveConfig(config.config_key)}
                       disabled={isSaving || !tempValue.trim()}
-                      className="bg-green-600 hover:bg-green-700"
+                      className="bg-primary hover:bg-primary-700 text-white"
                     >
                       <Save className="w-4 h-4 mr-2" />
                       {isSaving ? "Guardando..." : "Guardar"}
@@ -202,7 +202,7 @@ export function SiteConfigManager() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="p-3 bg-gray-50 rounded border text-gray-900 font-medium">
+                  <div className="p-3 bg-primary-50/50 rounded-lg border border-primary-100 text-primary-900 font-medium">
                     {config.config_value}
                   </div>
                   <Button
@@ -218,8 +218,8 @@ export function SiteConfigManager() {
           ))}
 
           {configs.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <div className="text-center py-8 text-primary-400">
+              <Settings className="w-12 h-12 mx-auto mb-4 opacity-30 text-primary-300" />
               <p>No hay configuraciones disponibles</p>
               <p className="text-sm">Ejecuta el script de configuración para comenzar</p>
             </div>

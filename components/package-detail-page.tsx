@@ -238,7 +238,9 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 {destination && (
                   <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-xs sm:text-sm">
                     <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    {destination.name}
+                    {package_.ciudades && package_.ciudades.length > 0
+                      ? package_.ciudades.join(" - ")
+                      : destination.name}
                   </Badge>
                 )}
                 

@@ -143,6 +143,7 @@ export function AdminDashboardSimple() {
     is_special: false,
     is_featured: false,
     priority_order: "0",
+    ciudades: "",
     servicios_incluidos: "",
     servicios_adicionales: "",
     max_group_size: "",
@@ -338,6 +339,7 @@ export function AdminDashboardSimple() {
       is_special: false,
       is_featured: false,
       priority_order: "0",
+      ciudades: "",
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
@@ -362,6 +364,7 @@ export function AdminDashboardSimple() {
       is_special: pkg.is_special || false,
       is_featured: pkg.is_featured || false,
       priority_order: pkg.priority_order?.toString() || "0",
+      ciudades: pkg.ciudades?.join(", ") || "",
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
       max_group_size: (pkg as any).max_group_size?.toString() || "",
@@ -810,7 +813,10 @@ export function AdminDashboardSimple() {
         is_special: formData.is_special,
         is_featured: formData.is_featured,
         priority_order: formData.priority_order ? Number.parseInt(formData.priority_order) : 0,
-        servicios_incluidos: formData.servicios_incluidos 
+        ciudades: formData.ciudades
+          ? formData.ciudades.split(",").map((c) => c.trim()).filter(c => c.length > 0)
+          : null,
+        servicios_incluidos: formData.servicios_incluidos
           ? formData.servicios_incluidos.split(",").map((s) => s.trim()).filter(s => s.length > 0)
           : null,
         servicios_adicionales: formData.servicios_adicionales 
@@ -907,6 +913,7 @@ export function AdminDashboardSimple() {
       is_special: false,
       is_featured: false,
       priority_order: "0",
+      ciudades: "",
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
@@ -1099,12 +1106,12 @@ export function AdminDashboardSimple() {
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'bg-green-100 text-green-800'
+        return 'bg-primary-100 text-primary-800'
       case 'rejected':
         return 'bg-red-100 text-red-800'
       case 'pending':
       default:
-        return 'bg-yellow-100 text-yellow-800'
+        return 'bg-amber-100 text-amber-800'
     }
   }
 
@@ -1132,31 +1139,31 @@ export function AdminDashboardSimple() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-secondary-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando datos...</p>
+          <p className="text-primary-600 font-medium">Cargando datos...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-primary-50/50">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white shadow-sm border-b"
+        className="bg-gradient-to-r from-primary-900 via-primary to-primary-800 shadow-lg"
       >
         <div className="container mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold text-gray-900">Panel de Administración</h1>
+            <h1 className="text-2xl font-heading font-bold text-white">Panel de Administración</h1>
             <div className="flex gap-2">
-              <Button onClick={() => (window.location.href = "/")} variant="outline">
+              <Button onClick={() => (window.location.href = "/")} variant="outline" className="bg-white/15 border-white/40 text-white hover:bg-white/25 backdrop-blur-sm font-medium">
                 Ver Sitio Web
               </Button>
-              <Button onClick={handleLogout} variant="outline" className="text-red-600 border-red-600 hover:bg-red-50">
+              <Button onClick={handleLogout} variant="outline" className="bg-red-500/15 border-red-300/40 text-red-200 hover:bg-red-500/30 hover:text-white font-medium">
                 Cerrar Sesión
               </Button>
             </div>
@@ -1172,50 +1179,58 @@ export function AdminDashboardSimple() {
           transition={{ delay: 0.1 }}
           className="grid md:grid-cols-4 gap-6 mb-8"
         >
-          <Card>
+          <Card className="border-t-4 border-t-primary border-0 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total de Paquetes</p>
-                  <p className="text-3xl font-bold text-gray-900">{packages.length}</p>
+                  <p className="text-sm text-primary-600">Total de Paquetes</p>
+                  <p className="text-3xl font-bold font-heading text-primary-900">{packages.length}</p>
                 </div>
-                <Package className="w-8 h-8 text-gray-400" />
+                <div className="w-12 h-12 p-2.5 rounded-xl bg-primary-100 flex items-center justify-center">
+                  <Package className="w-6 h-6 text-primary-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-t-4 border-t-primary border-0 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Paquetes Aéreos</p>
-                  <p className="text-3xl font-bold text-primary">{getPackagesByTransport("aereo").length}</p>
+                  <p className="text-sm text-primary-600">Paquetes Aéreos</p>
+                  <p className="text-3xl font-bold font-heading text-primary">{getPackagesByTransport("aereo").length}</p>
                 </div>
-                <Plane className="w-8 h-8 text-primary" />
+                <div className="w-12 h-12 p-2.5 rounded-xl bg-primary-100 flex items-center justify-center">
+                  <Plane className="w-6 h-6 text-primary-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-t-4 border-t-bus border-0 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Paquetes en Bus</p>
-                  <p className="text-3xl font-bold text-bus">{getPackagesByTransport("bus").length}</p>
+                  <p className="text-sm text-bus-600">Paquetes en Bus</p>
+                  <p className="text-3xl font-bold font-heading text-bus">{getPackagesByTransport("bus").length}</p>
                 </div>
-                <Bus className="w-8 h-8 text-bus" />
+                <div className="w-12 h-12 p-2.5 rounded-xl bg-red-100 flex items-center justify-center">
+                  <Bus className="w-6 h-6 text-bus" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="border-t-4 border-t-secondary border-0 shadow-md">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Cruceros</p>
-                  <p className="text-3xl font-bold text-blue-600">{getPackagesByTransport("crucero").length}</p>
+                  <p className="text-sm text-secondary-600">Cruceros</p>
+                  <p className="text-3xl font-bold font-heading text-secondary-700">{getPackagesByTransport("crucero").length}</p>
                 </div>
-                <Ship className="w-8 h-8 text-blue-600" />
+                <div className="w-12 h-12 p-2.5 rounded-xl bg-secondary-100 flex items-center justify-center">
+                  <Ship className="w-6 h-6 text-secondary-700" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1224,24 +1239,24 @@ export function AdminDashboardSimple() {
         {/* Tabs para diferentes secciones de administración */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Tabs defaultValue="packages" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="packages" className="flex items-center space-x-2">
+            <TabsList className="grid w-full grid-cols-5 bg-primary-100/60 p-1.5 rounded-xl h-auto">
+              <TabsTrigger value="packages" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
                 <Package className="w-4 h-4" />
                 <span>Paquetes</span>
               </TabsTrigger>
-              <TabsTrigger value="stock" className="flex items-center space-x-2">
+              <TabsTrigger value="stock" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
                 <Hotel className="w-4 h-4" />
                 <span>Stock</span>
               </TabsTrigger>
-              <TabsTrigger value="reservations" className="flex items-center space-x-2">
+              <TabsTrigger value="reservations" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
                 <Calendar className="w-4 h-4" />
                 <span>Reservas</span>
               </TabsTrigger>
-              <TabsTrigger value="agencies" className="flex items-center space-x-2">
+              <TabsTrigger value="agencies" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
                 <Users className="w-4 h-4" />
                 <span>Agencias</span>
               </TabsTrigger>
-              <TabsTrigger value="config" className="flex items-center space-x-2">
+              <TabsTrigger value="config" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
                 <Settings className="w-4 h-4" />
                 <span>Configuración</span>
               </TabsTrigger>
@@ -1251,10 +1266,10 @@ export function AdminDashboardSimple() {
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center mb-4">
-                    <CardTitle>Gestión de Paquetes</CardTitle>
+                    <CardTitle className="font-heading text-primary-900">Gestión de Paquetes</CardTitle>
                     <Button
                       onClick={handleAdd}
-                      className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg text-white"
+                      className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 transition-all duration-300 hover:scale-105 shadow-lg shadow-primary/25 text-white"
                     >
                       <Plus className="w-4 h-4 mr-2" />
                       Agregar Paquete
@@ -1262,8 +1277,8 @@ export function AdminDashboardSimple() {
                   </div>
                   
                   {/* Filtro por destino */}
-                  <div className="flex items-center gap-3 pt-4 border-t">
-                    <label className="text-sm font-medium text-gray-700">Filtrar por destino:</label>
+                  <div className="flex items-center gap-3 pt-4 border-t border-primary-100">
+                    <label className="text-sm font-medium text-primary-800">Filtrar por destino:</label>
                     <Select value={filterDestination} onValueChange={setFilterDestination}>
                       <SelectTrigger className="w-[250px]">
                         <SelectValue placeholder="Todos los destinos" />
@@ -1291,14 +1306,14 @@ export function AdminDashboardSimple() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="mb-6 p-6 bg-gray-50 rounded-lg"
+                      className="mb-6 p-6 bg-white rounded-xl border-2 border-primary-100 shadow-sm"
                     >
-                      <h3 className="text-lg font-semibold mb-4">
+                      <h3 className="text-lg font-heading font-semibold mb-6 text-primary-900 pb-3 border-b border-primary-100">
                         {isAdding ? "Agregar Nuevo Paquete" : "Editar Paquete"}
                       </h3>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Nombre del Paquete</label>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Nombre del Paquete</label>
                           <Input
                             value={formData.name}
                             onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
@@ -1306,7 +1321,7 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Precio</label>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Precio</label>
                           <Input
                             type="text"
                             value={formData.price}
@@ -1315,7 +1330,7 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Destino</label>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Destino</label>
                           <Select
                             value={formData.destination_id}
                             onValueChange={(value) => setFormData((prev) => ({ ...prev, destination_id: value }))}
@@ -1333,7 +1348,7 @@ export function AdminDashboardSimple() {
                           </Select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Transporte</label>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Tipo de Transporte</label>
                           <Select
                             value={formData.transport_type}
                             onValueChange={(value: "aereo" | "bus" | "crucero") =>
@@ -1366,7 +1381,7 @@ export function AdminDashboardSimple() {
                           </Select>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Duración</label>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Duración</label>
                           <Input
                             value={formData.duration}
                             onChange={(e) => setFormData((prev) => ({ ...prev, duration: e.target.value }))}
@@ -1374,7 +1389,7 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-2">
                             Descripción (Markdown soportado)
                           </label>
                           <Textarea
@@ -1388,7 +1403,7 @@ export function AdminDashboardSimple() {
                           </p>
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-2">
                             Fechas Disponibles (separadas por coma)
                           </label>
                           <Input
@@ -1398,7 +1413,17 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">URL de Imagen</label>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">
+                            Ciudades (separadas por coma)
+                          </label>
+                          <Input
+                            value={formData.ciudades}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, ciudades: e.target.value }))}
+                            placeholder="Buenos Aires, Mendoza, Bariloche"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-2">URL de Imagen</label>
                           <Input
                             value={formData.image_url}
                             onChange={(e) => setFormData((prev) => ({ ...prev, image_url: e.target.value }))}
@@ -1408,12 +1433,12 @@ export function AdminDashboardSimple() {
 
                         {/* PDFs para Agencias */}
                         <div className="md:col-span-2">
-                          <h4 className="text-lg font-medium text-gray-900 mb-4">PDFs para Agencias</h4>
+                          <h4 className="text-lg font-heading font-medium text-primary-900 mb-4">PDFs para Agencias</h4>
                           <div className="space-y-4">
                             
                             {/* Tarifario PDF */}
-                            <div className="border rounded-lg p-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <div className="border border-primary-100 rounded-xl p-4 bg-primary-50/30">
+                              <label className="block text-sm font-medium text-primary-800 mb-2">
                                 📋 Tarifario PDF
                               </label>
                               <div className="flex gap-2 mb-2">
@@ -1462,8 +1487,8 @@ export function AdminDashboardSimple() {
                             </div>
 
                             {/* Flyer PDF */}
-                            <div className="border rounded-lg p-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <div className="border border-primary-100 rounded-xl p-4 bg-primary-50/30">
+                              <label className="block text-sm font-medium text-primary-800 mb-2">
                                 🎨 Flyer PDF
                               </label>
                               <div className="flex gap-2 mb-2">
@@ -1512,8 +1537,8 @@ export function AdminDashboardSimple() {
                             </div>
 
                             {/* Piezas Redes PDF */}
-                            <div className="border rounded-lg p-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <div className="border border-primary-100 rounded-xl p-4 bg-primary-50/30">
+                              <label className="block text-sm font-medium text-primary-800 mb-2">
                                 📱 Piezas para Redes Sociales PDF
                               </label>
                               <div className="flex gap-2 mb-2">
@@ -1566,7 +1591,7 @@ export function AdminDashboardSimple() {
                           </p>
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-2">
                             Servicios Incluidos (separados por coma)
                           </label>
                           <Textarea
@@ -1577,7 +1602,7 @@ export function AdminDashboardSimple() {
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-2">
                             Servicios Adicionales (separados por coma)
                           </label>
                           <Textarea
@@ -1587,7 +1612,7 @@ export function AdminDashboardSimple() {
                             rows={2}
                           />
                         </div>
-                        <div className="md:col-span-2 space-y-4">
+                        <div className="md:col-span-2 space-y-3 bg-primary-50/50 p-4 rounded-xl border border-primary-100">
                           <div className="flex items-center space-x-2">
                             <Checkbox
                               id="is_special"
@@ -1598,7 +1623,7 @@ export function AdminDashboardSimple() {
                             />
                             <label
                               htmlFor="is_special"
-                              className="text-sm font-medium text-gray-700 cursor-pointer"
+                              className="text-sm font-medium text-primary-800 cursor-pointer"
                             >
                               Paquete de la sección especial
                             </label>
@@ -1613,14 +1638,14 @@ export function AdminDashboardSimple() {
                             />
                             <label
                               htmlFor="is_featured"
-                              className="text-sm font-medium text-gray-700 cursor-pointer"
+                              className="text-sm font-medium text-primary-800 cursor-pointer"
                             >
                               Paquete destacado (aparece en home)
                             </label>
                           </div>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-2">
                             Máximo de Personas en el Grupo
                           </label>
                           <Input
@@ -1635,7 +1660,7 @@ export function AdminDashboardSimple() {
                           </p>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                          <label className="block text-sm font-medium text-primary-800 mb-2">
                             Prioridad de Ordenamiento
                           </label>
                           <Input
@@ -1661,11 +1686,11 @@ export function AdminDashboardSimple() {
                               </h3>
                               
                               {/* Formulario para agregar alojamiento */}
-                              <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                                <h4 className="font-medium mb-3">Agregar Alojamiento</h4>
+                              <div className="bg-primary-50/50 p-5 rounded-xl border border-primary-100 mb-4">
+                                <h4 className="font-heading font-semibold mb-4 text-primary-800">Agregar Alojamiento</h4>
                                 <div className="grid md:grid-cols-3 gap-3">
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Hotel</label>
+                                    <label className="block text-sm font-medium text-primary-800 mb-1">Nombre del Hotel</label>
                                     <Input
                                       value={accommodationFormData.name}
                                       onChange={(e) => setAccommodationFormData(prev => ({...prev, name: e.target.value}))}
@@ -1673,7 +1698,7 @@ export function AdminDashboardSimple() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Estrellas</label>
+                                    <label className="block text-sm font-medium text-primary-800 mb-1">Estrellas</label>
                                     <Select
                                       value={accommodationFormData.stars}
                                       onValueChange={(value) => setAccommodationFormData(prev => ({...prev, stars: value}))}
@@ -1694,7 +1719,7 @@ export function AdminDashboardSimple() {
                                     </Select>
                                   </div>
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Sitio Web (opcional)</label>
+                                    <label className="block text-sm font-medium text-primary-800 mb-1">Sitio Web (opcional)</label>
                                     <Input
                                       value={accommodationFormData.enlace_web}
                                       onChange={(e) => setAccommodationFormData(prev => ({...prev, enlace_web: e.target.value}))}
@@ -1702,7 +1727,7 @@ export function AdminDashboardSimple() {
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Régimen (opcional)</label>
+                                    <label className="block text-sm font-medium text-primary-800 mb-1">Régimen (opcional)</label>
                                     <Input
                                       value={accommodationFormData.regimen}
                                       onChange={(e) => setAccommodationFormData(prev => ({...prev, regimen: e.target.value}))}
@@ -1713,7 +1738,7 @@ export function AdminDashboardSimple() {
                                 <Button
                                   type="button"
                                   onClick={handleAddAccommodation}
-                                  className="mt-3 bg-green-600 hover:bg-green-700"
+                                  className="mt-3 bg-primary hover:bg-primary-700 text-white"
                                   disabled={!accommodationFormData.name}
                                 >
                                   <Plus className="w-4 h-4 mr-2" />
@@ -1737,7 +1762,7 @@ export function AdminDashboardSimple() {
                                         <div className="space-y-3">
                                           <div className="grid grid-cols-2 gap-3">
                                             <div>
-                                              <label className="block text-xs font-medium text-gray-700 mb-1">Nombre</label>
+                                              <label className="block text-xs font-medium text-primary-800 mb-1">Nombre</label>
                                               <Input
                                                 value={accommodationFormData.name}
                                                 onChange={(e) => setAccommodationFormData(prev => ({...prev, name: e.target.value}))}
@@ -1745,7 +1770,7 @@ export function AdminDashboardSimple() {
                                               />
                                             </div>
                                             <div>
-                                              <label className="block text-xs font-medium text-gray-700 mb-1">Estrellas</label>
+                                              <label className="block text-xs font-medium text-primary-800 mb-1">Estrellas</label>
                                               <Select
                                                 value={accommodationFormData.stars}
                                                 onValueChange={(value) => setAccommodationFormData(prev => ({...prev, stars: value}))}
@@ -1766,7 +1791,7 @@ export function AdminDashboardSimple() {
                                               </Select>
                                             </div>
                                             <div>
-                                              <label className="block text-xs font-medium text-gray-700 mb-1">Sitio Web</label>
+                                              <label className="block text-xs font-medium text-primary-800 mb-1">Sitio Web</label>
                                               <Input
                                                 value={accommodationFormData.enlace_web}
                                                 onChange={(e) => setAccommodationFormData(prev => ({...prev, enlace_web: e.target.value}))}
@@ -1774,7 +1799,7 @@ export function AdminDashboardSimple() {
                                               />
                                             </div>
                                             <div>
-                                              <label className="block text-xs font-medium text-gray-700 mb-1">Régimen</label>
+                                              <label className="block text-xs font-medium text-primary-800 mb-1">Régimen</label>
                                               <Input
                                                 value={accommodationFormData.regimen}
                                                 onChange={(e) => setAccommodationFormData(prev => ({...prev, regimen: e.target.value}))}
@@ -1797,7 +1822,7 @@ export function AdminDashboardSimple() {
                                               size="sm"
                                               onClick={handleSaveEditAccommodation}
                                               disabled={!accommodationFormData.name}
-                                              className="bg-green-600 hover:bg-green-700"
+                                              className="bg-primary hover:bg-primary-700 text-white"
                                             >
                                               <Save className="w-3 h-3 mr-1" />
                                               Guardar
@@ -1836,7 +1861,7 @@ export function AdminDashboardSimple() {
                                               size="sm"
                                               variant="outline"
                                               onClick={() => handleEditAccommodation(accommodation)}
-                                              className="border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white"
+                                              className="border-primary-300 text-primary-600 hover:bg-primary hover:text-white hover:border-primary"
                                             >
                                               <Edit className="w-4 h-4" />
                                             </Button>
@@ -1845,7 +1870,7 @@ export function AdminDashboardSimple() {
                                               size="sm"
                                               variant="outline"
                                               onClick={() => handleManageRates(accommodation)}
-                                              className="border-green-500 text-green-600 hover:bg-green-500 hover:text-white"
+                                              className="border-secondary-400 text-secondary-700 hover:bg-secondary hover:text-white hover:border-secondary"
                                             >
                                               <DollarSign className="w-4 h-4" />
                                             </Button>
@@ -1854,7 +1879,7 @@ export function AdminDashboardSimple() {
                                               size="sm"
                                               variant="outline"
                                               onClick={() => handleRemoveAccommodation(accommodation.id)}
-                                              className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                                              className="border-red-300 text-red-500 hover:bg-red-500 hover:text-white"
                                             >
                                               <X className="w-4 h-4" />
                                             </Button>
@@ -1874,7 +1899,7 @@ export function AdminDashboardSimple() {
                         <Button
                           onClick={handleSave}
                           disabled={isSaving}
-                          className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg"
+                          className="bg-gradient-to-r from-primary to-primary-700 hover:from-primary-600 hover:to-primary-800 transition-all duration-300 hover:scale-105 shadow-lg shadow-primary/25 text-white"
                         >
                           {isSaving ? (
                             <>
@@ -1905,12 +1930,12 @@ export function AdminDashboardSimple() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
-                        className="border rounded-lg p-4 hover:shadow-md transition-all duration-300"
+                        className="border border-primary-100 rounded-xl p-5 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300 bg-white border-l-4 border-l-primary"
                       >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-lg font-semibold text-gray-900">{pkg.name}</h3>
+                              <h3 className="text-lg font-heading font-semibold text-primary-950">{pkg.name}</h3>
                               <Badge variant="outline">{destinations.find((d) => d.id === pkg.destination_id)?.name}</Badge>
                               <Badge
                                 className={
@@ -1938,19 +1963,26 @@ export function AdminDashboardSimple() {
                                   </>
                                 )}
                               </Badge>
-                              <Badge className="bg-green-100 text-green-800">${pkg.price}</Badge>
+                              <Badge className="bg-primary-100 text-primary-800 font-semibold">${pkg.price}</Badge>
                               {pkg.is_special && (
-                                <Badge className="bg-purple-100 text-purple-800">Sección Especial</Badge>
+                                <Badge className="bg-gradient-to-r from-primary-100 to-secondary-100 text-primary-800">Sección Especial</Badge>
                               )}
                               {pkg.is_featured && (
-                                <Badge className="bg-yellow-100 text-yellow-800">Destacado</Badge>
+                                <Badge className="bg-amber-100 text-amber-800">Destacado</Badge>
                               )}
                               {pkg.priority_order > 0 && (
-                                <Badge className="bg-blue-100 text-blue-800">Prioridad: {pkg.priority_order}</Badge>
+                                <Badge className="bg-secondary-100 text-secondary-800">Prioridad: {pkg.priority_order}</Badge>
                               )}
                             </div>
                             <p className="text-gray-600 mb-2">{pkg.description}</p>
                             
+                            {/* Mostrar ciudades si existen */}
+                            {pkg.ciudades && pkg.ciudades.length > 0 && (
+                              <div className="mb-2 text-sm">
+                                <span className="font-medium text-blue-700">Ciudades:</span> {pkg.ciudades.join(", ")}
+                              </div>
+                            )}
+
                             {/* Mostrar servicios si existen */}
                             {(pkg.servicios_incluidos || pkg.servicios_adicionales) && (
                               <div className="mb-2 space-y-1">
@@ -1967,7 +1999,7 @@ export function AdminDashboardSimple() {
                               </div>
                             )}
                             
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
+                            <div className="flex items-center gap-4 text-sm text-primary-400">
                               <span>Duración: {pkg.duration}</span>
                               <span>Fechas: {pkg.available_dates?.slice(0, 2).join(", ")}</span>
                             </div>
@@ -1978,7 +2010,7 @@ export function AdminDashboardSimple() {
                               variant="outline"
                               onClick={() => handleEdit(pkg)}
                               disabled={isDeleting}
-                              className="border-2 border-primary text-primary hover:bg-gradient-to-r hover:from-primary hover:to-primary/80 hover:text-white transition-all duration-300 hover:scale-105 disabled:opacity-50"
+                              className="border-primary-300 text-primary-600 hover:bg-primary hover:text-white transition-all duration-200 disabled:opacity-50"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -1987,7 +2019,7 @@ export function AdminDashboardSimple() {
                               variant="outline"
                               onClick={() => handleDelete(pkg.id)}
                               disabled={isDeleting}
-                              className="border-2 border-red-500 text-red-500 hover:bg-gradient-to-r hover:from-red-500 hover:to-red-400 hover:text-white transition-all duration-300 hover:scale-105 disabled:opacity-50"
+                              className="border-red-300 text-red-500 hover:bg-red-500 hover:text-white transition-all duration-200 disabled:opacity-50"
                             >
                               {isDeleting ? (
                                 <div className="animate-spin rounded-full h-4 w-4 border-2 border-red-500 border-t-transparent"></div>
@@ -2000,8 +2032,8 @@ export function AdminDashboardSimple() {
                       </motion.div>
                     ))
                     ) : (
-                      <div className="text-center py-12 text-gray-500">
-                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <div className="text-center py-12 text-primary-400">
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-30 text-primary-300" />
                         <p>No se encontraron paquetes con el filtro seleccionado</p>
                         <Button 
                           variant="outline" 
@@ -2014,8 +2046,8 @@ export function AdminDashboardSimple() {
                     )}
 
                     {packages.length === 0 && filterDestination === "all" && (
-                      <div className="text-center py-12 text-gray-500">
-                        <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <div className="text-center py-12 text-primary-400">
+                        <Package className="w-12 h-12 mx-auto mb-4 opacity-30 text-primary-300" />
                         <p>No hay paquetes disponibles</p>
                         <p className="text-sm">Agregá tu primer paquete de viaje</p>
                       </div>
@@ -2028,8 +2060,8 @@ export function AdminDashboardSimple() {
             <TabsContent value="agencies">
               <Card>
                 <CardHeader>
-                  <CardTitle>Gestión de Agencias</CardTitle>
-                  <p className="text-sm text-gray-600">
+                  <CardTitle className="font-heading text-primary-900">Gestión de Agencias</CardTitle>
+                  <p className="text-sm text-primary-600">
                     Administra las solicitudes de registro de agencias. Aprueba o rechaza el acceso al módulo especial.
                   </p>
                 </CardHeader>
@@ -2041,8 +2073,8 @@ export function AdminDashboardSimple() {
                     </div>
                   ) : agencies.length === 0 ? (
                     <div className="text-center py-8">
-                      <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-600">No hay agencias registradas</p>
+                      <Users className="w-12 h-12 text-primary-300 mx-auto mb-4" />
+                      <p className="text-primary-500">No hay agencias registradas</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -2051,7 +2083,7 @@ export function AdminDashboardSimple() {
                           key={agency.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          className="border rounded-lg p-4 bg-white shadow-sm"
+                          className="border border-primary-100 rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 space-y-4">
@@ -2063,8 +2095,8 @@ export function AdminDashboardSimple() {
                               </div>
                               
                               {/* Información Legal */}
-                              <div className="bg-gray-50 p-3 rounded-lg">
-                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Información Legal</h4>
+                              <div className="bg-primary-50/50 p-4 rounded-xl border border-primary-100">
+                                <h4 className="font-semibold text-sm text-primary-800 mb-2">Información Legal</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                                   <div><strong>Razón Social:</strong> {agency.razon_social}</div>
                                   <div><strong>Nombre de Fantasía:</strong> {agency.nombre_fantasia}</div>
@@ -2074,8 +2106,8 @@ export function AdminDashboardSimple() {
                               </div>
 
                               {/* Información de Contacto */}
-                              <div className="bg-blue-50 p-3 rounded-lg">
-                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Información de Contacto</h4>
+                              <div className="bg-primary-50/30 p-4 rounded-xl border border-primary-100">
+                                <h4 className="font-semibold text-sm text-primary-800 mb-2">Información de Contacto</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                                   <div><strong>Teléfono Principal:</strong> {agency.telefono_contacto_1}</div>
                                   {agency.telefono_contacto_2 && (
@@ -2088,8 +2120,8 @@ export function AdminDashboardSimple() {
                               </div>
 
                               {/* Información de Domicilio */}
-                              <div className="bg-green-50 p-3 rounded-lg">
-                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Domicilio</h4>
+                              <div className="bg-primary-50/50 p-4 rounded-xl border border-primary-100">
+                                <h4 className="font-semibold text-sm text-primary-800 mb-2">Domicilio</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
                                   <div className="md:col-span-2"><strong>Dirección:</strong> {agency.domicilio}</div>
                                   <div><strong>Ciudad:</strong> {agency.ciudad}</div>
@@ -2099,8 +2131,8 @@ export function AdminDashboardSimple() {
                               </div>
 
                               {/* Información de Emails */}
-                              <div className="bg-purple-50 p-3 rounded-lg">
-                                <h4 className="font-semibold text-sm text-gray-700 mb-2">Correos Electrónicos</h4>
+                              <div className="bg-secondary-50/50 p-4 rounded-xl border border-secondary-200">
+                                <h4 className="font-semibold text-sm text-secondary-800 mb-2">Correos Electrónicos</h4>
                                 <div className="grid grid-cols-1 gap-2 text-sm">
                                   <div><strong>Email Principal:</strong> {agency.email_contacto_1}</div>
                                   {agency.email_contacto_2 && (
@@ -2127,7 +2159,7 @@ export function AdminDashboardSimple() {
                                 </Button>
                                 <Button
                                   onClick={() => handleApproveAgency(agency.id)}
-                                  className="bg-green-600 hover:bg-green-700 text-white"
+                                  className="bg-primary hover:bg-primary-700 text-white"
                                   size="sm"
                                   disabled={isLoadingAgencies}
                                 >
@@ -2201,29 +2233,29 @@ export function AdminDashboardSimple() {
               </div>
 
               {/* Información Legal */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-lg mb-3 text-gray-800">Información Legal</h3>
+              <div className="bg-primary-50/50 p-5 rounded-xl border border-primary-100">
+                <h3 className="font-heading font-semibold text-lg mb-3 text-primary-900">Información Legal</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Razón Social</label>
+                    <label className="text-sm font-medium text-primary-600">Razón Social</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.razon_social}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Nombre de Fantasía</label>
+                    <label className="text-sm font-medium text-primary-600">Nombre de Fantasía</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.nombre_fantasia}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">CUIT</label>
+                    <label className="text-sm font-medium text-primary-600">CUIT</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.cuit}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Número de Legajo</label>
+                    <label className="text-sm font-medium text-primary-600">Número de Legajo</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.numero_legajo}
                     </p>
@@ -2232,18 +2264,18 @@ export function AdminDashboardSimple() {
               </div>
 
               {/* Información de Contacto */}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-lg mb-3 text-gray-800">Información de Contacto</h3>
+              <div className="bg-primary-50/30 p-5 rounded-xl border border-primary-100">
+                <h3 className="font-heading font-semibold text-lg mb-3 text-primary-900">Información de Contacto</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Teléfono Principal</label>
+                    <label className="text-sm font-medium text-primary-600">Teléfono Principal</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.telefono_contacto_1}
                     </p>
                   </div>
                   {selectedAgency.telefono_contacto_2 && (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Teléfono Secundario</label>
+                      <label className="text-sm font-medium text-primary-600">Teléfono Secundario</label>
                       <p className="text-sm bg-white p-2 rounded border">
                         {selectedAgency.telefono_contacto_2}
                       </p>
@@ -2251,7 +2283,7 @@ export function AdminDashboardSimple() {
                   )}
                   {selectedAgency.telefono_contacto_3 && (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Teléfono Terciario</label>
+                      <label className="text-sm font-medium text-primary-600">Teléfono Terciario</label>
                       <p className="text-sm bg-white p-2 rounded border">
                         {selectedAgency.telefono_contacto_3}
                       </p>
@@ -2261,29 +2293,29 @@ export function AdminDashboardSimple() {
               </div>
 
               {/* Información de Domicilio */}
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-lg mb-3 text-gray-800">Domicilio</h3>
+              <div className="bg-primary-50/50 p-5 rounded-xl border border-primary-100">
+                <h3 className="font-heading font-semibold text-lg mb-3 text-primary-900">Domicilio</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-gray-600">Dirección</label>
+                    <label className="text-sm font-medium text-primary-600">Dirección</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.domicilio}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Ciudad</label>
+                    <label className="text-sm font-medium text-primary-600">Ciudad</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.ciudad}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Provincia</label>
+                    <label className="text-sm font-medium text-primary-600">Provincia</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.provincia}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">País</label>
+                    <label className="text-sm font-medium text-primary-600">País</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.pais}
                     </p>
@@ -2292,25 +2324,25 @@ export function AdminDashboardSimple() {
               </div>
 
               {/* Información de Emails */}
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-lg mb-3 text-gray-800">Correos Electrónicos</h3>
+              <div className="bg-secondary-50/50 p-5 rounded-xl border border-secondary-200">
+                <h3 className="font-heading font-semibold text-lg mb-3 text-primary-900">Correos Electrónicos</h3>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Email Principal</label>
+                    <label className="text-sm font-medium text-primary-600">Email Principal</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.email_contacto_1}
                     </p>
                   </div>
                   {selectedAgency.email_contacto_2 && (
                     <div className="space-y-2">
-                      <label className="text-sm font-medium text-gray-600">Email Secundario</label>
+                      <label className="text-sm font-medium text-primary-600">Email Secundario</label>
                       <p className="text-sm bg-white p-2 rounded border">
                         {selectedAgency.email_contacto_2}
                       </p>
                     </div>
                   )}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-600">Email Administración</label>
+                    <label className="text-sm font-medium text-primary-600">Email Administración</label>
                     <p className="text-sm bg-white p-2 rounded border">
                       {selectedAgency.email_administracion}
                     </p>
@@ -2351,14 +2383,14 @@ export function AdminDashboardSimple() {
 
       {/* Modal de Tarifas */}
       {showRatesModal && selectedAccommodationForRates && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl"
           >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold">
+            <div className="flex justify-between items-center p-6 bg-gradient-to-r from-primary-50 to-secondary-50 border-b border-primary-100">
+              <h2 className="text-xl font-heading font-bold text-primary-900">
                 Gestionar Tarifas - {selectedAccommodationForRates.name}
               </h2>
               <Button variant="outline" onClick={handleCloseRatesModal}>
@@ -2367,13 +2399,13 @@ export function AdminDashboardSimple() {
             </div>
 
             {/* Formulario para agregar/editar tarifa */}
-            <div className={`p-4 rounded-lg mb-6 ${editingRateId ? 'bg-blue-50 border-2 border-blue-200' : 'bg-gray-50'}`}>
+            <div className={`p-5 rounded-xl mb-6 mx-6 ${editingRateId ? 'bg-secondary-50 border-2 border-secondary-300' : 'bg-primary-50/50 border border-primary-100'}`}>
               <h3 className="font-medium mb-4">
                 {editingRateId ? '✏️ Editando Tarifa' : '➕ Agregar Nueva Tarifa'}
               </h3>
               <div className="grid md:grid-cols-6 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">Mes</label>
                   <Select
                     value={rateFormData.mes}
                     onValueChange={(value) => setRateFormData(prev => ({...prev, mes: value}))}
@@ -2404,7 +2436,7 @@ export function AdminDashboardSimple() {
                   </Select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">Año</label>
                   <Select
                     value={rateFormData.anio}
                     onValueChange={(value) => setRateFormData(prev => ({...prev, anio: value}))}
@@ -2422,7 +2454,7 @@ export function AdminDashboardSimple() {
                   </Select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">DBL (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">DBL (USD)</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2432,7 +2464,7 @@ export function AdminDashboardSimple() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">TPL (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">TPL (USD)</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2442,7 +2474,7 @@ export function AdminDashboardSimple() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CPL (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">CPL (USD)</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2452,7 +2484,7 @@ export function AdminDashboardSimple() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">MENOR (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">MENOR (USD)</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2465,7 +2497,7 @@ export function AdminDashboardSimple() {
               <div className="flex gap-2 mt-4">
                 <Button
                   onClick={handleSaveRate}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-primary hover:bg-primary-700 text-white"
                 >
                   <Save className="w-4 h-4 mr-2" />
                   {editingRateId ? "Actualizar Tarifa" : "Guardar Tarifa"}
@@ -2494,7 +2526,7 @@ export function AdminDashboardSimple() {
                 <h3 className="font-medium mb-4">Tarifas Existentes</h3>
                 <div className="space-y-2">
                   {rates.map((rate) => (
-                    <div key={rate.id} className={`flex items-center justify-between p-3 border rounded-lg ${editingRateId === rate.id ? 'bg-blue-50 border-blue-300' : 'bg-white'}`}>
+                    <div key={rate.id} className={`flex items-center justify-between p-3 border rounded-xl mx-6 ${editingRateId === rate.id ? 'bg-primary-50 border-primary-300' : 'bg-white border-primary-100 hover:bg-primary-50/30'}`}>
                       <div className="grid grid-cols-6 gap-4 flex-1">
                         <div className="font-medium">
                           {new Date(2024, rate.mes - 1).toLocaleDateString('es-ES', { month: 'long' })} {rate.anio}
@@ -2516,7 +2548,7 @@ export function AdminDashboardSimple() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleEditRate(rate)}
-                            className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                            className="border-primary-300 text-primary-600 hover:bg-primary hover:text-white"
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
@@ -2524,7 +2556,7 @@ export function AdminDashboardSimple() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleDeleteRate(rate.id)}
-                            className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                            className="border-red-300 text-red-500 hover:bg-red-500 hover:text-white"
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -2537,8 +2569,8 @@ export function AdminDashboardSimple() {
             ) : null}
 
             {!isLoadingRates && rates.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <div className="text-center py-8 text-primary-400 mx-6">
+                <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-30 text-primary-300" />
                 <p>No hay tarifas configuradas</p>
                 <p className="text-sm">Agrega la primera tarifa para este alojamiento</p>
               </div>

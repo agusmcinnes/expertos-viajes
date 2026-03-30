@@ -149,6 +149,18 @@ export function PackageCard({ package: pkg, index = 0 }: PackageCardProps) {
         {/* === CONTENT SECTION === */}
         <CardContent className="p-5 flex-1 flex flex-col">
 
+          {/* Cities badges */}
+          {pkg.ciudades && pkg.ciudades.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {pkg.ciudades.map((ciudad, idx) => (
+                <Badge key={idx} variant="outline" className="text-xs font-medium px-2 py-0.5">
+                  <MapPin className="w-3 h-3 mr-1" />
+                  {ciudad}
+                </Badge>
+              ))}
+            </div>
+          )}
+
           {/* Next Departure — Hero Element */}
           {nextDeparture ? (
             <div className={`${colors.nextBg} ${colors.nextBorder} border rounded-xl p-3.5 mb-4`}>
