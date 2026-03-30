@@ -158,7 +158,7 @@ export function DestinationsSection() {
                       className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
                     />
                     <div className="absolute top-4 right-4">
-                      <Badge className="bg-secondary text-gray-900 font-semibold">${pkg.price}</Badge>
+                      <Badge className="bg-primary text-white font-semibold">${pkg.price}</Badge>
                     </div>
                     <div className="absolute top-4 left-4">
                       <Badge variant="outline" className="bg-white/90 text-gray-900">
@@ -213,7 +213,7 @@ export function DestinationsSection() {
                 Creamos viajes personalizados según tus sueños y presupuesto. Contanos qué tenés en mente y lo hacemos
                 realidad.
               </p>
-              <Button size="lg" className="bg-secondary hover:bg-secondary/90 text-gray-900 font-semibold">
+              <Button size="lg" className="bg-white hover:bg-white/90 text-primary font-semibold">
                 Crear Viaje Personalizado
               </Button>
             </div>

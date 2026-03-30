@@ -33,7 +33,7 @@ export function Footer() {
                 <Mail className="w-4 h-4 mr-2" />
                 <a 
                   href="mailto:expertosenviajes.info@gmail.com?subject=Consulta desde sitio web&body=Hola, me gustaría obtener información sobre sus servicios de viaje." 
-                  className="hover:text-secondary transition-colors"
+                  className="hover:text-primary-300 transition-colors"
                 >
                   expertosenviajes.info@gmail.com
                 </a>
@@ -42,7 +42,7 @@ export function Footer() {
                 <Mail className="w-4 h-4 mr-2" />
                 <a 
                   href="mailto:vetedeviaje.info@gmail.com?subject=Consulta desde sitio web&body=Hola, me gustaría obtener información sobre sus servicios de viaje." 
-                  className="hover:text-secondary transition-colors"
+                  className="hover:text-primary-300 transition-colors"
                 >
                   vetedeviaje.info@gmail.com
                 </a>
@@ -60,22 +60,22 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Enlaces Rápidos</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="#inicio" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="#inicio" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Inicio
                 </Link>
               </li>
               <li>
-                <Link href="#nosotros" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="#nosotros" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Nosotros
                 </Link>
               </li>
               <li>
-                <Link href="#destinos" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="#destinos" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Destinos
                 </Link>
               </li>
               <li>
-                <Link href="/contacto" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="/contacto" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Contacto
                 </Link>
               </li>
@@ -87,22 +87,22 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Destinos Populares</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="#" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Argentina
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Brasil
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Caribe
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-300 hover:text-secondary transition-colors">
+                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Salidas Grupales Acompañadas
                 </Link>
               </li>

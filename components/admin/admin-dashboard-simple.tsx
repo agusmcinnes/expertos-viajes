@@ -827,7 +827,14 @@ export function AdminDashboardSimple() {
       if (isAdding) {
         const { data: newPackage, error } = await supabase.from("travel_packages").insert([packageData]).select()
         if (error) throw error
-        
+
+        // Asignar URL automática al nuevo paquete
+        if (newPackage && newPackage[0]) {
+          await supabase.from("travel_packages")
+            .update({ url: `https://www.expertosenturismo.com.ar/paquete/${newPackage[0].id}` })
+            .eq("id", newPackage[0].id)
+        }
+
         // Guardar alojamientos para el nuevo paquete
         if (newPackage && newPackage[0] && accommodations.length > 0) {
           await saveAccommodationsForPackage(newPackage[0].id)
@@ -1911,7 +1918,7 @@ export function AdminDashboardSimple() {
                                     ? "bg-bus text-white" 
                                     : (pkg.transport_type || "aereo") === "crucero"
                                     ? "bg-blue-600 text-white"
-                                    : "bg-secondary text-gray-900"
+                                    : "bg-primary-100 text-primary-700"
                                 }
                               >
                                 {(pkg.transport_type || "aereo") === "bus" ? (

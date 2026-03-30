@@ -296,7 +296,7 @@ export function DestinationPage({ destination }: DestinationPageProps) {
                   <Button
                     size="lg"
                     asChild
-                    className="bg-gradient-to-r from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-gray-900 font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                    className="bg-white hover:bg-white/90 text-primary font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg hover:shadow-xl"
                   >
                     <Link
                       href="/contacto"

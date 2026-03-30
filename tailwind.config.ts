@@ -18,6 +18,10 @@ const config: Config = {
         "2xl": "1400px",
       },
     },
+    fontFamily: {
+        sans: ['var(--font-lato)', 'sans-serif'],
+        heading: ['var(--font-outfit)', 'sans-serif'],
+      },
     extend: {
       colors: {
         // Colores principales para Expertos en Viajes (aéreo)
@@ -36,17 +40,17 @@ const config: Config = {
           950: "#2E165E",
         },
         secondary: {
-          DEFAULT: "#EFB65D", // Dorado suave
-          50: "#FDF8F0",
-          100: "#FBF1E1",
-          200: "#F7E3C3",
-          300: "#F3D5A5",
-          400: "#EFB65D", // Color secundario
-          500: "#E6A84A",
-          600: "#DD9A37",
-          700: "#D48C24",
-          800: "#CB7E11",
-          900: "#B8710F",
+          DEFAULT: "#A78BFA", // Violeta luminoso
+          50: "#F5F3FF",
+          100: "#EDE9FE",
+          200: "#DDD6FE",
+          300: "#C4B5FD",
+          400: "#A78BFA", // Color secundario
+          500: "#8B5CF6",
+          600: "#7C3AED",
+          700: "#6D28D9",
+          800: "#5B21B6",
+          900: "#4C1D95",
         },
         // Colores para Vete de Viaje (bus)
         bus: {
@@ -107,12 +111,22 @@ const config: Config = {
           "0%": { transform: "translateX(-100%)" },
           "100%": { transform: "translateX(0)" },
         },
+        "shimmer": {
+          "0%": { backgroundPosition: "-200% 0" },
+          "100%": { backgroundPosition: "200% 0" },
+        },
+        "float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-5px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.6s ease-out",
         "slide-in": "slide-in 0.5s ease-out",
+        "shimmer": "shimmer 3s linear infinite",
+        "float": "float 3s ease-in-out infinite",
       },
     },
   },

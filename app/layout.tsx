@@ -1,13 +1,24 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Outfit, Lato } from "next/font/google"
 import Script from "next/script"
 import "./globals.css"
 import { ScrollToTop } from "@/components/scroll-to-top"
 import { JsonLd, organizationJsonLd, websiteJsonLd } from "@/components/json-ld"
 import { Toaster } from "@/components/ui/toaster"
 
-const inter = Inter({ subsets: ["latin"] })
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
+})
+
+const lato = Lato({
+  subsets: ["latin"],
+  weight: ["300", "400", "700"],
+  variable: "--font-lato",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.expertosenturismo.com.ar/'),
@@ -78,7 +89,7 @@ export default function RootLayout({
         <meta name="geo.placename" content="Chubut, Argentina" />
         <meta name="ICBM" content="-43.2994,-65.1018" />
       </head>
-      <body className={inter.className}>
+      <body className={`${outfit.variable} ${lato.variable} font-sans`}>
         {/* Meta Pixel Code */}
         <Script
           id="meta-pixel"

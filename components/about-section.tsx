@@ -72,10 +72,10 @@ export function AboutSection() {
                 height={500}
                 className="rounded-lg shadow-lg"
               />
-              <div className="absolute -bottom-6 -right-6 bg-secondary p-4 rounded-lg shadow-lg">
+              <div className="absolute -bottom-6 -right-6 bg-primary p-4 rounded-lg shadow-lg">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">10+</div>
-                  <div className="text-sm text-gray-600">Años de experiencia</div>
+                  <div className="text-2xl font-bold text-white">10+</div>
+                  <div className="text-sm text-white/80">Años de experiencia</div>
                 </div>
               </div>
             </div>

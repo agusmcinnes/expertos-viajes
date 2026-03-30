@@ -30,6 +30,7 @@ export interface TravelPackage {
   tarifario_pdf_url?: string | null
   flyer_pdf_url?: string | null
   piezas_redes_pdf_url?: string | null
+  url?: string | null
   created_at: string
   updated_at: string
   destinations?: {

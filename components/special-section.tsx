@@ -53,7 +53,7 @@ export function SpecialSection() {
 
   if (isLoading) {
     return (
-      <section className="py-20 bg-gradient-to-r from-primary/5 to-secondary/5">
+      <section className="py-20 bg-gradient-to-r from-primary/5 to-primary-100/5">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             {/* Loading Header */}
@@ -83,7 +83,7 @@ export function SpecialSection() {
   }
 
   return (
-    <section className="py-20 bg-gradient-to-r from-primary/5 to-secondary/5">
+    <section className="py-20 bg-gradient-to-r from-primary/5 to-primary-100/5">
       <div className="container mx-auto px-4">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -94,11 +94,11 @@ export function SpecialSection() {
             className="text-center mb-16"
           >
             <div className="flex items-center justify-center mb-6">
-              <Sparkles className="w-8 h-8 text-secondary mr-3" />
+              <Sparkles className="w-8 h-8 text-primary-300 mr-3" />
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900">
                 <span className="text-primary">{sectionTitle}</span>
               </h2>
-              <Sparkles className="w-8 h-8 text-secondary ml-3" />
+              <Sparkles className="w-8 h-8 text-primary-300 ml-3" />
             </div>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Descubrí nuestras experiencias más exclusivas y especiales, diseñadas para hacer de tu viaje 
@@ -151,7 +151,7 @@ export function SpecialSection() {
                 <Button
                   size="lg"
                   asChild
-                  className="bg-gradient-to-r from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-gray-900 font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                  className="bg-white hover:bg-white/90 text-primary font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg hover:shadow-xl"
                 >
                   <Link href="/contacto">
                     Crear Experiencia Única

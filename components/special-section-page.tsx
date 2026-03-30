@@ -52,7 +52,7 @@ export function SpecialSectionPage() {
     return (
       <div className="min-h-screen">
         {/* Hero Section Loading */}
-        <section className="relative h-[60vh] md:h-[70vh] flex items-center justify-center overflow-hidden bg-gradient-to-r from-primary/20 to-secondary/20">
+        <section className="relative h-[60vh] md:h-[70vh] flex items-center justify-center overflow-hidden bg-gradient-to-r from-primary/20 to-primary-100/20">
           <div className="container mx-auto px-4 text-center">
             <div className="animate-pulse">
               <div className="h-16 bg-white/20 rounded w-96 mx-auto mb-6"></div>
@@ -118,7 +118,7 @@ export function SpecialSectionPage() {
             </motion.div>
 
             <div className="flex items-center justify-center mb-6">
-              <Sparkles className="w-12 h-12 text-secondary mr-4" />
+              <Sparkles className="w-12 h-12 text-primary-300 mr-4" />
               <motion.h1
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -127,7 +127,7 @@ export function SpecialSectionPage() {
               >
                 {sectionTitle}
               </motion.h1>
-              <Sparkles className="w-12 h-12 text-secondary ml-4" />
+              <Sparkles className="w-12 h-12 text-primary-300 ml-4" />
             </div>
 
             <motion.p
@@ -214,7 +214,7 @@ export function SpecialSectionPage() {
                     <Button
                       size="lg"
                       asChild
-                      className="bg-gradient-to-r from-secondary to-secondary/80 hover:from-secondary/90 hover:to-secondary/70 text-gray-900 font-semibold transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-xl"
+                      className="bg-white hover:bg-white/90 text-primary font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg hover:shadow-xl"
                     >
                       <Link href="/contacto">
                         Crear Experiencia Única

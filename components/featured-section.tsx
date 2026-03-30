@@ -101,7 +101,7 @@ export function FeaturedSection() {
             >
               <div className="relative">
                 {/* Badge de destacado */}
-                <div className="absolute top-4 left-4 z-10 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1">
+                <div className="absolute top-3 right-3 z-10 bg-yellow-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center gap-1 shadow-md">
                   <Star className="w-4 h-4 fill-white" />
                   Destacado
                 </div>
