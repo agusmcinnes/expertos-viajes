@@ -4,11 +4,11 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Calendar, Hotel, Users, Check, AlertCircle, Plus, Minus, X, Edit, Info } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Calendar, Hotel, Users, Check, AlertCircle, Plus, X, Edit, Info, BedDouble, ClipboardCheck, AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Star, Utensils } from "lucide-react"
 import { supabase, stockService, reservationService, type CreateReservationData } from "@/lib/supabase"
 import { sendReservationNotification, sendReservationConfirmation } from "@/lib/emailjs"
 import { motion, AnimatePresence } from "framer-motion"
@@ -21,7 +21,7 @@ interface Accommodation {
   name: string
   stars: number
   regimen?: string | null
-  hasStock?: boolean // Indica si tiene disponibilidad para la fecha seleccionada
+  hasStock?: boolean
 }
 
 interface ReservationFormProps {
@@ -55,7 +55,73 @@ interface Passenger {
   dni?: string
   email?: string
   telefono?: string
-  datos_pendientes?: boolean // Si marcó "lo completo después"
+  datos_pendientes?: boolean
+}
+
+// Step Progress Bar Component
+function StepIndicator({ currentStep, totalSteps }: { currentStep: number; totalSteps: number }) {
+  const steps = [
+    { id: 1, label: "Fecha", icon: Calendar },
+    { id: 2, label: "Alojamiento", icon: Hotel },
+    { id: 3, label: "Habitaciones", icon: BedDouble },
+    { id: 4, label: "Pasajeros", icon: Users },
+    { id: 5, label: "Resumen", icon: ClipboardCheck },
+  ]
+
+  return (
+    <div className="w-full px-2 sm:px-4 mb-6 sm:mb-8">
+      <div className="flex items-center justify-between relative">
+        {/* Background line */}
+        <div className="absolute top-4 sm:top-5 left-0 right-0 h-0.5 bg-gray-200 z-0" />
+        {/* Progress line */}
+        <motion.div
+          className="absolute top-4 sm:top-5 left-0 h-0.5 bg-primary z-0"
+          initial={false}
+          animate={{ width: `${((currentStep - 1) / (totalSteps - 1)) * 100}%` }}
+          transition={{ duration: 0.4, ease: "easeInOut" }}
+        />
+
+        {steps.map((step) => {
+          const Icon = step.icon
+          const isCompleted = currentStep > step.id
+          const isActive = currentStep === step.id
+          const isPending = currentStep < step.id
+
+          return (
+            <div key={step.id} className="flex flex-col items-center z-10 relative">
+              <motion.div
+                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border-2 transition-colors duration-300 ${
+                  isCompleted
+                    ? "bg-green-500 border-green-500 text-white"
+                    : isActive
+                    ? "bg-primary border-primary text-white shadow-lg shadow-primary/30"
+                    : "bg-white border-gray-300 text-gray-400"
+                }`}
+                animate={isActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+                transition={isActive ? { duration: 1.5, repeat: Infinity, ease: "easeInOut" } : {}}
+              >
+                {isCompleted ? (
+                  <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+                ) : (
+                  <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                )}
+              </motion.div>
+              <span className={`hidden sm:block text-xs mt-1.5 font-medium ${
+                isCompleted ? "text-green-600" : isActive ? "text-primary" : "text-gray-400"
+              }`}>
+                {step.label}
+              </span>
+              <span className={`sm:hidden text-[10px] mt-1 font-medium ${
+                isCompleted ? "text-green-600" : isActive ? "text-primary" : "text-gray-400"
+              }`}>
+                {step.id}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export function ReservationForm({ packageId, packageName, onSuccess, onClose }: ReservationFormProps) {
@@ -67,10 +133,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
   const [isLoadingDates, setIsLoadingDates] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [step, setStep] = useState(1) // 1: Fecha, 2: Alojamiento, 3: Habitaciones, 4: Pasajeros, 5: Datos de Contacto
+  const [step, setStep] = useState(1)
+  const [direction, setDirection] = useState(1) // 1 = forward, -1 = backward
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [reservationId, setReservationId] = useState<number | null>(null)
+  const [isNoStockSelection, setIsNoStockSelection] = useState(false)
 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
@@ -78,6 +146,22 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const [roomsData, setRoomsData] = useState<RoomDetail[]>([])
   const [passengers, setPassengers] = useState<Passenger[]>([])
   const [comentarios, setComentarios] = useState("")
+
+  // Navigation helpers
+  const goToStep = (newStep: number) => {
+    setDirection(newStep > step ? 1 : -1)
+    setStep(newStep)
+  }
+
+  const nextStep = () => {
+    setDirection(1)
+    setStep(s => s + 1)
+  }
+
+  const prevStep = () => {
+    setDirection(-1)
+    setStep(s => s - 1)
+  }
 
   // Cargar fechas disponibles al montar
   useEffect(() => {
@@ -110,7 +194,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     }, 50)
   }, [step])
 
-  // Inicializar titular vacío cuando se llega al paso 4 (pasajeros)
+  // Inicializar titular vacío cuando se llega al paso 4
   useEffect(() => {
     if (step === 4 && passengers.length === 0) {
       setPassengers([{
@@ -139,14 +223,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       if (error) throw error
 
-      // Verificar si hay stock flexible
       const flexibleStock = data?.find((item: any) => item.flexible_dates === true)
       if (flexibleStock) {
         setHasFlexibleStock(true)
         setAvailableDates([flexibleStock])
       } else {
         setHasFlexibleStock(false)
-        // Obtener fechas únicas y futuras
         const uniqueDates = Array.from(new Set(
           data?.filter((item: any) =>
             item.fecha_salida && new Date(item.fecha_salida) >= new Date()
@@ -169,7 +251,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     try {
       setIsLoadingAccommodations(true)
 
-      // 1. Obtener alojamientos que tienen stock para esta fecha
       const { data: stockData, error: stockError } = await supabase
         .from("package_stock")
         .select("accommodation_id")
@@ -181,7 +262,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       const accommodationIdsWithStock = Array.from(new Set(stockData?.map(s => s.accommodation_id) || []))
 
-      // 2. Cargar TODOS los alojamientos del paquete (no solo los que tienen stock)
       const { data: accomData, error: accomError } = await supabase
         .from("accommodations")
         .select("*")
@@ -190,15 +270,11 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       if (accomError) throw accomError
 
-      // 3. Deduplicar por NOMBRE (porque el mismo hotel puede tener múltiples IDs para diferentes fechas)
       const uniqueAccommodationsMap: { [key: string]: Accommodation } = {}
 
       ;(accomData || []).forEach(accom => {
-        // Usar el nombre como key para deduplicar
         const key = accom.name.trim().toLowerCase()
-
         if (!uniqueAccommodationsMap[key]) {
-          // Primera vez que vemos este hotel
           uniqueAccommodationsMap[key] = {
             id: accom.id,
             name: accom.name,
@@ -207,30 +283,19 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             hasStock: accommodationIdsWithStock.includes(accom.id)
           }
         } else {
-          // Ya existe este hotel, actualizar hasStock si este tiene stock
-          // Esto es importante porque un hotel puede aparecer varias veces:
-          // una con stock y otra sin stock
           if (accommodationIdsWithStock.includes(accom.id)) {
             uniqueAccommodationsMap[key].hasStock = true
-            // Actualizar el ID al que tiene stock
             uniqueAccommodationsMap[key].id = accom.id
           }
         }
       })
 
-      // Convertir a array y ordenar
       const accommodationsWithAvailability = Object.values(uniqueAccommodationsMap)
         .sort((a, b) => {
-          // Primero los que tienen stock, luego los que no
           if (a.hasStock && !b.hasStock) return -1
           if (!a.hasStock && b.hasStock) return 1
-          // Si ambos tienen o no tienen stock, ordenar por nombre
           return a.name.localeCompare(b.name)
         })
-
-      console.log('Alojamientos cargados (deduplicados por nombre):', accommodationsWithAvailability.length)
-      console.log('Con stock:', accommodationsWithAvailability.filter(a => a.hasStock).length)
-      console.log('Sin stock:', accommodationsWithAvailability.filter(a => !a.hasStock).length)
 
       setAccommodations(accommodationsWithAvailability)
     } catch (error) {
@@ -259,7 +324,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
       }
     } catch (error) {
       console.error("Error loading stock:", error)
-      setError("Error al cargar el stock disponible")
     }
   }
 
@@ -286,8 +350,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const getRoomTypeName = (tipo: 'dbl' | 'tpl' | 'cpl' | 'qpl') => {
     if (tipo === 'dbl') return 'Doble'
     if (tipo === 'tpl') return 'Triple'
-    if (tipo === 'cpl') return 'Cuádruple'
-    if (tipo === 'qpl') return 'Quíntuple'
+    if (tipo === 'cpl') return 'Cuadruple'
+    if (tipo === 'qpl') return 'Quintuple'
     return tipo
   }
 
@@ -302,11 +366,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const addRoom = (tipo: 'dbl' | 'tpl' | 'cpl' | 'qpl') => {
     const currentCount = roomsData.filter(r => r.tipo_habitacion === tipo).reduce((sum, r) => sum + r.cantidad, 0)
     const stockAvailable = getStockForRoomType(tipo)
+    const maxAllowed = isNoStockSelection ? 10 : stockAvailable
 
-    if (currentCount >= stockAvailable) {
+    if (currentCount >= maxAllowed) {
       toast({
-        title: "Stock no disponible",
-        description: `No hay más habitaciones ${getRoomTypeName(tipo)} disponibles`,
+        title: "Limite alcanzado",
+        description: `No puedes agregar mas habitaciones ${getRoomTypeName(tipo)}`,
         variant: "destructive"
       })
       return
@@ -315,13 +380,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     setRoomsData([...roomsData, {
       tipo_habitacion: tipo,
       cantidad: 1,
-      subtipo_habitacion: 'matrimonial' // Todas las habitaciones tienen subtipo por defecto
+      subtipo_habitacion: 'matrimonial'
     }])
   }
 
   const removeRoom = (index: number) => {
-    const newRoomsData = roomsData.filter((_, i) => i !== index)
-    setRoomsData(newRoomsData)
+    setRoomsData(roomsData.filter((_, i) => i !== index))
   }
 
   const updateRoomSubtype = (index: number, subtipo: 'matrimonial' | 'twin') => {
@@ -334,8 +398,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     const totalCapacity = getTotalCapacity()
     if (passengers.length >= totalCapacity) {
       toast({
-        title: "Capacidad máxima alcanzada",
-        description: `Solo puedes agregar ${totalCapacity} pasajeros según las habitaciones seleccionadas`,
+        title: "Capacidad maxima alcanzada",
+        description: `Solo puedes agregar ${totalCapacity} pasajeros segun las habitaciones seleccionadas`,
         variant: "destructive"
       })
       return
@@ -355,8 +419,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
   const removePassenger = (index: number) => {
     const passengerToRemove = passengers[index]
-
-    // Si es el titular, reiniciar con un formulario vacío
     if (passengerToRemove.tipo_pasajero === 'titular') {
       setPassengers([{
         tipo_pasajero: 'titular',
@@ -369,7 +431,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         datos_pendientes: false
       }])
     } else {
-      // Si es acompañante, solo eliminarlo
       setPassengers(passengers.filter((_, i) => i !== index))
     }
   }
@@ -380,28 +441,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     setPassengers(newPassengers)
   }
 
-  const canProceedToStep2 = () => {
-    return selectedDate !== ""
-  }
-
-  const canProceedToStep3 = () => {
-    return selectedAccommodation !== null
-  }
-
-  const canProceedToStep4 = () => {
-    if (roomsData.length === 0) return false
-
-    // Validar que todas las habitaciones tengan subtipo
-    const allRoomsHaveSubtype = roomsData.every(r => r.subtipo_habitacion !== null)
-
-    return allRoomsHaveSubtype
-  }
-
   const isTitularComplete = () => {
     const titular = passengers.find(p => p.tipo_pasajero === 'titular')
     if (!titular) return false
-
-    // El titular SIEMPRE debe tener todos los campos completos
     return titular.nombre.trim() !== '' &&
            titular.apellido.trim() !== '' &&
            titular.fecha_nacimiento !== '' &&
@@ -413,62 +455,38 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const isTitularAdult = () => {
     const titular = passengers.find(p => p.tipo_pasajero === 'titular')
     if (!titular || !titular.fecha_nacimiento) return false
-
     const birthDate = new Date(titular.fecha_nacimiento)
-    const age = differenceInYears(new Date(), birthDate)
-    return age >= 18
+    return differenceInYears(new Date(), birthDate) >= 18
   }
 
   const getTitularAge = () => {
     const titular = passengers.find(p => p.tipo_pasajero === 'titular')
     if (!titular || !titular.fecha_nacimiento) return null
-
-    const birthDate = new Date(titular.fecha_nacimiento)
-    return differenceInYears(new Date(), birthDate)
+    return differenceInYears(new Date(), new Date(titular.fecha_nacimiento))
   }
 
-  // Calcular edad al momento del viaje
   const getAgeAtTravel = (fechaNacimiento: string) => {
     if (!fechaNacimiento || !selectedDate) return null
-
-    const birthDate = new Date(fechaNacimiento)
-    const travelDate = new Date(selectedDate)
-    return differenceInYears(travelDate, birthDate)
+    return differenceInYears(new Date(selectedDate), new Date(fechaNacimiento))
   }
 
   const canSubmit = () => {
-    // Validar que haya al menos un pasajero titular
     const hasTitular = passengers.some(p => p.tipo_pasajero === 'titular')
-    if (!hasTitular) return false
-
-    // Validar que haya al menos un pasajero
-    if (passengers.length === 0) return false
-
-    // Validar que el titular sea mayor de 18 años
+    if (!hasTitular || passengers.length === 0) return false
     if (!isTitularAdult()) return false
 
-    // Validar que todos los pasajeros tengan los campos requeridos
     const allPassengersValid = passengers.every(p => {
       const baseValid = p.nombre.trim() !== "" &&
                        p.apellido.trim() !== "" &&
                        p.fecha_nacimiento !== ""
-
-      // Si marcó "datos pendientes", solo validar datos básicos
-      if (p.datos_pendientes) {
-        return baseValid
-      }
-
-      // Si no marcó "datos pendientes", validar que todos los campos estén completos
+      if (p.datos_pendientes) return baseValid
       return baseValid &&
              p.dni?.trim() !== "" &&
              p.email?.trim() !== "" &&
              p.telefono?.trim() !== ""
     })
 
-    if (!allPassengersValid) return false
-
-    // Ya no necesitamos validar datos de contacto porque se toman del titular
-    return true
+    return allPassengersValid
   }
 
   const handleSubmit = async () => {
@@ -478,17 +496,13 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
       setIsSubmitting(true)
       setError(null)
 
-      // Calcular edad al viajar para cada pasajero
       const passengersWithAge = passengers.map(p => ({
         ...p,
         edad_al_viajar: p.fecha_nacimiento ? getAgeAtTravel(p.fecha_nacimiento) : undefined
       }))
 
-      // Obtener datos del titular para usar como contacto
       const titular = passengers.find(p => p.tipo_pasajero === 'titular')
-      if (!titular) {
-        throw new Error('No se encontró el titular')
-      }
+      if (!titular) throw new Error('No se encontro el titular')
 
       const reservationData: CreateReservationData = {
         package_id: packageId,
@@ -510,7 +524,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       setReservationId(result.reservation.id)
 
-      // Enviar emails
       try {
         await sendReservationNotification({
           packageName,
@@ -536,13 +549,11 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         })
       } catch (emailError) {
         console.error("Error sending emails:", emailError)
-        // No fallar la reserva si falla el email
       }
 
       setSuccess(true)
-
       toast({
-        title: "¡Reserva exitosa!",
+        title: "Reserva exitosa!",
         description: "Tu pre-reserva ha sido registrada correctamente",
       })
 
@@ -550,7 +561,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         if (onSuccess) onSuccess()
         if (onClose) onClose()
       }, 3000)
-
     } catch (error) {
       console.error("Error submitting reservation:", error)
       setError(error instanceof Error ? error.message : "Error al crear la reserva")
@@ -564,42 +574,42 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     }
   }
 
-  // Obtener el título del paso actual
-  const getStepTitle = () => {
-    switch (step) {
-      case 1:
-        return "Seleccione una fecha"
-      case 2:
-        return "Seleccione alojamiento"
-      case 3:
-        return "Seleccione habitaciones"
-      case 4:
-        return "Complete datos de pasajeros"
-      case 5:
-        return "Complete datos de contacto"
-      default:
-        return ""
-    }
+  const getSelectedAccommodationName = () => {
+    return accommodations.find(a => a.id === selectedAccommodation)?.name || ""
+  }
+
+  const getSelectedAccommodationStars = () => {
+    return accommodations.find(a => a.id === selectedAccommodation)?.stars || 0
+  }
+
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return ""
+    return new Date(dateStr).toLocaleDateString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  // Animation variants for step transitions
+  const slideVariants = {
+    enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir: number) => ({ x: dir > 0 ? -60 : 60, opacity: 0 }),
   }
 
   return (
-    <div className="space-y-6">
-      {/* Step Title */}
-      <div className="text-center mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-primary">
-          {getStepTitle()}
-        </h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Paso {step} de 5
-        </p>
-      </div>
+    <div className="space-y-4 sm:space-y-6">
+      {/* Step Progress Bar */}
+      {!success && <StepIndicator currentStep={step} totalSteps={5} />}
 
       {/* Error Alert */}
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3"
+          className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3"
         >
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -616,731 +626,928 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="bg-green-50 border border-green-200 rounded-lg p-6 text-center"
+            className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-2xl p-8 text-center"
           >
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              transition={{ delay: 0.2 }}
-              className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4"
+              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+              className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-200"
             >
-              <Check className="w-8 h-8 text-white" />
+              <Check className="w-10 h-10 text-white" />
             </motion.div>
-            <h3 className="text-xl font-bold text-green-800 mb-2">¡Reserva Exitosa!</h3>
-            <p className="text-green-600 mb-4">
+            <h3 className="text-2xl font-bold text-green-800 mb-3">Reserva Exitosa!</h3>
+            <p className="text-green-700 mb-4 max-w-md mx-auto">
               Tu pre-reserva ha sido registrada correctamente. En breve te contactaremos para confirmar y cotizar.
             </p>
             {reservationId && (
-              <p className="text-sm text-gray-600 mb-2">
-                ID de Reserva: <strong>#{reservationId}</strong>
+              <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-sm mb-4">
+                <span className="text-sm text-gray-500">Reserva</span>
+                <span className="font-bold text-primary">#{reservationId}</span>
+              </div>
+            )}
+            {passengers.find(p => p.tipo_pasajero === 'titular')?.email && (
+              <p className="text-sm text-gray-600">
+                Enviamos confirmacion a {passengers.find(p => p.tipo_pasajero === 'titular')?.email}
               </p>
             )}
-            <p className="text-sm text-gray-600">
-              {passengers.find(p => p.tipo_pasajero === 'titular')?.email &&
-                `Enviamos un correo de confirmación a ${passengers.find(p => p.tipo_pasajero === 'titular')?.email}`}
-            </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Step 1: Seleccionar Fecha */}
-      {step === 1 && !success && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3 sm:pb-6">
-              <CardTitle className="flex items-center text-base sm:text-lg">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                <span className="leading-tight">{hasFlexibleStock ? "Elige tu Fecha" : "Fecha de Salida"}</span>
-              </CardTitle>
-              {hasFlexibleStock && (
-                <p className="text-xs sm:text-sm text-blue-600 mt-2">
-                  📅 Este paquete tiene fechas flexibles. Elige cualquier fecha disponible.
-                </p>
-              )}
-            </CardHeader>
-            <CardContent>
-              {isLoadingDates ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+      {/* Step Content with Animations */}
+      {!success && (
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+          >
+            {/* ===== STEP 1: Fecha ===== */}
+            {step === 1 && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="text-center mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Selecciona tu fecha de salida</h2>
+                  <p className="text-sm text-gray-500 mt-1">Elige cuando queres viajar</p>
                 </div>
-              ) : availableDates.length === 0 ? (
-                <p className="text-gray-600">No hay fechas disponibles para este paquete</p>
-              ) : hasFlexibleStock ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Selecciona tu fecha preferida *
-                  </label>
-                  <Input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full"
-                  />
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fechas disponibles *
-                  </label>
-                  <Select
-                    value={selectedDate}
-                    onValueChange={setSelectedDate}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una fecha..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableDates.map((date) => (
-                        <SelectItem key={date.fecha_salida} value={date.fecha_salida || ""}>
-                          {date.fecha_salida ? new Date(date.fecha_salida).toLocaleDateString('es-ES', {
-                            weekday: 'long',
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          }) : "Fecha flexible"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
-          <div className="flex justify-end gap-2">
-            {onClose && (
-              <Button variant="outline" onClick={onClose}>
-                Cancelar
-              </Button>
-            )}
-            <Button
-              onClick={() => setStep(2)}
-              disabled={!canProceedToStep2()}
-              className="text-white"
-            >
-              Continuar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 2: Seleccionar Alojamiento */}
-      {step === 2 && !success && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="pb-3 sm:pb-6">
-              <CardTitle className="flex items-center text-base sm:text-lg">
-                <Hotel className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Alojamientos Disponibles
-              </CardTitle>
-              <p className="text-sm text-gray-600 mt-2">
-                Para la fecha seleccionada: {selectedDate ? new Date(selectedDate).toLocaleDateString('es-ES', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                }) : ""}
-              </p>
-            </CardHeader>
-            <CardContent>
-              {isLoadingAccommodations ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                </div>
-              ) : accommodations.length === 0 ? (
-                <p className="text-gray-600">No hay alojamientos disponibles para esta fecha</p>
-              ) : (
-                <Select
-                  value={selectedAccommodation?.toString() || ""}
-                  onValueChange={(value) => setSelectedAccommodation(parseInt(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un alojamiento..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accommodations.map((acc) => (
-                      <SelectItem
-                        key={`accom-${acc.id}`}
-                        value={acc.id.toString()}
-                        disabled={!acc.hasStock}
-                      >
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className={!acc.hasStock ? 'text-gray-400' : ''}>{acc.name}</span>
-                          <span className={!acc.hasStock ? 'text-gray-300' : 'text-yellow-500'}>
-                            {'★'.repeat(acc.stars)}
-                          </span>
-                          {acc.regimen && (
-                            <span className={`text-sm ${!acc.hasStock ? 'text-gray-300' : 'text-gray-500'}`}>
-                              • {acc.regimen}
-                            </span>
-                          )}
-                          {!acc.hasStock && (
-                            <Badge variant="destructive" className="text-xs ml-1">
-                              SIN DISPONIBILIDAD
-                            </Badge>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-between gap-2">
-            <Button variant="outline" onClick={() => setStep(1)}>
-              Atrás
-            </Button>
-            <Button
-              onClick={() => setStep(3)}
-              disabled={!canProceedToStep3()}
-              className="text-white"
-            >
-              Continuar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Habitaciones */}
-      {step === 3 && !success && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Hotel className="w-5 h-5 mr-2" />
-                Agregar Habitaciones
-              </CardTitle>
-              <p className="text-sm text-gray-600 mt-2">
-                Haz clic en el botón <strong>+</strong> para agregar habitaciones a tu reserva
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Cards para agregar habitaciones */}
-              <div className="grid grid-cols-1 gap-4">
-                {(['dbl', 'tpl', 'cpl', 'qpl'] as const).map((tipo) => {
-                  const agregadas = roomsData.filter(r => r.tipo_habitacion === tipo).length
-                  const stockDisponible = getStockForRoomType(tipo)
-                  const puedeAgregar = agregadas < stockDisponible
-
-                  return (
-                    <Card key={tipo} className={`${!puedeAgregar ? 'opacity-50' : ''}`}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between gap-4">
-                          {/* Info de la habitación */}
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Hotel className="w-5 h-5 text-primary" />
-                              <h4 className="font-bold text-lg">{getRoomTypeName(tipo)}</h4>
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              <Users className="w-4 h-4 inline mr-1" />
-                              Capacidad: <strong>{getRoomCapacity(tipo)} personas</strong>
-                            </p>
-                            {agregadas > 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                Agregadas: {agregadas}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Botón + grande */}
-                          <Button
-                            onClick={() => addRoom(tipo)}
-                            disabled={!puedeAgregar}
-                            size="lg"
-                            className="w-10 h-10 rounded-full p-0 text-2xl text-white"
-                          >
-                            <Plus className="w-6 h-6" />
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-
-              {/* Lista de habitaciones seleccionadas */}
-              {roomsData.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-semibold text-lg">Habitaciones agregadas ({roomsData.length})</h4>
-                    <Badge variant="outline" className="text-sm">
-                      <Users className="w-4 h-4 mr-1" />
-                      {getTotalCapacity()} personas
-                    </Badge>
+                {isLoadingDates ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto mb-3"></div>
+                    <p className="text-gray-500 text-sm">Cargando fechas...</p>
                   </div>
-
-                  <div className="border-t pt-3 space-y-3">
-                    {roomsData.map((room, index) => (
-                      <Card key={index} className="bg-gray-50">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Hotel className="w-4 h-4 text-primary" />
-                                <span className="font-semibold">
-                                  {getRoomTypeName(room.tipo_habitacion)}
-                                </span>
-                                <Badge variant="secondary" className="text-xs">
-                                  {getRoomCapacity(room.tipo_habitacion)} personas
-                                </Badge>
-                              </div>
-
-                              {/* Selector de subtipo para TODAS las habitaciones */}
-                              <div className="mt-2">
-                                <label className="text-xs font-medium text-gray-600 block mb-1">
-                                  Tipo de cama:
-                                </label>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant={room.subtipo_habitacion === 'matrimonial' ? 'default' : 'outline'}
-                                    onClick={() => updateRoomSubtype(index, 'matrimonial')}
-                                    className={`text-xs ${room.subtipo_habitacion === 'matrimonial' ? 'text-white' : ''}`}
-                                  >
-                                    Matrimonial
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant={room.subtipo_habitacion === 'twin' ? 'default' : 'outline'}
-                                    onClick={() => updateRoomSubtype(index, 'twin')}
-                                    className={`text-xs ${room.subtipo_habitacion === 'twin' ? 'text-white' : ''}`}
-                                  >
-                                    Camas Separadas
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeRoom(index)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <X className="w-5 h-5" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                ) : availableDates.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No hay fechas disponibles para este paquete</p>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-between gap-2">
-            <Button variant="outline" onClick={() => setStep(2)}>
-              Atrás
-            </Button>
-            <Button
-              onClick={() => {
-                if (canProceedToStep4()) {
-                  setStep(4)
-                } else {
-                  toast({
-                    title: "Selección incompleta",
-                    description: "Por favor selecciona el tipo de cama para todas las habitaciones",
-                    variant: "destructive"
-                  })
-                }
-              }}
-              disabled={roomsData.length === 0}
-              className="text-white"
-            >
-              Continuar
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 4: Pasajeros */}
-      {step === 4 && !success && (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Users className="w-5 h-5 mr-2" />
-                Datos de Pasajeros
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-800">
-                  Capacidad máxima: {getTotalCapacity()} pasajeros |
-                  Agregados: {passengers.length} pasajeros
-                </p>
-              </div>
-
-              {/* Formulario de Titular */}
-              <div className="border-t pt-4">
-                <h4 className="font-semibold mb-3">Datos del Titular</h4>
-                {isTitularComplete() && isTitularAdult() ? (
-                  // Mostrar titular confirmado
-                  <div className="border rounded-lg p-4 bg-green-50 border-green-200">
-                    <div className="flex items-center justify-between mb-2">
-                      <Badge variant="default">Titular Confirmado</Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const titularIndex = passengers.findIndex(p => p.tipo_pasajero === 'titular')
-                          if (titularIndex !== -1) removePassenger(titularIndex)
-                        }}
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Editar
-                      </Button>
-                    </div>
-                    {passengers.filter(p => p.tipo_pasajero === 'titular').map((titular) => (
-                      <div key="titular-info" className="text-sm space-y-1">
-                        <p><strong>Nombre:</strong> {titular.nombre} {titular.apellido}</p>
-                        <p><strong>DNI:</strong> {titular.dni}</p>
-                        <p><strong>Fecha de Nacimiento:</strong> {new Date(titular.fecha_nacimiento).toLocaleDateString('es-AR', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        })} ({getTitularAge()} años)</p>
+                ) : hasFlexibleStock ? (
+                  <Card className="border-2 border-dashed border-primary/30 bg-primary/5">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar className="w-5 h-5 text-primary" />
+                        <span className="font-semibold text-primary">Fechas Flexibles</span>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  // Mostrar formulario de titular
-                  <Card>
-                    <CardContent className="p-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Nombre *
-                          </label>
-                          <Input
-                            value={passengers[0]?.nombre || ''}
-                            onChange={(e) => updatePassenger(0, 'nombre', e.target.value)}
-                            placeholder="Nombre"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Apellido *
-                          </label>
-                          <Input
-                            value={passengers[0]?.apellido || ''}
-                            onChange={(e) => updatePassenger(0, 'apellido', e.target.value)}
-                            placeholder="Apellido"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            DNI *
-                          </label>
-                          <Input
-                            value={passengers[0]?.dni || ''}
-                            onChange={(e) => updatePassenger(0, 'dni', e.target.value)}
-                            placeholder="12.345.678 o 12345678"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Email *
-                          </label>
-                          <Input
-                            type="email"
-                            value={passengers[0]?.email || ''}
-                            onChange={(e) => updatePassenger(0, 'email', e.target.value)}
-                            placeholder="correo@ejemplo.com"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Teléfono *
-                          </label>
-                          <Input
-                            type="tel"
-                            value={passengers[0]?.telefono || ''}
-                            onChange={(e) => updatePassenger(0, 'telefono', e.target.value)}
-                            placeholder="+54 9 11 1234-5678"
-                          />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Fecha de Nacimiento *
-                          </label>
-                          <BirthDatePicker
-                            date={passengers[0]?.fecha_nacimiento ? new Date(passengers[0].fecha_nacimiento) : undefined}
-                            onSelect={(date) => {
-                              if (date) {
-                                updatePassenger(0, 'fecha_nacimiento', date.toISOString().split('T')[0])
-                              }
-                            }}
-                            placeholder="Selecciona fecha de nacimiento"
-                            maxYear={new Date().getFullYear()}
-                            minYear={1920}
-                          />
-
-                          {/* Campo de edad al momento del viaje */}
-                          {passengers[0]?.fecha_nacimiento && selectedDate && (
-                            <div className="mt-2 flex items-center gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-md p-2">
-                              <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                              <div>
-                                <strong>Edad al viajar:</strong> {getAgeAtTravel(passengers[0].fecha_nacimiento)} años
-                                <p className="text-xs text-gray-600 mt-0.5">
-                                  La edad debe ser la que tenga al momento de viajar
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {passengers[0]?.fecha_nacimiento && !isTitularAdult() && (
-                            <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3" />
-                              El titular debe ser mayor de 18 años (tiene {getTitularAge()} años)
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <Button
-                        onClick={() => {
-                          if (!isTitularComplete()) {
-                            toast({
-                              title: "Campos incompletos",
-                              description: "Por favor completa todos los campos del titular",
-                              variant: "destructive"
-                            })
-                            return
-                          }
-                          if (!isTitularAdult()) {
-                            toast({
-                              title: "Edad insuficiente",
-                              description: `El titular debe ser mayor de 18 años (actualmente tiene ${getTitularAge()} años)`,
-                              variant: "destructive"
-                            })
-                            return
-                          }
-                          toast({
-                            title: "Titular confirmado",
-                            description: "Datos del titular guardados correctamente",
-                          })
-                        }}
-                        disabled={!isTitularComplete() || !isTitularAdult()}
-                        className="w-full text-white"
-                      >
-                        Confirmar Datos
-                      </Button>
+                      <p className="text-sm text-gray-600 mb-4">Este paquete tiene fechas flexibles. Elegi cualquier fecha disponible.</p>
+                      <Input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full text-lg h-12"
+                      />
                     </CardContent>
                   </Card>
-                )}
-              </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {availableDates.map((date) => {
+                      const dateObj = date.fecha_salida ? new Date(date.fecha_salida) : null
+                      if (!dateObj) return null
+                      const isSelected = selectedDate === date.fecha_salida
+                      const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short' })
+                      const day = dateObj.getDate()
+                      const month = dateObj.toLocaleDateString('es-ES', { month: 'short' })
+                      const year = dateObj.getFullYear()
 
-              {/* Acompañantes */}
-              {isTitularComplete() && isTitularAdult() && (
-                <div className="border-t pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold">Acompañantes</h4>
-                    {passengers.length < getTotalCapacity() && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addPassenger('acompañante')}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Agregar Acompañante
-                      </Button>
-                    )}
+                      return (
+                        <motion.button
+                          key={date.fecha_salida}
+                          onClick={() => setSelectedDate(date.fecha_salida || "")}
+                          className={`relative p-4 rounded-xl border-2 text-left transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
+                              : "border-gray-200 hover:border-primary/40 hover:bg-gray-50"
+                          }`}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-14 h-14 rounded-lg flex flex-col items-center justify-center ${
+                              isSelected ? "bg-primary text-white" : "bg-gray-100 text-gray-700"
+                            }`}>
+                              <span className="text-xs uppercase font-medium leading-none">{dayName}</span>
+                              <span className="text-xl font-bold leading-tight">{day}</span>
+                            </div>
+                            <div>
+                              <p className={`font-semibold capitalize ${isSelected ? "text-primary" : "text-gray-800"}`}>
+                                {month} {year}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {dateObj.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+                              </p>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute top-2 right-2 w-6 h-6 bg-primary rounded-full flex items-center justify-center"
+                            >
+                              <Check className="w-3.5 h-3.5 text-white" />
+                            </motion.div>
+                          )}
+                        </motion.button>
+                      )
+                    })}
                   </div>
+                )}
 
-                  {passengers.filter(p => p.tipo_pasajero === 'acompañante').length > 0 ? (
-                    <div className="space-y-3">
-                      {passengers.map((passenger, index) => {
-                        if (passenger.tipo_pasajero !== 'acompañante') return null
-                        return (
-                          <Card key={index}>
-                            <CardContent className="p-4">
-                              <div className="flex items-center justify-between mb-3">
-                                <Badge variant="secondary">
-                                  Acompañante #{passengers.filter((p, i) => p.tipo_pasajero === 'acompañante' && i <= index).length}
-                                </Badge>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removePassenger(index)}
-                                >
-                                  <X className="w-4 h-4" />
-                                </Button>
+                {/* Navigation */}
+                <div className="flex justify-between gap-3 pt-2">
+                  {onClose && (
+                    <Button variant="ghost" onClick={onClose} className="text-gray-500">
+                      Cancelar
+                    </Button>
+                  )}
+                  <Button
+                    onClick={nextStep}
+                    disabled={!selectedDate}
+                    className="ml-auto text-white min-w-[140px] h-11"
+                    size="lg"
+                  >
+                    Continuar
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ===== STEP 2: Alojamiento ===== */}
+            {step === 2 && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="text-center mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Elegí tu alojamiento</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {formatDateDisplay(selectedDate)}
+                  </p>
+                </div>
+
+                {isLoadingAccommodations ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto mb-3"></div>
+                    <p className="text-gray-500 text-sm">Cargando alojamientos...</p>
+                  </div>
+                ) : accommodations.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                    <Hotel className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No hay alojamientos disponibles</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {accommodations.map((acc) => {
+                      const isSelected = selectedAccommodation === acc.id
+                      return (
+                        <motion.button
+                          key={`accom-${acc.id}`}
+                          onClick={() => {
+                            setSelectedAccommodation(acc.id)
+                            setIsNoStockSelection(!acc.hasStock)
+                            // Reset rooms when changing accommodation
+                            setRoomsData([])
+                          }}
+                          className={`w-full text-left p-4 sm:p-5 rounded-xl border-2 transition-all ${
+                            isSelected
+                              ? acc.hasStock
+                                ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
+                                : "border-amber-400 bg-amber-50/50 shadow-md shadow-amber-100"
+                              : !acc.hasStock
+                              ? "border-gray-200 bg-gray-50/50 hover:border-amber-300"
+                              : "border-gray-200 hover:border-primary/40 hover:bg-gray-50"
+                          }`}
+                          whileTap={{ scale: 0.99 }}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                                <h3 className={`font-semibold text-base sm:text-lg ${!acc.hasStock && !isSelected ? "text-gray-600" : "text-gray-900"}`}>
+                                  {acc.name}
+                                </h3>
                               </div>
-
-                              {/* Checkbox "Lo completo después" para acompañante - ARRIBA DE TODO */}
-                              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-300 mb-4 cursor-pointer"
-                                onClick={() => {
-                                  const newPassengers = [...passengers]
-                                  const currentValue = Boolean(newPassengers[index].datos_pendientes)
-                                  const newValue = !currentValue
-                                  newPassengers[index] = {
-                                    ...newPassengers[index],
-                                    datos_pendientes: newValue,
-                                    dni: newValue ? '' : newPassengers[index].dni,
-                                    email: newValue ? '' : newPassengers[index].email,
-                                    telefono: newValue ? '' : newPassengers[index].telefono
-                                  }
-                                  setPassengers(newPassengers)
-                                }}
-                              >
-                                <Checkbox
-                                  id={`acomp-${index}-datos-pendientes`}
-                                  checked={Boolean(passenger.datos_pendientes)}
-                                  className="pointer-events-none"
-                                />
-                                <div className="flex-1">
-                                  <label
-                                    htmlFor={`acomp-${index}-datos-pendientes`}
-                                    className="text-sm text-gray-700 leading-tight block pointer-events-none"
-                                  >
-                                    <strong>Lo completo después</strong>
-                                    <p className="text-xs text-gray-600 mt-0.5">
-                                      Si te falta algún documento, marcá esta opción y completá solo los datos básicos.
-                                    </p>
-                                  </label>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <div className="flex items-center gap-0.5">
+                                  {Array.from({ length: 5 }, (_, i) => (
+                                    <Star key={i} className={`w-3.5 h-3.5 ${i < acc.stars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`} />
+                                  ))}
                                 </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Nombre *
-                                  </label>
-                                  <Input
-                                    value={passenger.nombre}
-                                    onChange={(e) => updatePassenger(index, 'nombre', e.target.value)}
-                                    placeholder="Nombre"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Apellido *
-                                  </label>
-                                  <Input
-                                    value={passenger.apellido}
-                                    onChange={(e) => updatePassenger(index, 'apellido', e.target.value)}
-                                    placeholder="Apellido"
-                                  />
-                                </div>
-                                <div className="sm:col-span-2">
-                                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Fecha de Nacimiento *
-                                  </label>
-                                  <BirthDatePicker
-                                    date={passenger.fecha_nacimiento ? new Date(passenger.fecha_nacimiento) : undefined}
-                                    onSelect={(date) => {
-                                      if (date) {
-                                        updatePassenger(index, 'fecha_nacimiento', date.toISOString().split('T')[0])
-                                      }
-                                    }}
-                                    placeholder="Selecciona fecha de nacimiento"
-                                    maxYear={new Date().getFullYear()}
-                                    minYear={1920}
-                                  />
-
-                                  {/* Campo de edad al momento del viaje */}
-                                  {passenger.fecha_nacimiento && selectedDate && (
-                                    <div className="mt-2 flex items-center gap-2 text-sm text-gray-700 bg-blue-50 border border-blue-200 rounded-md p-2">
-                                      <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                                      <div>
-                                        <strong>Edad al viajar:</strong> {getAgeAtTravel(passenger.fecha_nacimiento)} años
-                                        <p className="text-xs text-gray-600 mt-0.5">
-                                          La edad debe ser la que tenga al momento de viajar
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-
-                                {/* Campos opcionales solo si NO marcó "lo completo después" */}
-                                {!passenger.datos_pendientes && (
-                                  <>
-                                    <div>
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        DNI *
-                                      </label>
-                                      <Input
-                                        value={passenger.dni || ''}
-                                        onChange={(e) => updatePassenger(index, 'dni', e.target.value)}
-                                        placeholder="12.345.678"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Email *
-                                      </label>
-                                      <Input
-                                        type="email"
-                                        value={passenger.email || ''}
-                                        onChange={(e) => updatePassenger(index, 'email', e.target.value)}
-                                        placeholder="correo@ejemplo.com"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Teléfono *
-                                      </label>
-                                      <Input
-                                        type="tel"
-                                        value={passenger.telefono || ''}
-                                        onChange={(e) => updatePassenger(index, 'telefono', e.target.value)}
-                                        placeholder="+54 9 11 1234-5678"
-                                      />
-                                    </div>
-                                  </>
+                                {acc.regimen && (
+                                  <span className="inline-flex items-center gap-1 text-xs text-gray-600 bg-gray-100 rounded-full px-2 py-0.5">
+                                    <Utensils className="w-3 h-3" />
+                                    {acc.regimen}
+                                  </span>
                                 )}
                               </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })}
+                            </div>
+                            <div className="flex-shrink-0">
+                              {acc.hasStock ? (
+                                <Badge className="bg-green-100 text-green-700 border-green-200 text-xs">
+                                  Disponible
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs">
+                                  Sujeto a disponibilidad
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              className="absolute top-3 right-3 w-6 h-6 bg-primary rounded-full flex items-center justify-center"
+                            >
+                              <Check className="w-3.5 h-3.5 text-white" />
+                            </motion.div>
+                          )}
+                        </motion.button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* No-stock warning banner */}
+                {isNoStockSelection && selectedAccommodation && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl"
+                  >
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">Disponibilidad no confirmada</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        Este alojamiento no tiene disponibilidad confirmada para esta fecha. Tu reserva quedara sujeta a confirmacion por parte de nuestro equipo.
+                      </p>
                     </div>
+                  </motion.div>
+                )}
+
+                <div className="flex justify-between gap-3 pt-2">
+                  <Button variant="ghost" onClick={prevStep} className="text-gray-500">
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Atras
+                  </Button>
+                  <Button
+                    onClick={nextStep}
+                    disabled={!selectedAccommodation}
+                    className="text-white min-w-[140px] h-11"
+                    size="lg"
+                  >
+                    Continuar
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ===== STEP 3: Habitaciones ===== */}
+            {step === 3 && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="text-center mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Arma tu habitacion</h2>
+                  <p className="text-sm text-gray-500 mt-1">Toca <strong>+</strong> para agregar habitaciones</p>
+                </div>
+
+                {/* Room type cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {(['dbl', 'tpl', 'cpl', 'qpl'] as const).map((tipo) => {
+                    const agregadas = roomsData.filter(r => r.tipo_habitacion === tipo).length
+                    const stockDisponible = getStockForRoomType(tipo)
+                    const maxAllowed = isNoStockSelection ? 10 : stockDisponible
+                    const puedeAgregar = agregadas < maxAllowed
+
+                    return (
+                      <motion.div
+                        key={tipo}
+                        className={`rounded-xl border-2 p-3 sm:p-4 text-center transition-all ${
+                          !puedeAgregar ? 'border-gray-100 bg-gray-50 opacity-50' : 'border-gray-200 hover:border-primary/30 hover:shadow-sm'
+                        }`}
+                        whileTap={puedeAgregar ? { scale: 0.97 } : {}}
+                      >
+                        <div className="flex items-center justify-center gap-1 mb-2">
+                          {Array.from({ length: getRoomCapacity(tipo) }, (_, i) => (
+                            <Users key={i} className="w-3 h-3 text-primary/60" />
+                          ))}
+                        </div>
+                        <h4 className="font-bold text-sm sm:text-base mb-0.5">{getRoomTypeName(tipo)}</h4>
+                        <p className="text-xs text-gray-500 mb-3">{getRoomCapacity(tipo)} personas</p>
+                        <Button
+                          onClick={() => addRoom(tipo)}
+                          disabled={!puedeAgregar}
+                          size="sm"
+                          className="w-full text-white rounded-lg h-9"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                        {agregadas > 0 && (
+                          <p className="text-xs text-primary font-medium mt-2">{agregadas} agregada{agregadas > 1 ? 's' : ''}</p>
+                        )}
+                      </motion.div>
+                    )
+                  })}
+                </div>
+
+                {/* Selected rooms */}
+                {roomsData.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-base">Habitaciones seleccionadas</h4>
+                      <Badge variant="outline" className="text-sm font-medium">
+                        <Users className="w-3.5 h-3.5 mr-1" />
+                        {getTotalCapacity()} personas
+                      </Badge>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-2">
+                      {roomsData.map((room, index) => (
+                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <BedDouble className="w-4 h-4 text-primary" />
+                              <span className="font-medium text-sm">{getRoomTypeName(room.tipo_habitacion)}</span>
+                              <span className="text-xs text-gray-500">({getRoomCapacity(room.tipo_habitacion)} pers.)</span>
+                            </div>
+                            {/* Bed type toggle */}
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => updateRoomSubtype(index, 'matrimonial')}
+                                className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                                  room.subtipo_habitacion === 'matrimonial'
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-white text-gray-600 border-gray-300 hover:border-primary/50'
+                                }`}
+                              >
+                                Matrimonial
+                              </button>
+                              <button
+                                onClick={() => updateRoomSubtype(index, 'twin')}
+                                className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                                  room.subtipo_habitacion === 'twin'
+                                    ? 'bg-primary text-white border-primary'
+                                    : 'bg-white text-gray-600 border-gray-300 hover:border-primary/50'
+                                }`}
+                              >
+                                Camas separadas
+                              </button>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeRoom(index)}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between gap-3 pt-2">
+                  <Button variant="ghost" onClick={prevStep} className="text-gray-500">
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Atras
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (roomsData.length === 0) {
+                        toast({ title: "Agrega al menos una habitacion", variant: "destructive" })
+                        return
+                      }
+                      if (!roomsData.every(r => r.subtipo_habitacion)) {
+                        toast({ title: "Selecciona el tipo de cama para todas las habitaciones", variant: "destructive" })
+                        return
+                      }
+                      nextStep()
+                    }}
+                    disabled={roomsData.length === 0}
+                    className="text-white min-w-[140px] h-11"
+                    size="lg"
+                  >
+                    Continuar
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ===== STEP 4: Pasajeros ===== */}
+            {step === 4 && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="text-center mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Datos de pasajeros</h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {passengers.length} de {getTotalCapacity()} pasajeros
+                  </p>
+                  {/* Mini progress bar */}
+                  <div className="w-48 h-1.5 bg-gray-200 rounded-full mx-auto mt-2 overflow-hidden">
+                    <motion.div
+                      className="h-full bg-primary rounded-full"
+                      animate={{ width: `${(passengers.length / Math.max(getTotalCapacity(), 1)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Titular Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">1</span>
+                    </div>
+                    <h3 className="font-semibold text-base">Titular del viaje</h3>
+                    <Badge variant="outline" className="text-xs">Obligatorio</Badge>
+                  </div>
+
+                  {isTitularComplete() && isTitularAdult() ? (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-4 rounded-xl bg-green-50 border border-green-200"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-800">Titular confirmado</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            const titularIndex = passengers.findIndex(p => p.tipo_pasajero === 'titular')
+                            if (titularIndex !== -1) removePassenger(titularIndex)
+                          }}
+                          className="text-gray-500 hover:text-gray-700 h-8"
+                        >
+                          <Edit className="w-3.5 h-3.5 mr-1" />
+                          Editar
+                        </Button>
+                      </div>
+                      {passengers.filter(p => p.tipo_pasajero === 'titular').map((titular) => (
+                        <div key="titular-info" className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                          <p><span className="text-gray-500">Nombre:</span> <strong>{titular.nombre} {titular.apellido}</strong></p>
+                          <p><span className="text-gray-500">DNI:</span> <strong>{titular.dni}</strong></p>
+                          <p><span className="text-gray-500">Email:</span> <strong>{titular.email}</strong></p>
+                          <p><span className="text-gray-500">Edad:</span> <strong>{getTitularAge()} anios</strong></p>
+                        </div>
+                      ))}
+                    </motion.div>
                   ) : (
-                    <p className="text-sm text-gray-500 text-center py-4 border-2 border-dashed rounded-lg">
-                      No hay acompañantes agregados. Si viajas con más personas, haz clic en "Agregar Acompañante".
-                    </p>
+                    <Card className="border-2 border-gray-200 shadow-sm">
+                      <CardContent className="p-4 sm:p-5 space-y-4">
+                        {/* Datos Personales */}
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Datos personales</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                              <Input
+                                value={passengers[0]?.nombre || ''}
+                                onChange={(e) => updatePassenger(0, 'nombre', e.target.value)}
+                                placeholder="Nombre"
+                                className="h-11"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
+                              <Input
+                                value={passengers[0]?.apellido || ''}
+                                onChange={(e) => updatePassenger(0, 'apellido', e.target.value)}
+                                placeholder="Apellido"
+                                className="h-11"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">DNI *</label>
+                              <Input
+                                value={passengers[0]?.dni || ''}
+                                onChange={(e) => updatePassenger(0, 'dni', e.target.value)}
+                                placeholder="12.345.678 o 12345678"
+                                className="h-11"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento *</label>
+                              <BirthDatePicker
+                                date={passengers[0]?.fecha_nacimiento ? new Date(passengers[0].fecha_nacimiento) : undefined}
+                                onSelect={(date) => {
+                                  if (date) updatePassenger(0, 'fecha_nacimiento', date.toISOString().split('T')[0])
+                                }}
+                                placeholder="Selecciona fecha"
+                                maxYear={new Date().getFullYear()}
+                                minYear={1920}
+                              />
+                              {passengers[0]?.fecha_nacimiento && selectedDate && (
+                                <div className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600">
+                                  <Info className="w-3 h-3" />
+                                  Edad al viajar: {getAgeAtTravel(passengers[0].fecha_nacimiento)} anios
+                                </div>
+                              )}
+                              {passengers[0]?.fecha_nacimiento && !isTitularAdult() && (
+                                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  El titular debe ser mayor de 18 anios (tiene {getTitularAge()} anios)
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <Separator />
+
+                        {/* Datos de Contacto */}
+                        <div>
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Datos de contacto</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                              <Input
+                                type="email"
+                                value={passengers[0]?.email || ''}
+                                onChange={(e) => updatePassenger(0, 'email', e.target.value)}
+                                placeholder="correo@ejemplo.com"
+                                className="h-11"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Telefono *</label>
+                              <Input
+                                type="tel"
+                                value={passengers[0]?.telefono || ''}
+                                onChange={(e) => updatePassenger(0, 'telefono', e.target.value)}
+                                placeholder="+54 9 11 1234-5678"
+                                className="h-11"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <Button
+                          onClick={() => {
+                            if (!isTitularComplete()) {
+                              toast({ title: "Completa todos los campos del titular", variant: "destructive" })
+                              return
+                            }
+                            if (!isTitularAdult()) {
+                              toast({ title: `El titular debe ser mayor de 18 anios (tiene ${getTitularAge()} anios)`, variant: "destructive" })
+                              return
+                            }
+                            toast({ title: "Titular confirmado", description: "Datos guardados correctamente" })
+                          }}
+                          disabled={!isTitularComplete() || !isTitularAdult()}
+                          className="w-full text-white h-11"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Confirmar Titular
+                        </Button>
+                      </CardContent>
+                    </Card>
                   )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
 
-          {/* Campo de Comentarios */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Comentarios Adicionales</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={comentarios}
-                onChange={(e) => setComentarios(e.target.value)}
-                placeholder="Información adicional sobre la reserva (opcional)..."
-                rows={3}
-              />
-            </CardContent>
-          </Card>
+                {/* Companions Section */}
+                {isTitularComplete() && isTitularAdult() && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-3"
+                  >
+                    <Separator className="my-2" />
 
-          <div className="flex justify-between gap-2">
-            <Button variant="outline" onClick={() => setStep(3)}>
-              Atrás
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!canSubmit() || isSubmitting}
-              className="text-white"
-            >
-              {isSubmitting ? "Procesando..." : "Confirmar Reserva"}
-            </Button>
-          </div>
-        </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
+                          <span className="text-gray-600 text-xs font-bold">+</span>
+                        </div>
+                        <h3 className="font-semibold text-base">Acompanantes</h3>
+                        <span className="text-xs text-gray-400">Opcional</span>
+                      </div>
+                      {passengers.length < getTotalCapacity() && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addPassenger('acompañante')}
+                          className="h-8 text-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5 mr-1" />
+                          Agregar
+                        </Button>
+                      )}
+                    </div>
+
+                    {passengers.filter(p => p.tipo_pasajero === 'acompañante').length > 0 ? (
+                      <div className="space-y-3">
+                        {passengers.map((passenger, index) => {
+                          if (passenger.tipo_pasajero !== 'acompañante') return null
+                          const acompNum = passengers.filter((p, i) => p.tipo_pasajero === 'acompañante' && i <= index).length
+                          return (
+                            <Card key={index} className="border border-gray-200 shadow-sm">
+                              <CardContent className="p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                  <Badge variant="secondary" className="text-xs">
+                                    Acompanante #{acompNum}
+                                  </Badge>
+                                  <button
+                                    onClick={() => removePassenger(index)}
+                                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+
+                                {/* "Lo completo después" checkbox */}
+                                <div
+                                  className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200 mb-4 cursor-pointer"
+                                  onClick={() => {
+                                    const newPassengers = [...passengers]
+                                    const currentValue = Boolean(newPassengers[index].datos_pendientes)
+                                    const newValue = !currentValue
+                                    newPassengers[index] = {
+                                      ...newPassengers[index],
+                                      datos_pendientes: newValue,
+                                      dni: newValue ? '' : newPassengers[index].dni,
+                                      email: newValue ? '' : newPassengers[index].email,
+                                      telefono: newValue ? '' : newPassengers[index].telefono
+                                    }
+                                    setPassengers(newPassengers)
+                                  }}
+                                >
+                                  <Checkbox
+                                    checked={Boolean(passenger.datos_pendientes)}
+                                    className="pointer-events-none mt-0.5"
+                                  />
+                                  <div>
+                                    <span className="text-sm font-medium text-gray-700">Lo completo despues</span>
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                      Marca esta opcion si te falta algun documento
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                                    <Input
+                                      value={passenger.nombre}
+                                      onChange={(e) => updatePassenger(index, 'nombre', e.target.value)}
+                                      placeholder="Nombre"
+                                      className="h-11"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Apellido *</label>
+                                    <Input
+                                      value={passenger.apellido}
+                                      onChange={(e) => updatePassenger(index, 'apellido', e.target.value)}
+                                      placeholder="Apellido"
+                                      className="h-11"
+                                    />
+                                  </div>
+                                  <div className="sm:col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento *</label>
+                                    <BirthDatePicker
+                                      date={passenger.fecha_nacimiento ? new Date(passenger.fecha_nacimiento) : undefined}
+                                      onSelect={(date) => {
+                                        if (date) updatePassenger(index, 'fecha_nacimiento', date.toISOString().split('T')[0])
+                                      }}
+                                      placeholder="Selecciona fecha"
+                                      maxYear={new Date().getFullYear()}
+                                      minYear={1920}
+                                    />
+                                    {passenger.fecha_nacimiento && selectedDate && (
+                                      <div className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600">
+                                        <Info className="w-3 h-3" />
+                                        Edad al viajar: {getAgeAtTravel(passenger.fecha_nacimiento)} anios
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {!passenger.datos_pendientes && (
+                                    <>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">DNI *</label>
+                                        <Input
+                                          value={passenger.dni || ''}
+                                          onChange={(e) => updatePassenger(index, 'dni', e.target.value)}
+                                          placeholder="12.345.678"
+                                          className="h-11"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                                        <Input
+                                          type="email"
+                                          value={passenger.email || ''}
+                                          onChange={(e) => updatePassenger(index, 'email', e.target.value)}
+                                          placeholder="correo@ejemplo.com"
+                                          className="h-11"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Telefono *</label>
+                                        <Input
+                                          type="tel"
+                                          value={passenger.telefono || ''}
+                                          onChange={(e) => updatePassenger(index, 'telefono', e.target.value)}
+                                          placeholder="+54 9 11 1234-5678"
+                                          className="h-11"
+                                        />
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl">
+                        <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-sm text-gray-400">
+                          Sin acompanantes. Toca "Agregar" si viajas con mas personas.
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+
+                <div className="flex justify-between gap-3 pt-2">
+                  <Button variant="ghost" onClick={prevStep} className="text-gray-500">
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Atras
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (!canSubmit()) {
+                        toast({ title: "Completa todos los campos requeridos", variant: "destructive" })
+                        return
+                      }
+                      nextStep()
+                    }}
+                    disabled={!isTitularComplete() || !isTitularAdult()}
+                    className="text-white min-w-[140px] h-11"
+                    size="lg"
+                  >
+                    Revisar Reserva
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* ===== STEP 5: Resumen ===== */}
+            {step === 5 && (
+              <div className="space-y-4 sm:space-y-6">
+                <div className="text-center mb-2">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Revisa tu reserva</h2>
+                  <p className="text-sm text-gray-500 mt-1">Verifica que todo este correcto antes de confirmar</p>
+                </div>
+
+                {/* No-stock warning */}
+                {isNoStockSelection && (
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">Reserva sujeta a confirmacion</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        El alojamiento seleccionado no tiene disponibilidad confirmada. Nuestro equipo te contactara para confirmar.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Summary Cards */}
+                <div className="space-y-3">
+                  {/* Fecha */}
+                  <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Calendar className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium">Fecha de salida</p>
+                        <p className="font-semibold text-gray-900 capitalize">{formatDateDisplay(selectedDate)}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => goToStep(1)} className="text-xs text-primary hover:underline font-medium">Editar</button>
+                  </div>
+
+                  {/* Alojamiento */}
+                  <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Hotel className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium">Alojamiento</p>
+                        <p className="font-semibold text-gray-900">{getSelectedAccommodationName()}</p>
+                        <div className="flex items-center gap-0.5 mt-0.5">
+                          {Array.from({ length: getSelectedAccommodationStars() }, (_, i) => (
+                            <Star key={i} className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => goToStep(2)} className="text-xs text-primary hover:underline font-medium">Editar</button>
+                  </div>
+
+                  {/* Habitaciones */}
+                  <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <BedDouble className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium">Habitaciones ({roomsData.length})</p>
+                        <div className="space-y-0.5 mt-0.5">
+                          {roomsData.map((room, i) => (
+                            <p key={i} className="text-sm text-gray-800">
+                              {getRoomTypeName(room.tipo_habitacion)} - {room.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Camas separadas'}
+                            </p>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Capacidad total: {getTotalCapacity()} personas</p>
+                      </div>
+                    </div>
+                    <button onClick={() => goToStep(3)} className="text-xs text-primary hover:underline font-medium">Editar</button>
+                  </div>
+
+                  {/* Pasajeros */}
+                  <div className="flex items-start justify-between p-4 bg-gray-50 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Users className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-medium">Pasajeros ({passengers.length})</p>
+                        <div className="space-y-1 mt-1">
+                          {passengers.map((p, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Badge variant={p.tipo_pasajero === 'titular' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0">
+                                {p.tipo_pasajero === 'titular' ? 'Titular' : 'Acomp.'}
+                              </Badge>
+                              <span className="text-sm text-gray-800">{p.nombre} {p.apellido}</span>
+                              {p.fecha_nacimiento && selectedDate && (
+                                <span className="text-xs text-gray-500">({getAgeAtTravel(p.fecha_nacimiento)} anios)</span>
+                              )}
+                              {p.datos_pendientes && (
+                                <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">Datos pendientes</Badge>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <button onClick={() => goToStep(4)} className="text-xs text-primary hover:underline font-medium">Editar</button>
+                  </div>
+                </div>
+
+                {/* Comments */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Comentarios adicionales</label>
+                  <Textarea
+                    value={comentarios}
+                    onChange={(e) => setComentarios(e.target.value)}
+                    placeholder="Informacion adicional sobre la reserva (opcional)..."
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2">
+                  <Button variant="ghost" onClick={prevStep} className="text-gray-500 order-2 sm:order-1">
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Volver a Pasajeros
+                  </Button>
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!canSubmit() || isSubmitting}
+                    className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white h-12 text-base font-semibold shadow-lg shadow-green-200 order-1 sm:order-2 min-w-[200px]"
+                    size="lg"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        Confirmar Reserva
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       )}
-
     </div>
   )
 }

@@ -716,7 +716,7 @@ export function AdminDashboardSimple() {
       // Solo eliminar alojamientos existentes si estamos editando Y hay cambios
       if (isEditing) {
         // Primero, obtener las tarifas existentes antes de eliminar los alojamientos
-        const { data: existingAccommodations } = await supabase
+        const { data: existingAccommodations } = await supabaseAdmin
           .from("accommodations")
           .select(`
             *,
@@ -733,7 +733,7 @@ export function AdminDashboardSimple() {
         }
 
         // Eliminar alojamientos existentes
-        await supabase.from("accommodations").delete().eq("paquete_id", packageId)
+        await supabaseAdmin.from("accommodations").delete().eq("paquete_id", packageId)
 
         // Preservar las tarifas existentes en accommodationRates para alojamientos que ya existían
         accommodations.forEach(acc => {
@@ -753,7 +753,7 @@ export function AdminDashboardSimple() {
       }))
 
       if (accommodationsToSave.length > 0) {
-        const { data: savedAccommodations, error } = await supabase
+        const { data: savedAccommodations, error } = await supabaseAdmin
           .from("accommodations")
           .insert(accommodationsToSave)
           .select()
@@ -779,7 +779,7 @@ export function AdminDashboardSimple() {
           if (ratesToSave.length > 0) {
             console.log(`Guardando ${ratesToSave.length} tarifas para alojamiento ${savedAcc.name}:`, ratesToSave)
             
-            const { error: rateError } = await supabase
+            const { error: rateError } = await supabaseAdmin
               .from("accommodation_rates")
               .insert(ratesToSave)
 
@@ -831,12 +831,12 @@ export function AdminDashboardSimple() {
       }
 
       if (isAdding) {
-        const { data: newPackage, error } = await supabase.from("travel_packages").insert([packageData]).select()
+        const { data: newPackage, error } = await supabaseAdmin.from("travel_packages").insert([packageData]).select()
         if (error) throw error
 
         // Asignar URL automática al nuevo paquete
         if (newPackage && newPackage[0]) {
-          await supabase.from("travel_packages")
+          await supabaseAdmin.from("travel_packages")
             .update({ url: `https://www.expertosenturismo.com.ar/paquete/${newPackage[0].id}` })
             .eq("id", newPackage[0].id)
         }
@@ -862,7 +862,7 @@ export function AdminDashboardSimple() {
           })
         }
       } else if (isEditing) {
-        const { error } = await supabase.from("travel_packages").update(packageData).eq("id", isEditing)
+        const { error } = await supabaseAdmin.from("travel_packages").update(packageData).eq("id", isEditing)
         if (error) throw error
         
         // Guardar alojamientos para el paquete editado

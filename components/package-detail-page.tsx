@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, Star, DollarSign, Mail, Phone, ChevronDown, ChevronUp, Utensils } from "lucide-react"
+import { Separator } from "@/components/ui/separator"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, Star, DollarSign, Mail, Phone, ChevronDown, ChevronUp, Utensils, CheckCircle2, PlusCircle, ExternalLink, MessageCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import type { TravelPackage, Destination } from "@/lib/supabase"
 import { motion } from "framer-motion"
@@ -64,10 +66,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
     loadPackageData()
   }, [packageId])
 
-  // Scroll al inicio cuando se abre el modal de reserva
   useEffect(() => {
     if (showReservationForm) {
-      // Pequeño delay para asegurar que el modal esté montado
       setTimeout(() => {
         window.scrollTo({ top: 0, behavior: 'smooth' })
       }, 100)
@@ -79,7 +79,6 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
       setIsLoading(true)
       setError(null)
 
-      // Cargar el paquete
       const { data: packageData, error: packageError } = await supabase
         .from("travel_packages")
         .select("*")
@@ -88,10 +87,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
         .single()
 
       if (packageError) throw new Error("Paquete no encontrado")
-
       setPackage(packageData)
 
-      // Cargar el destino
       const { data: destinationData, error: destinationError } = await supabase
         .from("destinations")
         .select("*")
@@ -101,7 +98,6 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
       if (destinationError) throw destinationError
       setDestination(destinationData)
 
-      // Cargar alojamientos con sus tarifas
       const { data: accommodationsData, error: accommodationsError } = await supabase
         .from("accommodations")
         .select(`
@@ -112,14 +108,12 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
 
       if (accommodationsError) throw accommodationsError
 
-      // Transformar los datos para incluir las tarifas
       const accommodationsWithRates = accommodationsData.map(acc => ({
         ...acc,
         rates: acc.accommodation_rates || []
       }))
 
       setAccommodations(accommodationsWithRates)
-
     } catch (error) {
       console.error("Error loading package data:", error)
       setError(error instanceof Error ? error.message : "Error al cargar el paquete")
@@ -130,31 +124,41 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
 
   const getTransportIcon = (transportType: string) => {
     switch (transportType) {
-      case "bus":
-        return <Bus className="w-5 h-5" />
-      case "crucero":
-        return <Ship className="w-5 h-5" />
-      default:
-        return <Plane className="w-5 h-5" />
+      case "bus": return <Bus className="w-5 h-5" />
+      case "crucero": return <Ship className="w-5 h-5" />
+      default: return <Plane className="w-5 h-5" />
     }
   }
 
-  const getTransportColor = (transportType: string) => {
+  const getTransportLabel = (transportType: string) => {
     switch (transportType) {
-      case "bus":
-        return "bg-orange-100 text-orange-800"
-      case "crucero":
-        return "bg-blue-100 text-blue-800"
-      default:
-        return "bg-sky-100 text-sky-800"
+      case "bus": return "En Bus"
+      case "crucero": return "Crucero"
+      default: return "En Avion"
+    }
+  }
+
+  const getTransportAccentColor = (transportType: string) => {
+    switch (transportType) {
+      case "bus": return "bg-red-500"
+      case "crucero": return "bg-blue-500"
+      default: return "bg-purple-500"
+    }
+  }
+
+  const getTransportBgColor = (transportType: string) => {
+    switch (transportType) {
+      case "bus": return "bg-red-50 text-red-700 border-red-200"
+      case "crucero": return "bg-blue-50 text-blue-700 border-blue-200"
+      default: return "bg-purple-50 text-purple-700 border-purple-200"
     }
   }
 
   const renderStars = (stars: number) => {
     return Array.from({ length: 5 }, (_, i) => (
-      <Star 
-        key={i} 
-        className={`w-4 h-4 ${i < stars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} 
+      <Star
+        key={i}
+        className={`w-4 h-4 ${i < stars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
       />
     ))
   }
@@ -168,9 +172,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
   }
 
   const formatCurrency = (amount: number | null | undefined) => {
-    if (amount == null || amount === 0) {
-      return '-'
-    }
+    if (amount == null || amount === 0) return '-'
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -183,8 +185,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando paquete...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-500">Cargando paquete...</p>
         </div>
       </div>
     )
@@ -195,7 +197,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Paquete no encontrado</h1>
-          <p className="text-gray-600 mb-6">{error || "El paquete solicitado no existe o no está disponible"}</p>
+          <p className="text-gray-600 mb-6">{error || "El paquete solicitado no existe o no esta disponible"}</p>
           <Button onClick={() => router.back()} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Volver
@@ -205,90 +207,134 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
     )
   }
 
+  const transportType = package_.transport_type || 'aereo'
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header con imagen de fondo */}
-      <div 
-        className="relative h-64 sm:h-80 md:h-96 bg-cover bg-center bg-gray-800"
+      {/* ===== HERO SECTION ===== */}
+      <div
+        className="relative h-48 sm:h-56 md:h-64 lg:h-72 bg-cover bg-center bg-gray-800 overflow-hidden"
         style={{
-          backgroundImage: package_.image_url 
-            ? `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${package_.image_url})`
+          backgroundImage: package_.image_url
+            ? `url(${package_.image_url})`
             : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
         }}
       >
-        <div className="absolute inset-0 flex items-center">
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/40" />
+
+        {/* Back button */}
+        <div className="absolute top-4 left-4 z-10">
+          <Button
+            onClick={() => router.back()}
+            variant="secondary"
+            size="sm"
+            className="bg-white/90 hover:bg-white backdrop-blur-sm shadow-lg"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1.5" />
+            Volver
+          </Button>
+        </div>
+
+        {/* Special badge */}
+        {package_.is_special && (
+          <div className="absolute top-4 right-4 z-10">
+            <Badge className="bg-purple-500/90 text-white border-purple-400/30 backdrop-blur-sm shadow-lg">
+              Paquete Especial
+            </Badge>
+          </div>
+        )}
+
+        {/* Hero content - positioned at bottom */}
+        <div className="absolute bottom-0 left-0 right-0 top-14 sm:top-16 pb-6 sm:pb-8 md:pb-10 flex items-end">
           <div className="container mx-auto px-4">
-            <Button 
-              onClick={() => router.back()} 
-              variant="secondary" 
-              className="mb-4 sm:mb-6 bg-white/90 hover:bg-white"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Volver
-            </Button>
-            
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-white"
+              transition={{ duration: 0.6 }}
+              className="text-white max-w-4xl"
             >
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 leading-tight">{package_.name}</h1>
-              
-              <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
-                {destination && (
-                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-xs sm:text-sm">
-                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    {package_.ciudades && package_.ciudades.length > 0
-                      ? package_.ciudades.join(" - ")
-                      : destination.name}
-                  </Badge>
-                )}
-                
-                <Badge className={`${getTransportColor(package_.transport_type || 'aereo')} bg-white/20 text-white border-white/30 text-xs sm:text-sm`}>
-                  {getTransportIcon(package_.transport_type || 'aereo')}
-                  <span className="ml-1 capitalize">{package_.transport_type || 'aereo'}</span>
-                </Badge>
-
-                {package_.duration && (
-                  <Badge variant="secondary" className="bg-white/20 text-white border-white/30 text-xs sm:text-sm">
-                    <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    {package_.duration}
-                  </Badge>
-                )}
-
-                <Badge variant="secondary" className="bg-green-500/80 text-white border-green-400/30 text-sm sm:text-base md:text-lg px-2 sm:px-3 py-1">
-                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-1" />
-                  Desde {package_.price}
-                </Badge>
-              </div>
-
-              {package_.is_special && (
-                <Badge className="bg-purple-500/80 text-white border-purple-400/30 text-xs sm:text-sm">
-                  ✨ Paquete Especial
-                </Badge>
-              )}
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-tight tracking-tight">
+                {package_.name}
+              </h1>
             </motion.div>
+          </div>
+        </div>
+
+        {/* Transport accent strip at bottom */}
+        <div className={`absolute bottom-0 left-0 right-0 h-1 ${getTransportAccentColor(transportType)}`} />
+      </div>
+
+      {/* ===== QUICK FACTS STRIP ===== */}
+      <div className="bg-white border-b">
+        <div className="container mx-auto px-4 py-0">
+          <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-gray-100">
+            {package_.duration && (
+              <div className="flex items-center gap-3 py-4 px-3 sm:px-5">
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center ${getTransportBgColor(transportType)} border`}>
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Duracion</p>
+                  <p className="text-sm font-bold text-gray-900 mt-0.5">{package_.duration}</p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-3 py-4 px-3 sm:px-5">
+              <div className={`w-11 h-11 rounded-full flex items-center justify-center ${getTransportBgColor(transportType)} border`}>
+                {getTransportIcon(transportType)}
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Transporte</p>
+                <p className="text-sm font-bold text-gray-900 mt-0.5">{getTransportLabel(transportType)}</p>
+              </div>
+            </div>
+            {destination && (
+              <div className="flex items-center gap-3 py-4 px-3 sm:px-5">
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center ${getTransportBgColor(transportType)} border`}>
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Destino</p>
+                  <p className="text-sm font-bold text-gray-900 mt-0.5 truncate max-w-[140px]">
+                    {package_.ciudades && package_.ciudades.length > 0
+                      ? package_.ciudades.join(", ")
+                      : destination.name}
+                  </p>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-3 py-4 px-3 sm:px-5 bg-green-50/50">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center bg-green-100 text-green-700 border border-green-200">
+                <DollarSign className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Desde</p>
+                <p className="text-base font-bold text-green-700 mt-0.5">{package_.price}</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-6 sm:py-8">
+      {/* ===== MAIN CONTENT ===== */}
+      <div className="container mx-auto px-4 pt-6 sm:pt-8 pb-8 sm:pb-12">
         <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
-          {/* Columna principal */}
-          <div className="lg:col-span-2">
-            {/* Descripción */}
+          {/* Left Column */}
+          <div className="lg:col-span-2 space-y-6 sm:space-y-8">
+            {/* Description */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
             >
-              <Card className="mb-8">
+              <Card className="shadow-sm border-gray-200">
                 <CardHeader>
-                  <CardTitle>Descripción del Viaje</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl">Descripcion del Viaje</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700">
-                    <ReactMarkdown 
+                    <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeRaw]}
                       components={{
@@ -309,44 +355,60 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
               </Card>
             </motion.div>
 
-            {/* Servicios */}
+            {/* Services */}
             {(package_.servicios_incluidos?.length || package_.servicios_adicionales?.length) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
-                <Card className="mb-6 sm:mb-8">
+                <Card className="shadow-sm border-gray-200">
                   <CardHeader>
-                    <CardTitle>Servicios</CardTitle>
+                    <CardTitle className="text-lg sm:text-xl">Servicios</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2">
+                    <div className="space-y-6">
                       {package_.servicios_incluidos && package_.servicios_incluidos.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-green-700 mb-3">✅ Incluido</h3>
-                          <ul className="space-y-2">
+                          <div className="flex items-center gap-2 mb-3">
+                            <CheckCircle2 className="w-5 h-5 text-green-600" />
+                            <h3 className="font-semibold text-green-700">Incluido en el paquete</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
                             {package_.servicios_incluidos.map((service, index) => (
-                              <li key={index} className="flex items-start text-sm sm:text-base">
-                                <span className="text-green-500 mr-2 flex-shrink-0">•</span>
-                                <span>{service}</span>
-                              </li>
+                              <span
+                                key={index}
+                                className="inline-flex items-center gap-1.5 bg-green-50 text-green-800 border border-green-200 rounded-full px-3 py-1.5 text-sm"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+                                {service}
+                              </span>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       )}
-                      
+
+                      {package_.servicios_incluidos?.length && package_.servicios_adicionales?.length && (
+                        <Separator />
+                      )}
+
                       {package_.servicios_adicionales && package_.servicios_adicionales.length > 0 && (
                         <div>
-                          <h3 className="text-lg font-semibold text-blue-700 mb-3">➕ Adicionales</h3>
-                          <ul className="space-y-2">
+                          <div className="flex items-center gap-2 mb-3">
+                            <PlusCircle className="w-5 h-5 text-blue-600" />
+                            <h3 className="font-semibold text-blue-700">Servicios adicionales</h3>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
                             {package_.servicios_adicionales.map((service, index) => (
-                              <li key={index} className="flex items-start text-sm sm:text-base">
-                                <span className="text-blue-500 mr-2 flex-shrink-0">•</span>
-                                <span>{service}</span>
-                              </li>
+                              <span
+                                key={index}
+                                className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 border border-blue-200 rounded-full px-3 py-1.5 text-sm"
+                              >
+                                <PlusCircle className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                                {service}
+                              </span>
                             ))}
-                          </ul>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -355,116 +417,117 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
               </motion.div>
             )}
 
-            {/* Alojamientos */}
+            {/* Accommodations with Accordion */}
             {accommodations.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
-                <Card className="mb-6 sm:mb-8">
+                <Card className="shadow-sm border-gray-200">
                   <CardHeader>
                     <CardTitle className="flex items-center text-lg sm:text-xl">
                       <Hotel className="w-5 h-5 mr-2" />
-                      Alojamientos
+                      Alojamientos y Tarifas
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6 sm:space-y-8">
+                  <CardContent className="pt-0">
+                    <div className="space-y-5">
                       {accommodations.map((accommodation) => (
-                        <div key={accommodation.id} className="border rounded-lg p-4 sm:p-6 bg-gray-50">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-                            <div className="mb-2 sm:mb-0">
-                              <h3 className="text-lg sm:text-xl font-semibold mb-2">{accommodation.name}</h3>
-                              <div className="flex items-center space-x-2">
+                        <div key={accommodation.id} className="border border-gray-200 rounded-xl overflow-hidden">
+                          {/* Hotel header */}
+                          <div className="p-4 sm:p-5 bg-gray-50 border-b border-gray-200">
+                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1.5">{accommodation.name}</h3>
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-0.5">
                                 {renderStars(accommodation.stars)}
-                                <span className="text-sm text-gray-600">({accommodation.stars} estrellas)</span>
                               </div>
                               {accommodation.regimen && (
-                                <div className="flex items-center mt-2">
-                                  <Utensils className="w-4 h-4 mr-2 text-green-600" />
-                                  <span className="text-sm text-gray-700 font-medium">{accommodation.regimen}</span>
-                                </div>
+                                <Badge variant="secondary" className="text-xs font-normal">
+                                  <Utensils className="w-3 h-3 mr-1" />
+                                  {accommodation.regimen}
+                                </Badge>
                               )}
                               {accommodation.enlace_web && (
-                                <a 
-                                  href={accommodation.enlace_web} 
-                                  target="_blank" 
+                                <a
+                                  href={accommodation.enlace_web}
+                                  target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 text-sm mt-1 inline-block"
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
                                 >
-                                  Visitar sitio web →
+                                  <ExternalLink className="w-3 h-3" />
+                                  Ver sitio web
                                 </a>
                               )}
                             </div>
                           </div>
 
-                          {/* Tarifas */}
-                          {accommodation.rates && accommodation.rates.length > 0 && (
-                            <div>
-                              <h4 className="font-semibold mb-3">Tarifas por Mes</h4>
-                              
-                              {/* Vista de tabla para pantallas grandes */}
-                              <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-sm">
-                                  <thead>
-                                    <tr className="border-b">
-                                      <th className="text-left py-2 px-3">Mes</th>
-                                      <th className="text-left py-2 px-3">Año</th>
-                                      <th className="text-left py-2 px-3">Doble</th>
-                                      <th className="text-left py-2 px-3">Triple</th>
-                                      <th className="text-left py-2 px-3">Cuádruple</th>
-                                      <th className="text-left py-2 px-3">Menor</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
+                          {/* Rates */}
+                          {accommodation.rates && accommodation.rates.length > 0 ? (
+                            <div className="p-4 sm:p-5">
+                              {/* Desktop table */}
+                              <div className="hidden md:block">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="border-gray-200">
+                                      <TableHead className="font-semibold text-gray-900">Periodo</TableHead>
+                                      <TableHead className="font-semibold text-gray-900">Doble</TableHead>
+                                      <TableHead className="font-semibold text-gray-900">Triple</TableHead>
+                                      <TableHead className="font-semibold text-gray-900">Cuadruple</TableHead>
+                                      <TableHead className="font-semibold text-gray-900">Menor</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
                                     {accommodation.rates
                                       .sort((a, b) => a.anio - b.anio || a.mes - b.mes)
                                       .map((rate) => (
-                                      <tr key={rate.id} className="border-b hover:bg-white/50">
-                                        <td className="py-2 px-3 font-medium">{getMonthName(rate.mes)}</td>
-                                        <td className="py-2 px-3">{rate.anio}</td>
-                                        <td className="py-2 px-3">{formatCurrency(rate.tarifa_dbl)}</td>
-                                        <td className="py-2 px-3">{formatCurrency(rate.tarifa_tpl)}</td>
-                                        <td className="py-2 px-3">{formatCurrency(rate.tarifa_cpl)}</td>
-                                        <td className="py-2 px-3">{formatCurrency(rate.tarifa_menor)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
+                                        <TableRow key={rate.id} className="hover:bg-gray-50/50">
+                                          <TableCell className="font-medium">
+                                            {getMonthName(rate.mes)} {rate.anio}
+                                          </TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl)}</TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl)}</TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl)}</TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor)}</TableCell>
+                                        </TableRow>
+                                      ))}
+                                  </TableBody>
+                                </Table>
                               </div>
 
-                              {/* Vista de tarjetas para móviles */}
-                              <div className="md:hidden space-y-4">
+                              {/* Mobile cards */}
+                              <div className="md:hidden space-y-3">
                                 {accommodation.rates
                                   .sort((a, b) => a.anio - b.anio || a.mes - b.mes)
                                   .map((rate) => (
-                                  <div key={rate.id} className="bg-white rounded-lg border p-4 shadow-sm">
-                                    <div className="flex justify-between items-center mb-3">
-                                      <h5 className="font-semibold text-lg">{getMonthName(rate.mes)} {rate.anio}</h5>
+                                    <div key={rate.id} className="bg-gray-50 rounded-lg p-3">
+                                      <h5 className="font-semibold text-sm mb-2 text-gray-900">
+                                        {getMonthName(rate.mes)} {rate.anio}
+                                      </h5>
+                                      <div className="grid grid-cols-2 gap-1.5 text-sm">
+                                        <div className="flex justify-between p-1.5">
+                                          <span className="text-gray-500">Doble</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl)}</span>
+                                        </div>
+                                        <div className="flex justify-between p-1.5">
+                                          <span className="text-gray-500">Triple</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl)}</span>
+                                        </div>
+                                        <div className="flex justify-between p-1.5">
+                                          <span className="text-gray-500">Cuadruple</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl)}</span>
+                                        </div>
+                                        <div className="flex justify-between p-1.5">
+                                          <span className="text-gray-500">Menor</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor)}</span>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="flex flex-col gap-2 text-sm">
-                                      <div className="flex justify-between py-2 border-b">
-                                        <span className="text-gray-600">Doble:</span>
-                                        <span className="font-medium">{formatCurrency(rate.tarifa_dbl)}</span>
-                                      </div>
-                                      <div className="flex justify-between py-2 border-b">
-                                        <span className="text-gray-600">Triple:</span>
-                                        <span className="font-medium">{formatCurrency(rate.tarifa_tpl)}</span>
-                                      </div>
-                                      <div className="flex justify-between py-2 border-b">
-                                        <span className="text-gray-600">Cuádruple:</span>
-                                        <span className="font-medium">{formatCurrency(rate.tarifa_cpl)}</span>
-                                      </div>
-                                      <div className="flex justify-between py-2">
-                                        <span className="text-gray-600">Menor:</span>
-                                        <span className="font-medium">{formatCurrency(rate.tarifa_menor)}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
+                                  ))}
                               </div>
                             </div>
+                          ) : (
+                            <p className="text-sm text-gray-500 text-center py-4">No hay tarifas cargadas</p>
                           )}
                         </div>
                       ))}
@@ -475,91 +538,119 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
             )}
           </div>
 
-          {/* Sidebar */}
+          {/* ===== SIDEBAR ===== */}
           <div className="lg:col-span-1">
-            {/* Información del viaje */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
+              className="lg:sticky lg:top-24"
             >
-              <Card className="mb-6 lg:sticky lg:top-4">
-                <CardHeader>
-                  <CardTitle>Información del Viaje</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-2xl sm:text-3xl font-bold text-primary mb-2">
-                      Desde {package_.price}
-                    </div>
-                    <p className="text-sm text-gray-600">Precio por persona</p>
+              <Card className="mb-6 shadow-xl ring-1 ring-gray-100 overflow-hidden">
+                {/* Price header */}
+                <div className={`${getTransportAccentColor(transportType)} px-6 py-5 text-white text-center`}>
+                  <p className="text-sm opacity-90 mb-1">Precio por persona</p>
+                  <div className="text-3xl sm:text-4xl font-bold tracking-tight">
+                    Desde {package_.price}
                   </div>
+                  <p className="text-xs opacity-75 mt-1">en base doble</p>
+                </div>
 
+                <CardContent className="p-5 sm:p-6 space-y-5">
+                  {/* Available dates */}
                   {package_.available_dates && package_.available_dates.length > 0 && (
                     <div>
-                      <h4 className="font-semibold mb-2 flex items-center text-sm sm:text-base">
-                        <Calendar className="w-4 h-4 mr-2" />
+                      <h4 className="font-semibold mb-3 flex items-center text-sm">
+                        <Calendar className="w-4 h-4 mr-2 text-primary" />
                         Fechas Disponibles
                       </h4>
-                      <div className="space-y-1">
+                      <div className="flex flex-wrap gap-1.5">
                         {(showAllDates ? package_.available_dates : package_.available_dates.slice(0, 5)).map((date, index) => (
-                          <div key={index} className="text-xs sm:text-sm bg-gray-50 rounded px-2 py-1">
-                            {date}
-                          </div>
-                        ))}
-                        
-                        {package_.available_dates.length > 5 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowAllDates(!showAllDates)}
-                            className="text-xs p-1 h-auto mt-2 text-blue-600 hover:text-blue-800"
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs bg-gray-50 border-gray-200 font-normal"
                           >
-                            {showAllDates ? (
-                              <>
-                                <ChevronUp className="w-3 h-3 mr-1" />
-                                Mostrar menos fechas
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="w-3 h-3 mr-1" />
-                                Ver todas las fechas ({package_.available_dates.length - 5} más)
-                              </>
-                            )}
-                          </Button>
-                        )}
+                            <Calendar className="w-3 h-3 mr-1 text-gray-400" />
+                            {date}
+                          </Badge>
+                        ))}
                       </div>
+
+                      {package_.available_dates.length > 5 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowAllDates(!showAllDates)}
+                          className="text-xs p-1 h-auto mt-2 text-primary hover:text-primary/80"
+                        >
+                          {showAllDates ? (
+                            <>
+                              <ChevronUp className="w-3 h-3 mr-1" />
+                              Mostrar menos
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3 h-3 mr-1" />
+                              Ver {package_.available_dates.length - 5} mas
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
                   )}
 
-                  <div className="pt-4 border-t space-y-3">
+                  <Separator />
+
+                  {/* CTA Buttons */}
+                  <div className="space-y-3">
                     <Button
                       onClick={() => setShowPromoAlert(true)}
-                      className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600 text-white text-sm sm:text-base"
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white text-base font-semibold shadow-lg shadow-green-200/50 h-12 relative overflow-hidden group"
                       size="lg"
                     >
-                      <Calendar className="w-4 h-4 mr-2" />
+                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
+                      <Calendar className="w-5 h-5 mr-2" />
                       Reservar Ahora
                     </Button>
-                    
-                    <Button 
+                    <p className="text-center text-[11px] text-gray-400 -mt-1">Sin cargo por reservar online</p>
+
+                    <Button
                       onClick={() => setShowContactForm(true)}
                       variant="outline"
-                      className="w-full border-2 text-sm sm:text-base"
+                      className="w-full border-2 text-sm h-11"
                       size="lg"
                     >
-                      <Mail className="w-4 h-4 mr-2" />
+                      <MessageCircle className="w-4 h-4 mr-2" />
                       Consultar sobre este viaje
                     </Button>
                   </div>
 
-                  <div className="text-center text-xs sm:text-sm text-gray-600">
-                    <p className="flex items-center justify-center mb-1">
-                      <Phone className="w-4 h-4 mr-1" />
-                      O llámanos directamente
+                  <Separator />
+
+                  {/* Phone numbers */}
+                  <div className="text-center space-y-2">
+                    <p className="text-xs text-gray-500 flex items-center justify-center gap-1">
+                      <Phone className="w-3.5 h-3.5" />
+                      O contactanos directamente
                     </p>
-                    <p className="font-semibold">+54 9 379 4030711</p>
-                    <p className="font-semibold">+54 9 3795 870001</p>
+                    <div className="space-y-1">
+                      <a href="tel:+5493794030711" className="block text-sm font-semibold text-gray-700 hover:text-primary transition-colors">
+                        +54 9 379 4030711
+                      </a>
+                      <a href="tel:+5493795870001" className="block text-sm font-semibold text-gray-700 hover:text-primary transition-colors">
+                        +54 9 3795 870001
+                      </a>
+                    </div>
+                    <a
+                      href="https://wa.me/5493794030711"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 font-medium mt-1"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      Escribinos por WhatsApp
+                    </a>
                   </div>
                 </CardContent>
               </Card>
@@ -568,20 +659,42 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
         </div>
       </div>
 
-      {/* AlertDialog de Información Promocional */}
+      {/* ===== MOBILE FIXED BOTTOM BAR ===== */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t shadow-2xl p-3 lg:hidden">
+        <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
+          <div>
+            <p className="text-xs text-gray-500">Desde</p>
+            <p className="text-lg font-bold text-gray-900">{package_.price}</p>
+          </div>
+          <Button
+            onClick={() => setShowPromoAlert(true)}
+            className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-semibold h-11 px-6 shadow-lg shadow-green-200/50"
+          >
+            <Calendar className="w-4 h-4 mr-2" />
+            Reservar
+          </Button>
+        </div>
+      </div>
+
+      {/* Spacer for mobile fixed bar */}
+      <div className="h-20 lg:hidden" />
+
+      {/* ===== PROMO ALERT DIALOG ===== */}
       <AlertDialog open={showPromoAlert} onOpenChange={setShowPromoAlert}>
-        <AlertDialogContent className="max-w-lg">
+        <AlertDialogContent className="max-w-lg rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl sm:text-2xl">
-              ¡Beneficio por Autogestión!
+              Beneficio por Autogestion!
             </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-4 text-sm sm:text-base">
-              <p className="text-gray-700">
-                <strong>Por auto gestionar tu reserva accedés a una tarifa promocionada</strong>, lo verás reflejado en tu liquidación.
-              </p>
-              <p className="text-gray-600">
-                Completar el formulario no genera gastos. No compartiremos tu información personal y no te solicitaremos datos de tus medios de pago en esta instancia.
-              </p>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 text-sm sm:text-base text-muted-foreground">
+                <p className="text-gray-700">
+                  <strong>Por auto gestionar tu reserva accedes a una tarifa promocionada</strong>, lo veras reflejado en tu liquidacion.
+                </p>
+                <p className="text-gray-600">
+                  Completar el formulario no genera gastos. No compartiremos tu informacion personal y no te solicitaremos datos de tus medios de pago en esta instancia.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -593,7 +706,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 setShowPromoAlert(false)
                 setShowReservationForm(true)
               }}
-              className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-green-500 hover:from-green-700 hover:to-green-600"
+              className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600"
             >
               Entendido, continuar
             </AlertDialogAction>
@@ -601,64 +714,65 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Modal de formulario de contacto */}
+      {/* ===== CONTACT FORM MODAL ===== */}
       {showContactForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-4 sm:p-6 max-w-sm sm:max-w-md w-full max-h-[90vh] overflow-y-auto"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white rounded-2xl p-5 sm:p-6 max-w-sm sm:max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl font-bold pr-2">Consultar sobre {package_.name}</h2>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => setShowContactForm(false)}
-                className="flex-shrink-0"
+                className="flex-shrink-0 h-8 w-8 p-0 rounded-full"
               >
-                ✕
+                X
               </Button>
             </div>
-            
-            <ContactFormFunctional 
+
+            <ContactFormFunctional
               packageName={package_.name}
               onSuccess={() => {
                 setShowContactForm(false)
-                // Aquí podrías agregar una notificación de éxito
               }}
             />
           </motion.div>
         </div>
       )}
 
-      {/* Modal de formulario de reserva */}
+      {/* ===== RESERVATION FORM MODAL ===== */}
       {showReservationForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center p-2 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center p-0 sm:p-4 overflow-y-auto">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg p-3 sm:p-4 md:p-6 max-w-4xl w-full my-4 sm:my-8 max-h-[80vh] sm:max-h-[90vh] flex flex-col"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white sm:rounded-2xl p-4 sm:p-6 max-w-4xl w-full sm:my-8 min-h-screen sm:min-h-0 max-h-screen sm:max-h-[90vh] flex flex-col shadow-2xl"
           >
-            <div className="flex justify-between items-center mb-3 sm:mb-4 flex-shrink-0">
-              <h2 className="text-lg sm:text-xl md:text-2xl font-bold pr-2">Reserva tu viaje</h2>
-              <Button 
-                variant="outline" 
+            <div className="flex justify-between items-center mb-4 flex-shrink-0">
+              <div>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Reserva tu viaje</h2>
+                <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{package_.name}</p>
+              </div>
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => setShowReservationForm(false)}
-                className="flex-shrink-0 h-8 w-8 sm:h-9 sm:w-9 p-0"
+                className="flex-shrink-0 h-9 w-9 p-0 rounded-full hover:bg-gray-100"
               >
-                ✕
+                X
               </Button>
             </div>
-            
+
             <div className="overflow-y-auto flex-1 pr-1 sm:pr-2 -mr-1 sm:-mr-2">
-              <ReservationForm 
+              <ReservationForm
                 packageId={parseInt(packageId)}
                 packageName={package_.name}
                 onSuccess={() => {
                   setShowReservationForm(false)
-                  // Aquí podrías agregar una notificación de éxito
                 }}
                 onClose={() => setShowReservationForm(false)}
               />
