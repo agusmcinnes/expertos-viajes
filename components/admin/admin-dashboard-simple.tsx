@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar } from "lucide-react"
 import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
-import { adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
+import { supabaseAdmin, adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
