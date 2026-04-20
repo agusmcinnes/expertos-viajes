@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Lock, User, Plane } from "lucide-react"
+import { Lock, User, Plane, Eye, EyeOff } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface AdminLoginProps {
@@ -17,6 +17,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
   const { toast } = useToast()
   const [credentials, setCredentials] = useState({ username: "", password: "" })
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,13 +80,22 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-primary-400" />
                 <Input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={credentials.password}
                   onChange={(e) => setCredentials((prev) => ({ ...prev, password: e.target.value }))}
-                  className="pl-10 border-primary-200 focus:border-primary-500 focus:ring-primary-500/20"
+                  className="pl-10 pr-10 border-primary-200 focus:border-primary-500 focus:ring-primary-500/20"
                   placeholder="Contraseña"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-primary-400 hover:text-primary-600 transition-colors"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

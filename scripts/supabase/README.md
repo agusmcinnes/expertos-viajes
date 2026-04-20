@@ -37,6 +37,30 @@ supabase db execute --file scripts/supabase/migrations/20251030_modify_reservati
 
 **⚠️ IMPORTANTE:** Esta migración elimina columnas. Hacer backup antes de ejecutar.
 
+### `20260420_atomic_reservations.sql` ⚠️ REQUERIDA POR EL CÓDIGO ACTUAL
+
+**Descripción:** Crea RPCs transaccionales para crear y cancelar reservas.
+
+**Cambios:**
+- ✅ RPC `create_reservation_atomic` — inserta reserva + detalles + pasajeros en una sola transacción, con `SELECT FOR UPDATE` sobre `package_stock` para evitar overbooking.
+- ✅ RPC `cancel_reservation_atomic` — cancela reserva y repone stock si aplica. Idempotente.
+- ✅ **Cambio de semántica:** el stock ahora se descuenta **al crear** la reserva, no al confirmarla.
+
+**⚠️ REQUISITO:** El código TypeScript (`lib/supabase.ts`) ya llama a estas RPCs. Sin ejecutar esta migración, **el flujo de creación de reservas desde el cliente deja de funcionar**.
+
+**Antes de correr:** verificar que `public.package_stock` tenga los campos `stock_dbl, stock_tpl, stock_cpl`. Si tiene también `stock_qpl`, agregar el caso en la función (ver comentarios en el archivo).
+
+### `20260420_tighten_rls_and_indexes.sql`
+
+**Descripción:** Endurece RLS para que los clientes anónimos solo puedan crear reservas vía la RPC, e incorpora índices de performance.
+
+**Cambios:**
+- ✅ Revoca INSERT/SELECT/UPDATE/DELETE directo de `anon` sobre `reservations`, `reservation_details`, `reservation_passengers`.
+- ✅ `authenticated` (admin) mantiene acceso completo.
+- ✅ Agrega índices sobre `reservation_id`, `estado`, `fecha_salida`, y lookup compuesto de `package_stock`.
+
+**⚠️ IMPORTANTE:** Ejecutar **después** de `20260420_atomic_reservations.sql`. Si se corre antes, los clientes se quedan sin forma de crear reservas (la RPC `create_reservation_atomic` es el único camino desde `anon`).
+
 ## Backup antes de ejecutar
 
 Antes de ejecutar cualquier migración que elimine o modifique datos:

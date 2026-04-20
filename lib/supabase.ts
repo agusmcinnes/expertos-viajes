@@ -1169,8 +1169,16 @@ export interface PackageStock {
   stock_cpl: number
   is_available: boolean
   flexible_dates?: boolean // Indica si el stock tiene fechas flexibles
+  is_unlimited?: boolean // Si true, la RPC no valida ni decrementa cupos
   created_at: string
   updated_at: string
+}
+
+export type PackageStockStatus = 'none' | 'loaded' | 'unlimited'
+
+export interface PackageWithStockStatus extends TravelPackage {
+  stockStatus: PackageStockStatus
+  stockRecordsCount: number
 }
 
 export interface Reservation {
@@ -1317,6 +1325,103 @@ export const stockService = {
     if (error) throw error
   },
 
+  // Marcar (o desmarcar) un paquete como stock ilimitado en todos sus registros.
+  // Si el paquete no tiene registros, crea uno por cada alojamiento con
+  // flexible_dates=true, is_available=true, stocks en 0 y is_unlimited=unlimited.
+  async setPackageUnlimited(packageId: number, unlimited: boolean) {
+    // 1. Buscar registros existentes
+    const { data: existing, error: selectError } = await supabase
+      .from('package_stock')
+      .select('id')
+      .eq('package_id', packageId)
+
+    if (selectError) throw selectError
+
+    if (existing && existing.length > 0) {
+      const { error: updateError } = await supabase
+        .from('package_stock')
+        .update({ is_unlimited: unlimited, updated_at: new Date().toISOString() })
+        .eq('package_id', packageId)
+
+      if (updateError) throw updateError
+      return { created: 0, updated: existing.length }
+    }
+
+    // 2. Sin registros: crear uno por cada alojamiento
+    if (!unlimited) {
+      // Desactivar ilimitado cuando no hay registros: no hay nada que hacer
+      return { created: 0, updated: 0 }
+    }
+
+    const { data: accommodations, error: accomError } = await supabase
+      .from('accommodations')
+      .select('id')
+      .eq('paquete_id', packageId)
+
+    if (accomError) throw accomError
+
+    if (!accommodations || accommodations.length === 0) {
+      throw new Error('El paquete no tiene alojamientos cargados. Creá uno antes de marcar stock ilimitado.')
+    }
+
+    const rows = accommodations.map(a => ({
+      package_id: packageId,
+      accommodation_id: a.id,
+      fecha_salida: null,
+      stock_dbl: 0,
+      stock_tpl: 0,
+      stock_cpl: 0,
+      is_available: true,
+      flexible_dates: true,
+      is_unlimited: true,
+    }))
+
+    const { error: insertError } = await supabase
+      .from('package_stock')
+      .insert(rows)
+
+    if (insertError) throw insertError
+
+    return { created: rows.length, updated: 0 }
+  },
+
+  // Listado de paquetes activos con su estado de stock agregado.
+  async getPackagesWithStockStatus(): Promise<PackageWithStockStatus[]> {
+    const { data: pkgs, error: pkgError } = await supabase
+      .from('travel_packages')
+      .select('*, destinations(id, name, code)')
+      .eq('is_active', true)
+      .order('name')
+
+    if (pkgError) throw pkgError
+
+    const { data: stocks, error: stockError } = await supabase
+      .from('package_stock')
+      .select('package_id, is_unlimited')
+
+    if (stockError) throw stockError
+
+    const statusByPackage = new Map<number, { unlimited: boolean; count: number }>()
+    for (const s of stocks || []) {
+      const pkgId = s.package_id as number
+      const curr = statusByPackage.get(pkgId) || { unlimited: false, count: 0 }
+      curr.count += 1
+      if (s.is_unlimited) curr.unlimited = true
+      statusByPackage.set(pkgId, curr)
+    }
+
+    return (pkgs || []).map(pkg => {
+      const info = statusByPackage.get(pkg.id)
+      let status: PackageStockStatus = 'none'
+      if (info) status = info.unlimited ? 'unlimited' : 'loaded'
+      return {
+        ...pkg,
+        stockStatus: status,
+        stockRecordsCount: info?.count || 0,
+      } as PackageWithStockStatus
+    })
+  },
+
   // Verificar disponibilidad de stock para una reserva
   async checkAvailability(
     packageId: number,
@@ -1383,138 +1488,36 @@ export const stockService = {
 
 // Servicio para gestión de reservas
 export const reservationService = {
-  // Crear una nueva reserva
+  // Crear una reserva de forma atómica (vía RPC con lock de stock)
   async createReservation(reservationData: CreateReservationData) {
     try {
-      console.log('📝 Datos de reserva recibidos:', reservationData)
+      const { data, error } = await supabase.rpc('create_reservation_atomic', {
+        p_package_id: reservationData.package_id,
+        p_accommodation_id: reservationData.accommodation_id,
+        p_fecha_salida: reservationData.fecha_salida,
+        p_cliente_nombre: reservationData.cliente_nombre,
+        p_cliente_email: reservationData.cliente_email,
+        p_cliente_telefono: reservationData.cliente_telefono,
+        p_comentarios: reservationData.comentarios || null,
+        p_details: reservationData.details,
+        p_passengers: reservationData.passengers.map(p => ({
+          ...p,
+          datos_pendientes: p.datos_pendientes || false
+        }))
+      })
 
-      // 1. Validar que hay al menos un pasajero titular
-      const hasTitular = reservationData.passengers.some(p => p.tipo_pasajero === 'titular')
-      if (!hasTitular) {
-        console.error('❌ No hay titular')
+      if (error) {
+        console.error('createReservation RPC error:', error)
         return {
           success: false,
-          error: 'Debe incluir al menos un pasajero titular'
+          error: error.message || 'Error al crear la reserva'
         }
       }
 
-      // 2. Calcular capacidad total de las habitaciones
-      const totalCapacity = reservationData.details.reduce((sum, detail) => {
-        let roomCapacity = 0
-        if (detail.tipo_habitacion === 'dbl') roomCapacity = 2
-        else if (detail.tipo_habitacion === 'tpl') roomCapacity = 3
-        else if (detail.tipo_habitacion === 'cpl') roomCapacity = 4
-        return sum + (detail.cantidad * roomCapacity)
-      }, 0)
-
-      console.log('👥 Capacidad total:', totalCapacity, '| Pasajeros:', reservationData.passengers.length)
-
-      // 3. Validar que la cantidad de pasajeros no exceda la capacidad
-      if (reservationData.passengers.length > totalCapacity) {
-        console.error('❌ Excede capacidad')
-        return {
-          success: false,
-          error: `La cantidad de pasajeros (${reservationData.passengers.length}) excede la capacidad de las habitaciones (${totalCapacity})`
-        }
-      }
-
-      // 4. Verificar disponibilidad de stock
-      console.log('🔍 Verificando disponibilidad de stock...')
-      const availability = await stockService.checkAvailability(
-        reservationData.package_id,
-        reservationData.accommodation_id,
-        reservationData.fecha_salida,
-        reservationData.details
-      )
-
-      console.log('✅ Resultado de disponibilidad:', availability)
-
-      if (!availability.available) {
-        console.error('❌ No hay disponibilidad:', availability.message)
-        return {
-          success: false,
-          error: availability.message || 'No hay disponibilidad para esta reserva'
-        }
-      }
-
-      // 5. Crear la reserva
-      console.log('💾 Insertando reserva en BD...')
-      const { data: reservation, error: reservationError } = await supabase
-        .from('reservations')
-        .insert([{
-          package_id: reservationData.package_id,
-          accommodation_id: reservationData.accommodation_id,
-          fecha_salida: reservationData.fecha_salida,
-          cliente_nombre: reservationData.cliente_nombre,
-          cliente_email: reservationData.cliente_email,
-          cliente_telefono: reservationData.cliente_telefono,
-          comentarios: reservationData.comentarios,
-          estado: 'pendiente'
-        }])
-        .select()
-        .single()
-
-      if (reservationError) {
-        console.error('❌ Error insertando reserva:', reservationError)
-        throw reservationError
-      }
-
-      console.log('✅ Reserva creada con ID:', reservation.id)
-
-      // 6. Crear los detalles de la reserva
-      console.log('💾 Insertando detalles de habitaciones...')
-      const detailsToInsert = reservationData.details.map(detail => ({
-        reservation_id: reservation.id,
-        tipo_habitacion: detail.tipo_habitacion,
-        cantidad: detail.cantidad,
-        subtipo_habitacion: detail.subtipo_habitacion
-      }))
-
-      const { error: detailsError } = await supabase
-        .from('reservation_details')
-        .insert(detailsToInsert)
-
-      if (detailsError) {
-        console.error('❌ Error insertando detalles:', detailsError)
-        throw detailsError
-      }
-
-      console.log('✅ Detalles de habitaciones insertados')
-
-      // 7. Crear los pasajeros
-      console.log('💾 Insertando pasajeros...')
-      const passengersToInsert = reservationData.passengers.map(passenger => ({
-        reservation_id: reservation.id,
-        tipo_pasajero: passenger.tipo_pasajero,
-        nombre: passenger.nombre,
-        apellido: passenger.apellido,
-        fecha_nacimiento: passenger.fecha_nacimiento,
-        dni: passenger.dni,
-        email: passenger.email,
-        telefono: passenger.telefono,
-        edad_al_viajar: passenger.edad_al_viajar,
-        datos_pendientes: passenger.datos_pendientes || false
-      }))
-
-      const { error: passengersError } = await supabase
-        .from('reservation_passengers')
-        .insert(passengersToInsert)
-
-      if (passengersError) {
-        console.error('❌ Error insertando pasajeros:', passengersError)
-        throw passengersError
-      }
-
-      console.log('✅ Pasajeros insertados')
-      console.log('🎉 Reserva creada exitosamente!')
-
-      return {
-        success: true,
-        reservation
-      }
+      const reservationId = data as number
+      return { success: true, reservation: { id: reservationId } as Reservation }
     } catch (error) {
-      console.error('❌ Error creating reservation:', error)
-      console.error('❌ Error completo:', JSON.stringify(error, null, 2))
+      console.error('createReservation unexpected error:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error al crear la reserva'
@@ -1613,69 +1616,27 @@ export const reservationService = {
     return data[0]
   },
 
-  // Confirmar reserva (reduce stock)
+  // Confirmar reserva vía RPC: lockea stock, valida cupo y decrementa atómicamente.
   async confirmReservation(id: number) {
-    const reservation = await this.getReservationById(id)
-    
-    // Actualizar estado
-    await this.updateReservationStatus(id, 'confirmada')
-    
-    // Reducir stock
-    for (const detail of reservation.reservation_details) {
-      const stock = await stockService.getStock(
-        reservation.package_id,
-        reservation.accommodation_id,
-        reservation.fecha_salida
-      )
-
-      if (stock) {
-        const updates: Partial<PackageStock> = {}
-        
-        if (detail.tipo_habitacion === 'dbl') {
-          updates.stock_dbl = stock.stock_dbl - detail.cantidad
-        } else if (detail.tipo_habitacion === 'tpl') {
-          updates.stock_tpl = stock.stock_tpl - detail.cantidad
-        } else if (detail.tipo_habitacion === 'cpl') {
-          updates.stock_cpl = stock.stock_cpl - detail.cantidad
-        }
-
-        await stockService.updateStock(stock.id, updates)
-      }
+    const { error } = await supabase.rpc('confirm_reservation_atomic', {
+      p_reservation_id: id
+    })
+    if (error) {
+      console.error('confirmReservation RPC error:', error)
+      throw error
     }
-
     return await this.getReservationById(id)
   },
 
-  // Cancelar reserva (restaura stock si estaba confirmada)
+  // Cancelar reserva vía RPC (repone stock si aplica, idempotente)
   async cancelReservation(id: number) {
-    const reservation = await this.getReservationById(id)
-    
-    // Si estaba confirmada, restaurar stock
-    if (reservation.estado === 'confirmada') {
-      for (const detail of reservation.reservation_details) {
-        const stock = await stockService.getStock(
-          reservation.package_id,
-          reservation.accommodation_id,
-          reservation.fecha_salida
-        )
-
-        if (stock) {
-          const updates: Partial<PackageStock> = {}
-          
-          if (detail.tipo_habitacion === 'dbl') {
-            updates.stock_dbl = stock.stock_dbl + detail.cantidad
-          } else if (detail.tipo_habitacion === 'tpl') {
-            updates.stock_tpl = stock.stock_tpl + detail.cantidad
-          } else if (detail.tipo_habitacion === 'cpl') {
-            updates.stock_cpl = stock.stock_cpl + detail.cantidad
-          }
-
-          await stockService.updateStock(stock.id, updates)
-        }
-      }
+    const { error } = await supabase.rpc('cancel_reservation_atomic', {
+      p_reservation_id: id
+    })
+    if (error) {
+      console.error('cancelReservation RPC error:', error)
+      throw error
     }
-
-    // Actualizar estado
-    return await this.updateReservationStatus(id, 'cancelada')
+    return await this.getReservationById(id)
   }
 }

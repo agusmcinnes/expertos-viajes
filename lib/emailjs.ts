@@ -1,4 +1,5 @@
 import emailjs from '@emailjs/browser'
+import { getRoomTypeName, getSubtypeLabel } from '@/lib/room-utils'
 
 // Inicializar EmailJS con tu USER_ID
 export const initEmailJS = () => {
@@ -28,7 +29,7 @@ export const sendEmail = async (data: EmailData): Promise<boolean> => {
         reply_to: data.from_email,
       }
     )
-    
+
     console.log('Email sent successfully:', result.text)
     return true
   } catch (error) {
@@ -58,7 +59,7 @@ export const sendAgencyNotification = async (data: AgencyNotificationData): Prom
         subject: 'Nueva solicitud de agencia para aprobación'
       }
     )
-    
+
     console.log('Agency notification sent successfully:', result.text)
     return true
   } catch (error) {
@@ -67,9 +68,9 @@ export const sendAgencyNotification = async (data: AgencyNotificationData): Prom
   }
 }
 
-// Interfaces para el nuevo sistema de reservas
+// Interfaces para el sistema de reservas
 interface RoomDetail {
-  tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
+  tipo_habitacion: 'dbl' | 'tpl' | 'cpl' | 'qpl'
   cantidad: number
   subtipo_habitacion?: 'matrimonial' | 'twin' | null
 }
@@ -86,7 +87,6 @@ interface Passenger {
   datos_pendientes?: boolean
 }
 
-// Función para notificar nueva reserva al admin
 export interface ReservationNotificationData {
   packageName: string
   accommodation: string
@@ -102,40 +102,25 @@ export interface ReservationNotificationData {
 
 export const sendReservationNotification = async (data: ReservationNotificationData): Promise<boolean> => {
   try {
-    // Formatear habitaciones
-    const roomTypeName = (tipo: string) => {
-      if (tipo === 'dbl') return 'Doble'
-      if (tipo === 'tpl') return 'Triple'
-      if (tipo === 'cpl') return 'Cuádruple'
-      return tipo
-    }
-
     const roomDetails = data.rooms.map(room => {
-      let detail = `${roomTypeName(room.tipo_habitacion)}`
-      if (room.subtipo_habitacion) {
-        detail += ` (${room.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Twin'})`
-      }
-      return detail
+      let detail = getRoomTypeName(room.tipo_habitacion)
+      if (room.subtipo_habitacion) detail += ` (${getSubtypeLabel(room.subtipo_habitacion)})`
+      return `${room.cantidad}× ${detail}`
     }).join(', ')
 
-    // Formatear pasajeros
     const passengersDetail = data.passengers.map((p, index) => {
       const tipo = p.tipo_pasajero === 'titular' ? 'TITULAR' : 'Acompañante'
       let detail = `${index + 1}. ${tipo}: ${p.nombre} ${p.apellido}`
-
-      if (p.edad_al_viajar) {
-        detail += ` (${p.edad_al_viajar} años al viajar)`
-      }
-      detail += ` - Fecha Nacimiento: ${p.fecha_nacimiento}`
+      if (p.edad_al_viajar) detail += ` (${p.edad_al_viajar} años al viajar)`
+      detail += ` - Nac: ${p.fecha_nacimiento}`
 
       if (p.datos_pendientes) {
-        detail += ' - ⚠️ DATOS PENDIENTES DE COMPLETAR'
+        detail += ' — ⚠️ DATOS PENDIENTES'
       } else {
         if (p.dni) detail += ` - DNI: ${p.dni}`
-        if (p.email) detail += ` - Email: ${p.email}`
-        if (p.telefono) detail += ` - Tel: ${p.telefono}`
+        if (p.email) detail += ` - ${p.email}`
+        if (p.telefono) detail += ` - ${p.telefono}`
       }
-
       return detail
     }).join('\n')
 
@@ -164,86 +149,7 @@ export const sendReservationNotification = async (data: ReservationNotificationD
     console.log('Reservation notification sent successfully:', result.text)
     return true
   } catch (error) {
-    console.error('Error sending reservation notification:', error)
+    console.warn('Reservation notification failed:', error)
     return false
   }
 }
-
-// Función para enviar confirmación de reserva al cliente
-export interface ReservationConfirmationData {
-  packageName: string
-  accommodation: string
-  departureDate: string
-  clientName: string
-  clientEmail: string
-  rooms: RoomDetail[]
-  reservationId: number
-}
-
-export const sendReservationConfirmation = async (data: ReservationConfirmationData): Promise<boolean> => {
-  try {
-    // Formatear habitaciones
-    const roomTypeName = (tipo: string) => {
-      if (tipo === 'dbl') return 'Doble'
-      if (tipo === 'tpl') return 'Triple'
-      if (tipo === 'cpl') return 'Cuádruple'
-      return tipo
-    }
-
-    const roomDetails = data.rooms.map(room => {
-      let detail = `${roomTypeName(room.tipo_habitacion)}`
-      if (room.subtipo_habitacion) {
-        detail += ` (${room.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Twin'})`
-      }
-      return detail
-    }).join(', ')
-
-    const result = await emailjs.send(
-      process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
-      process.env.NEXT_PUBLIC_EMAILJS_CONFIRMATION_TEMPLATE_ID || process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || '',
-      {
-        package_name: data.packageName,
-        accommodation_name: data.accommodation,
-        fecha_salida: data.departureDate,
-        cliente_nombre: data.clientName,
-        detalles_habitaciones: roomDetails,
-        reservation_id: data.reservationId.toString(),
-        to_email: data.clientEmail,
-        subject: `Confirmación de Reserva #${data.reservationId} - ${data.packageName}`,
-        message: `
-Estimado/a ${data.clientName},
-
-¡Gracias por confiar en Expertos en Turismo!
-
-Hemos recibido tu pre-reserva con los siguientes detalles:
-
-📦 Paquete: ${data.packageName}
-🏨 Alojamiento: ${data.accommodation}
-📅 Fecha de salida: ${data.departureDate}
-🛏️ Habitaciones: ${roomDetails}
-
-Número de reserva: #${data.reservationId}
-
-💰 PRECIO: Nuestro equipo cotizará el precio de tu reserva y te lo enviará a la brevedad.
-
-Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo para:
-✓ Confirmar la disponibilidad
-✓ Enviarte la cotización detallada
-✓ Coordinar los detalles del pago
-
-Si tienes alguna consulta, no dudes en contactarnos.
-
-Saludos cordiales,
-Equipo de Expertos en Turismo
-        `.trim()
-      }
-    )
-
-    console.log('Reservation confirmation sent successfully:', result.text)
-    return true
-  } catch (error) {
-    console.error('Error sending reservation confirmation:', error)
-    return false
-  }
-}
-

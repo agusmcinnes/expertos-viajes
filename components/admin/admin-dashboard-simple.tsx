@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar } from "lucide-react"
 import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
@@ -710,85 +710,110 @@ export function AdminDashboardSimple() {
     })
   }
 
-  // Función para guardar alojamientos en la base de datos
+  // Guarda los alojamientos del paquete preservando IDs existentes:
+  // - Acc existentes en DB → UPDATE in-place (mantiene el id y sus rates/stock)
+  // - Acc nuevos (isNew) → INSERT y se guarda el id real
+  // - Acc que estaban en DB pero ya no en el form → DELETE (solo si no hay FKs)
+  // Las tarifas que el admin editó en el form se sincronizan por alojamiento.
   const saveAccommodationsForPackage = async (packageId: number) => {
     try {
-      // Solo eliminar alojamientos existentes si estamos editando Y hay cambios
-      if (isEditing) {
-        // Primero, obtener las tarifas existentes antes de eliminar los alojamientos
-        const { data: existingAccommodations } = await supabaseAdmin
-          .from("accommodations")
-          .select(`
-            *,
-            accommodation_rates (*)
-          `)
-          .eq("paquete_id", packageId)
+      // 1. Traer existentes (con sus rates, para diff)
+      const { data: existingRows, error: fetchError } = await supabaseAdmin
+        .from("accommodations")
+        .select("id, name, stars, enlace_web, regimen")
+        .eq("paquete_id", packageId)
 
-        // Crear un mapa de tarifas existentes por nombre de alojamiento
-        const existingRatesMap: {[key: string]: any[]} = {}
-        if (existingAccommodations) {
-          existingAccommodations.forEach(acc => {
-            existingRatesMap[acc.name] = acc.accommodation_rates || []
-          })
+      if (fetchError) throw fetchError
+
+      const existingIds = new Set((existingRows || []).map(r => r.id as number))
+      const formIds = new Set<number>()
+
+      // Mapeo original id (form) → id real en DB, para re-asociar rates luego
+      const idMapping: Record<number, number> = {}
+
+      // 2. UPDATE o INSERT según corresponda
+      for (const acc of accommodations) {
+        const payload = {
+          name: acc.name,
+          stars: acc.stars,
+          enlace_web: acc.enlace_web,
+          regimen: acc.regimen,
+          paquete_id: packageId,
         }
 
-        // Eliminar alojamientos existentes
-        await supabaseAdmin.from("accommodations").delete().eq("paquete_id", packageId)
-
-        // Preservar las tarifas existentes en accommodationRates para alojamientos que ya existían
-        accommodations.forEach(acc => {
-          if (!acc.isNew && existingRatesMap[acc.name]) {
-            accommodationRates[acc.id] = existingRatesMap[acc.name]
-          }
-        })
+        if (!acc.isNew && existingIds.has(acc.id)) {
+          // UPDATE in-place
+          const { error: updateError } = await supabaseAdmin
+            .from("accommodations")
+            .update(payload)
+            .eq("id", acc.id)
+          if (updateError) throw updateError
+          idMapping[acc.id] = acc.id
+          formIds.add(acc.id)
+        } else {
+          // INSERT
+          const { data: inserted, error: insertError } = await supabaseAdmin
+            .from("accommodations")
+            .insert([payload])
+            .select("id")
+            .single()
+          if (insertError) throw insertError
+          idMapping[acc.id] = inserted.id
+          formIds.add(inserted.id)
+        }
       }
 
-      // Guardar nuevos alojamientos
-      const accommodationsToSave = accommodations.map(acc => ({
-        name: acc.name,
-        stars: acc.stars,
-        enlace_web: acc.enlace_web,
-        regimen: acc.regimen,
-        paquete_id: packageId,
-      }))
+      // 3. DELETE de los que ya no están en el form.
+      // Si alguno tiene FKs (rates/stocks/reservations), el DELETE va a fallar:
+      // en ese caso lo loggeamos y seguimos — el admin los puede limpiar desde el admin.
+      const toDelete = (existingRows || [])
+        .filter(r => !formIds.has(r.id as number))
+        .map(r => r.id as number)
 
-      if (accommodationsToSave.length > 0) {
-        const { data: savedAccommodations, error } = await supabaseAdmin
+      if (toDelete.length > 0) {
+        const { error: deleteError } = await supabaseAdmin
           .from("accommodations")
-          .insert(accommodationsToSave)
-          .select()
-
-        if (error) throw error
-
-        // Guardar tarifas para cada alojamiento
-        for (let i = 0; i < accommodations.length; i++) {
-          const originalAcc = accommodations[i]
-          const savedAcc = savedAccommodations[i]
-          
-          // Obtener tarifas para este alojamiento específico
-          const ratesToSave = (accommodationRates[originalAcc.id] || []).map(rate => ({
-            accommodation_id: savedAcc.id,
-            mes: rate.mes,
-            anio: rate.anio,
-            tarifa_dbl: rate.tarifa_dbl,
-            tarifa_tpl: rate.tarifa_tpl,
-            tarifa_cpl: rate.tarifa_cpl,
-            tarifa_menor: rate.tarifa_menor,
-          }))
-
-          if (ratesToSave.length > 0) {
-            console.log(`Guardando ${ratesToSave.length} tarifas para alojamiento ${savedAcc.name}:`, ratesToSave)
-            
-            const { error: rateError } = await supabaseAdmin
-              .from("accommodation_rates")
-              .insert(ratesToSave)
-
-            if (rateError) {
-              console.error("Error saving rates:", rateError)
-              throw rateError
-            }
-          }
+          .delete()
+          .in("id", toDelete)
+        if (deleteError) {
+          console.warn(
+            `No se pudieron eliminar ${toDelete.length} alojamientos (probablemente tienen stock o tarifas vinculadas):`,
+            deleteError.message,
+          )
         }
+      }
+
+      // 4. Sincronizar rates de cada alojamiento: borrar los existentes e insertar los del form.
+      //    (Ya no se pierden porque el accommodation id se preserva cuando es UPDATE.)
+      for (const originalAcc of accommodations) {
+        const realId = idMapping[originalAcc.id]
+        if (!realId) continue
+
+        const ratesForThisAcc = accommodationRates[originalAcc.id] || []
+
+        // Borrar rates existentes del accommodation para reescribir según el form
+        const { error: delRatesError } = await supabaseAdmin
+          .from("accommodation_rates")
+          .delete()
+          .eq("accommodation_id", realId)
+        if (delRatesError) throw delRatesError
+
+        if (ratesForThisAcc.length === 0) continue
+
+        const ratesToInsert = ratesForThisAcc.map(rate => ({
+          accommodation_id: realId,
+          mes: rate.mes,
+          anio: rate.anio,
+          tarifa_dbl: rate.tarifa_dbl,
+          tarifa_tpl: rate.tarifa_tpl,
+          tarifa_cpl: rate.tarifa_cpl,
+          tarifa_menor: rate.tarifa_menor,
+        }))
+
+        const { error: insRatesError } = await supabaseAdmin
+          .from("accommodation_rates")
+          .insert(ratesToInsert)
+        if (insRatesError) throw insRatesError
       }
     } catch (error) {
       console.error("Error saving accommodations:", error)
@@ -1300,18 +1325,20 @@ export function AdminDashboardSimple() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {/* Add/Edit Form */}
-                  {(isAdding || isEditing) && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mb-6 p-6 bg-white rounded-xl border-2 border-primary-100 shadow-sm"
-                    >
-                      <h3 className="text-lg font-heading font-semibold mb-6 text-primary-900 pb-3 border-b border-primary-100">
-                        {isAdding ? "Agregar Nuevo Paquete" : "Editar Paquete"}
-                      </h3>
-                      <div className="grid md:grid-cols-2 gap-4">
+                  {/* Add/Edit Form Modal */}
+                  <Dialog
+                    open={isAdding || isEditing !== null}
+                    onOpenChange={(open) => {
+                      if (!open && !isSaving) handleCancel()
+                    }}
+                  >
+                    <DialogContent className="max-w-5xl w-[95vw] max-h-[92vh] overflow-y-auto p-6 sm:p-8">
+                      <DialogHeader className="pb-4 border-b border-primary-100">
+                        <DialogTitle className="text-2xl font-heading font-semibold text-primary-900">
+                          {isAdding ? "Agregar Nuevo Paquete" : "Editar Paquete"}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="grid md:grid-cols-2 gap-4 pt-2">
                         <div>
                           <label className="block text-sm font-medium text-primary-800 mb-2">Nombre del Paquete</label>
                           <Input
@@ -1895,7 +1922,11 @@ export function AdminDashboardSimple() {
                         )}
 
                       </div>
-                      <div className="flex gap-3 mt-6">
+                      <DialogFooter className="mt-6 pt-4 border-t border-primary-100 flex-row justify-end gap-3 sm:gap-3">
+                        <Button onClick={handleCancel} variant="outline" disabled={isSaving}>
+                          <X className="w-4 h-4 mr-2" />
+                          Cancelar
+                        </Button>
                         <Button
                           onClick={handleSave}
                           disabled={isSaving}
@@ -1913,13 +1944,9 @@ export function AdminDashboardSimple() {
                             </>
                           )}
                         </Button>
-                        <Button onClick={handleCancel} variant="outline">
-                          <X className="w-4 h-4 mr-2" />
-                          Cancelar
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
 
                   {/* Packages List */}
                   <div className="space-y-4">
