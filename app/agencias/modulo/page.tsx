@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import AgencyModulePage from '@/components/agency-module-page'
 
 export const metadata: Metadata = {
-  title: 'Módulo Agencias | Expertos en Viajes',
+  title: 'Módulo Agencias | Expertos en Turismo',
   description: 'Acceso exclusivo para agencias: descarga PDFs y accede a recursos especiales de nuestros paquetes de viajes.',
 }
 

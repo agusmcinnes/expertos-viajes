@@ -52,7 +52,7 @@ export function BreadcrumbJsonLd({ items }: { items: BreadcrumbItem[] }) {
     "@type": "ListItem",
     "position": index + 2, // +2 porque el home es posición 1
     "name": item.label,
-    "item": item.href ? `https://expertos-viajes.vercel.app${item.href}` : undefined
+    "item": item.href ? `https://www.expertosenturismo.com.ar${item.href}` : undefined
   }))
 
   const jsonLd = {
@@ -63,7 +63,7 @@ export function BreadcrumbJsonLd({ items }: { items: BreadcrumbItem[] }) {
         "@type": "ListItem", 
         "position": 1,
         "name": "Inicio",
-        "item": "https://expertos-viajes.vercel.app"
+        "item": "https://www.expertosenturismo.com.ar"
       },
       ...itemListElement
     ]

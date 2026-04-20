@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import AgencyLoginForm from '@/components/agency-login-form'
 
 export const metadata: Metadata = {
-  title: 'Acceso Agencias | Expertos en Viajes',
+  title: 'Acceso Agencias | Expertos en Turismo',
   description: 'Acceso exclusivo para agencias aprobadas al módulo de recursos y PDFs.',
 }
 

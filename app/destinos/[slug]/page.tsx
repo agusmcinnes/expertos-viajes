@@ -153,7 +153,7 @@ export async function generateMetadata({ params }: PageProps) {
 
   if (!destination) {
     return {
-      title: "Destino no encontrado - Expertos en Viajes",
+      title: "Destino no encontrado - Expertos en Turismo",
       description: "El destino que buscas no está disponible.",
     }
   }
@@ -168,13 +168,13 @@ export async function generateMetadata({ params }: PageProps) {
   ]
 
   return {
-    title: `${destination.name} - Expertos en Viajes`,
+    title: `${destination.name} - Expertos en Turismo`,
     description: destination.description,
     keywords: keywords.join(", "),
     openGraph: {
-      title: `${destination.name} - Expertos en Viajes`,
+      title: `${destination.name} - Expertos en Turismo`,
       description: destination.description,
-      url: `https://expertos-viajes.vercel.app/destinos/${slug}`,
+      url: `https://www.expertosenturismo.com.ar/destinos/${slug}`,
       type: "website",
       images: [
         {
@@ -187,12 +187,12 @@ export async function generateMetadata({ params }: PageProps) {
     },
     twitter: {
       card: "summary_large_image",
-      title: `${destination.name} - Expertos en Viajes`,
+      title: `${destination.name} - Expertos en Turismo`,
       description: destination.description,
       images: [destination.heroImage],
     },
     alternates: {
-      canonical: `https://expertos-viajes.vercel.app/destinos/${slug}`,
+      canonical: `https://www.expertosenturismo.com.ar/destinos/${slug}`,
     },
   }
 }

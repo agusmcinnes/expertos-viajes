@@ -225,7 +225,7 @@ export function WhyChooseUsSection() {
             >
               ¿Por qué elegir{" "}
               <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Expertos en Viajes
+                Expertos en Turismo
               </span>
               ?
             </motion.h2>

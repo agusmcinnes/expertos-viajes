@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://expertos-viajes.vercel.app'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.expertosenturismo.com.ar'
   
   // Static pages
   const staticPages = [

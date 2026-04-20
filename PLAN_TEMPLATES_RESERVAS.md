@@ -105,7 +105,7 @@ Nueva Reserva #{{reservation_id}} - {{package_name}}
 
   <!-- FOOTER -->
   <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 12px;">
-    <p style="margin: 5px 0;">Reserva gestionada desde <strong>Expertos en Viajes</strong></p>
+    <p style="margin: 5px 0;">Reserva gestionada desde <strong>Expertos en Turismo</strong></p>
     <p style="margin: 5px 0;">Email automático - No responder directamente</p>
     <p style="margin: 5px 0;">Contacta al cliente usando los datos proporcionados arriba</p>
   </div>
@@ -153,7 +153,7 @@ Confirmación de Reserva #{{reservation_id}} - {{package_name}}
     <p style="font-size: 17px; color: #374151; margin: 0 0 10px 0;">Estimado/a <strong>{{cliente_nombre}}</strong>,</p>
 
     <p style="color: #6b7280; font-size: 15px; line-height: 1.6;">
-      ¡Gracias por confiar en <strong style="color: #059669;">Expertos en Viajes</strong>! 🎉
+      ¡Gracias por confiar en <strong style="color: #059669;">Expertos en Turismo</strong>! 🎉
       <br>Tu pre-reserva ha sido registrada exitosamente.
     </p>
 
@@ -229,7 +229,7 @@ Confirmación de Reserva #{{reservation_id}} - {{package_name}}
     </div>
 
     <p style="color: #6b7280; margin: 30px 0 10px 0; font-size: 15px;">Saludos cordiales,</p>
-    <p style="color: #059669; margin: 0; font-size: 17px; font-weight: bold;">Equipo de Expertos en Viajes</p>
+    <p style="color: #059669; margin: 0; font-size: 17px; font-weight: bold;">Equipo de Expertos en Turismo</p>
 
   </div>
 
@@ -242,7 +242,7 @@ Confirmación de Reserva #{{reservation_id}} - {{package_name}}
       Para consultas, responde a este email o contáctanos por nuestros canales oficiales
     </p>
     <p style="color: #d1d5db; font-size: 11px; margin: 15px 0 0 0;">
-      © 2025 Expertos en Viajes - Todos los derechos reservados
+      © 2025 Expertos en Turismo - Todos los derechos reservados
     </p>
   </div>
 
@@ -251,7 +251,7 @@ Confirmación de Reserva #{{reservation_id}} - {{package_name}}
 
 **Settings del Template:**
 - **To Email**: Pon `{{to_email}}`
-- **From Name**: `Expertos en Viajes`
+- **From Name**: `Expertos en Turismo`
 - **Reply-To**: Tu email de soporte (ej: `info@expertosenvajes.com`)
 
 **Guardar y copiar Template ID:**

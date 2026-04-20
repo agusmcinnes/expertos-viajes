@@ -15,13 +15,13 @@ export function JsonLd({ data }: JsonLdProps) {
 }
 
 function getBaseUrl() {
-  return process.env.NEXT_PUBLIC_SITE_URL || 'https://expertos-viajes.vercel.app'
+  return process.env.NEXT_PUBLIC_SITE_URL || 'https://www.expertosenturismo.com.ar'
 }
 
 export const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "TravelAgency",
-  "name": "Expertos en Viajes",
+  "name": "Expertos en Turismo",
   "description": "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut.",
   "url": getBaseUrl(),
   "logo": `${getBaseUrl()}/logo-expertos-viajes.png`,
@@ -72,7 +72,7 @@ export const organizationJsonLd = {
 export const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "Expertos en Viajes",
+  "name": "Expertos en Turismo",
   "url": getBaseUrl(),
   "potentialAction": {
     "@type": "SearchAction",

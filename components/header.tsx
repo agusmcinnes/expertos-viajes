@@ -161,7 +161,7 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
           <Link href="/" onClick={() => handleNavigation("/")} className="flex items-center space-x-2">
             <Image
               src="/logo-expertos-viajes.png"
-              alt="Expertos en Viajes"
+              alt="Expertos en Turismo"
               width={180}
               height={50}
               className={`h-12 w-auto transition-all duration-500 ${logoFilter}`}

@@ -16,7 +16,7 @@ export const sendAutoReply = async (data: AutoReplyData): Promise<boolean> => {
         to_email: data.client_email,
         client_name: data.client_name,
         inquiry_type: data.inquiry_type || 'consulta general',
-        company_name: 'Expertos en Viajes',
+        company_name: 'Expertos en Turismo',
         contact_phone: '+54 9 379 4030711',
         contact_email: 'expertosenviajes.info@gmail.com',
       }

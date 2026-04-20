@@ -55,7 +55,7 @@ export function AdminLogin({ onLogin }: AdminLoginProps) {
             <Plane className="w-10 h-10 text-white" />
           </div>
           <CardTitle className="text-2xl text-primary-950">Panel de Administración</CardTitle>
-          <p className="text-primary-600 font-medium">Expertos en Viajes</p>
+          <p className="text-primary-600 font-medium">Expertos en Turismo</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">

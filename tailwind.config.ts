@@ -24,7 +24,7 @@ const config: Config = {
       },
     extend: {
       colors: {
-        // Colores principales para Expertos en Viajes (aéreo)
+        // Colores principales para Expertos en Turismo (aéreo)
         primary: {
           DEFAULT: "#642EAE", // Violeta intenso
           50: "#F3EFFC",

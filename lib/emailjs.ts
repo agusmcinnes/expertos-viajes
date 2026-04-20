@@ -24,7 +24,7 @@ export const sendEmail = async (data: EmailData): Promise<boolean> => {
         from_email: data.from_email,
         phone: data.phone || 'No proporcionado',
         message: data.message,
-        to_name: data.to_name || 'Expertos en Viajes',
+        to_name: data.to_name || 'Expertos en Turismo',
         reply_to: data.from_email,
       }
     )
@@ -53,7 +53,7 @@ export const sendAgencyNotification = async (data: AgencyNotificationData): Prom
         agency_name: data.agency_name,
         agency_email: data.agency_email,
         agency_phone: data.agency_phone,
-        to_name: 'Administrador - Expertos en Viajes',
+        to_name: 'Administrador - Expertos en Turismo',
         admin_email: process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@expertosenvajes.com',
         subject: 'Nueva solicitud de agencia para aprobación'
       }
@@ -154,7 +154,7 @@ export const sendReservationNotification = async (data: ReservationNotificationD
         detalles_pasajeros: passengersDetail,
         comentarios: data.comments || 'Sin comentarios adicionales',
         reservation_id: data.reservationId.toString(),
-        to_name: 'Administrador - Expertos en Viajes',
+        to_name: 'Administrador - Expertos en Turismo',
         admin_email: process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@expertosenvajes.com',
         subject: `Nueva Reserva #${data.reservationId} - ${data.packageName}`,
         precio_info: 'PRECIO A COTIZAR POR AGENTE'
@@ -213,7 +213,7 @@ export const sendReservationConfirmation = async (data: ReservationConfirmationD
         message: `
 Estimado/a ${data.clientName},
 
-¡Gracias por confiar en Expertos en Viajes!
+¡Gracias por confiar en Expertos en Turismo!
 
 Hemos recibido tu pre-reserva con los siguientes detalles:
 
@@ -234,7 +234,7 @@ Nuestro equipo revisará tu solicitud y se pondrá en contacto contigo para:
 Si tienes alguna consulta, no dudes en contactarnos.
 
 Saludos cordiales,
-Equipo de Expertos en Viajes
+Equipo de Expertos en Turismo
         `.trim()
       }
     )

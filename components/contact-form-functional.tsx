@@ -45,7 +45,7 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
         from_email: formData.email,
         phone: formData.phone,
         message: formData.message,
-        to_name: "Expertos en Viajes"
+        to_name: "Expertos en Turismo"
       }
 
       // Enviar email con EmailJS

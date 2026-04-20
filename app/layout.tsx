@@ -28,9 +28,9 @@ export const metadata: Metadata = {
   },
   description: "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut. Contamos desde viajes en bus hasta viajes aéreos. Contáctanos y descubre el mundo con nosotros.",
   keywords: ["viajes", "turismo", "agencia de viajes", "paquetes turísticos", "destinos", "aventura", "vacaciones", "Chubut", "Argentina", "cruceros", "viajes en bus", "viajes aéreos"],
-  authors: [{ name: "Expertos en Viajes" }],
-  creator: "Expertos en Viajes",
-  publisher: "Expertos en Viajes",
+  authors: [{ name: "Expertos en Turismo" }],
+  creator: "Expertos en Turismo",
+  publisher: "Expertos en Turismo",
   robots: {
     index: true,
     follow: true,
@@ -45,22 +45,22 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "es_AR",
-    url: "https://expertos-viajes.vercel.app",
-    siteName: "Expertos en Viajes",
-    title: "Expertos en Viajes - Tu próximo destino soñado",
+    url: "https://www.expertosenturismo.com.ar",
+    siteName: "Expertos en Turismo",
+    title: "Expertos en Turismo - Tu próximo destino soñado",
     description: "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut.",
     images: [
       {
         url: "/logo-expertos-viajes.png",
         width: 800,
         height: 600,
-        alt: "Expertos en Viajes - Agencia de Turismo",
+        alt: "Expertos en Turismo - Agencia de Turismo",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Expertos en Viajes - Tu próximo destino soñado",
+    title: "Expertos en Turismo - Tu próximo destino soñado",
     description: "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales.",
     images: ["/logo-expertos-viajes.png"],
   },
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     google: "google-site-verification-code",
   },
   alternates: {
-    canonical: "https://expertos-viajes.vercel.app",
+    canonical: "https://www.expertosenturismo.com.ar",
   },
 }
 
