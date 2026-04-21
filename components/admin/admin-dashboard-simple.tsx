@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -2409,8 +2410,8 @@ export function AdminDashboardSimple() {
       </Dialog>
 
       {/* Modal de Tarifas */}
-      {showRatesModal && selectedAccommodationForRates && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      {showRatesModal && selectedAccommodationForRates && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -2603,7 +2604,8 @@ export function AdminDashboardSimple() {
               </div>
             )}
           </motion.div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Confirmation Dialog */}
