@@ -588,6 +588,8 @@ export function AdminDashboardSimple() {
             .upsert({
               ...rateData,
               accommodation_id: selectedAccommodationForRates.id,
+            }, {
+              onConflict: "accommodation_id,mes,anio",
             })
 
           if (error) throw error
@@ -783,21 +785,17 @@ export function AdminDashboardSimple() {
         }
       }
 
-      // 4. Sincronizar rates de cada alojamiento: borrar los existentes e insertar los del form.
-      //    (Ya no se pierden porque el accommodation id se preserva cuando es UPDATE.)
+      // 4. Insertar las rates acumuladas en el form SOLO para alojamientos nuevos.
+      //    Los alojamientos existentes ya manejan sus tarifas directamente desde el modal
+      //    "Gestionar Tarifas" (handleSaveRate / handleDeleteRate), así que tocarlas acá
+      //    borraría las tarifas recién guardadas al cerrar el form del paquete.
       for (const originalAcc of accommodations) {
+        if (!originalAcc.isNew) continue
+
         const realId = idMapping[originalAcc.id]
         if (!realId) continue
 
         const ratesForThisAcc = accommodationRates[originalAcc.id] || []
-
-        // Borrar rates existentes del accommodation para reescribir según el form
-        const { error: delRatesError } = await supabaseAdmin
-          .from("accommodation_rates")
-          .delete()
-          .eq("accommodation_id", realId)
-        if (delRatesError) throw delRatesError
-
         if (ratesForThisAcc.length === 0) continue
 
         const ratesToInsert = ratesForThisAcc.map(rate => ({
