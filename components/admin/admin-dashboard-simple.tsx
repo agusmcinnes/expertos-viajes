@@ -2411,11 +2411,15 @@ export function AdminDashboardSimple() {
 
       {/* Modal de Tarifas */}
       {showRatesModal && selectedAccommodationForRates && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100]">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] pointer-events-auto"
+          onClick={handleCloseRatesModal}
+        >
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl pointer-events-auto"
           >
             <div className="flex justify-between items-center p-6 bg-gradient-to-r from-primary-50 to-secondary-50 border-b border-primary-100">
               <h2 className="text-xl font-heading font-bold text-primary-900">
@@ -2426,8 +2430,9 @@ export function AdminDashboardSimple() {
               </Button>
             </div>
 
+            <div className="p-6 space-y-6">
             {/* Formulario para agregar/editar tarifa */}
-            <div className={`p-5 rounded-xl mb-6 mx-6 ${editingRateId ? 'bg-secondary-50 border-2 border-secondary-300' : 'bg-primary-50/50 border border-primary-100'}`}>
+            <div className={`p-5 rounded-xl ${editingRateId ? 'bg-secondary-50 border-2 border-secondary-300' : 'bg-primary-50/50 border border-primary-100'}`}>
               <h3 className="font-medium mb-4">
                 {editingRateId ? '✏️ Editando Tarifa' : '➕ Agregar Nueva Tarifa'}
               </h3>
@@ -2554,7 +2559,7 @@ export function AdminDashboardSimple() {
                 <h3 className="font-medium mb-4">Tarifas Existentes</h3>
                 <div className="space-y-2">
                   {rates.map((rate) => (
-                    <div key={rate.id} className={`flex items-center justify-between p-3 border rounded-xl mx-6 ${editingRateId === rate.id ? 'bg-primary-50 border-primary-300' : 'bg-white border-primary-100 hover:bg-primary-50/30'}`}>
+                    <div key={rate.id} className={`flex items-center justify-between p-3 border rounded-xl ${editingRateId === rate.id ? 'bg-primary-50 border-primary-300' : 'bg-white border-primary-100 hover:bg-primary-50/30'}`}>
                       <div className="grid grid-cols-6 gap-4 flex-1">
                         <div className="font-medium">
                           {new Date(2024, rate.mes - 1).toLocaleDateString('es-ES', { month: 'long' })} {rate.anio}
@@ -2597,12 +2602,13 @@ export function AdminDashboardSimple() {
             ) : null}
 
             {!isLoadingRates && rates.length === 0 && (
-              <div className="text-center py-8 text-primary-400 mx-6">
+              <div className="text-center py-8 text-primary-400">
                 <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-30 text-primary-300" />
                 <p>No hay tarifas configuradas</p>
                 <p className="text-sm">Agrega la primera tarifa para este alojamiento</p>
               </div>
             )}
+            </div>
           </motion.div>
         </div>,
         document.body
