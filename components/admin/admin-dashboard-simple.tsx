@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { createPortal } from "react-dom"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -2410,27 +2409,20 @@ export function AdminDashboardSimple() {
       </Dialog>
 
       {/* Modal de Tarifas */}
-      {showRatesModal && selectedAccommodationForRates && typeof document !== "undefined" && createPortal(
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] pointer-events-auto"
-          onClick={handleCloseRatesModal}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl overflow-hidden max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto shadow-2xl pointer-events-auto"
-          >
-            <div className="flex justify-between items-center p-6 bg-gradient-to-r from-primary-50 to-secondary-50 border-b border-primary-100">
-              <h2 className="text-xl font-heading font-bold text-primary-900">
-                Gestionar Tarifas - {selectedAccommodationForRates.name}
-              </h2>
-              <Button variant="outline" onClick={handleCloseRatesModal}>
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
+      <Dialog
+        open={showRatesModal && !!selectedAccommodationForRates}
+        onOpenChange={(open) => {
+          if (!open) handleCloseRatesModal()
+        }}
+      >
+        <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="p-6 bg-gradient-to-r from-primary-50 to-secondary-50 border-b border-primary-100">
+            <DialogTitle className="text-xl font-heading font-bold text-primary-900">
+              Gestionar Tarifas{selectedAccommodationForRates ? ` - ${selectedAccommodationForRates.name}` : ""}
+            </DialogTitle>
+          </DialogHeader>
 
-            <div className="p-6 space-y-6">
+          <div className="p-6 space-y-6">
             {/* Formulario para agregar/editar tarifa */}
             <div className={`p-5 rounded-xl ${editingRateId ? 'bg-secondary-50 border-2 border-secondary-300' : 'bg-primary-50/50 border border-primary-100'}`}>
               <h3 className="font-medium mb-4">
@@ -2608,11 +2600,9 @@ export function AdminDashboardSimple() {
                 <p className="text-sm">Agrega la primera tarifa para este alojamiento</p>
               </div>
             )}
-            </div>
-          </motion.div>
-        </div>,
-        document.body
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation Dialog */}
       <AlertDialogConfirm
