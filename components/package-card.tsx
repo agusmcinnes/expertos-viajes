@@ -12,6 +12,7 @@ import {
   Calendar,
   Clock,
   ArrowRight,
+  Users,
 } from "lucide-react"
 import { motion } from "framer-motion"
 import type { TravelPackage } from "@/lib/supabase"
@@ -109,11 +110,17 @@ export function PackageCard({ package: pkg, index = 0 }: PackageCardProps) {
           />
 
           {/* Transport pill */}
-          <div className="absolute top-3 left-3 z-10">
+          <div className="absolute top-3 left-3 z-10 flex flex-col gap-1.5 items-start">
             <Badge className={`${colors.bg} ${colors.text} shadow-md backdrop-blur-sm text-xs font-semibold px-2.5 py-1`}>
               <Icon className="w-3.5 h-3.5 mr-1.5" />
               {TRANSPORT_LABELS[transportType]}
             </Badge>
+            {pkg.is_grupal && (
+              <Badge className="bg-emerald-100 text-emerald-800 shadow-md backdrop-blur-sm text-xs font-semibold px-2.5 py-1">
+                <Users className="w-3.5 h-3.5 mr-1.5" />
+                Salida grupal
+              </Badge>
+            )}
           </div>
 
           {/* Bottom gradient overlay with title + price */}

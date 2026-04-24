@@ -338,6 +338,7 @@ export function AdminDashboardSimple() {
       piezas_redes_pdf_url: "",
       is_special: false,
       is_featured: false,
+      is_grupal: false,
       priority_order: "0",
       ciudades: "",
       servicios_incluidos: "",
@@ -363,6 +364,7 @@ export function AdminDashboardSimple() {
       piezas_redes_pdf_url: pkg.piezas_redes_pdf_url || "",
       is_special: pkg.is_special || false,
       is_featured: pkg.is_featured || false,
+      is_grupal: pkg.is_grupal || false,
       priority_order: pkg.priority_order?.toString() || "0",
       ciudades: pkg.ciudades?.join(", ") || "",
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
@@ -835,6 +837,7 @@ export function AdminDashboardSimple() {
         piezas_redes_pdf_url: formData.piezas_redes_pdf_url || null,
         is_special: formData.is_special,
         is_featured: formData.is_featured,
+        is_grupal: formData.is_grupal,
         priority_order: formData.priority_order ? Number.parseInt(formData.priority_order) : 0,
         ciudades: formData.ciudades
           ? formData.ciudades.split(",").map((c) => c.trim()).filter(c => c.length > 0)
@@ -935,6 +938,7 @@ export function AdminDashboardSimple() {
       piezas_redes_pdf_url: "",
       is_special: false,
       is_featured: false,
+      is_grupal: false,
       priority_order: "0",
       ciudades: "",
       servicios_incluidos: "",
@@ -1657,7 +1661,7 @@ export function AdminDashboardSimple() {
                             <Checkbox
                               id="is_featured"
                               checked={formData.is_featured}
-                              onCheckedChange={(checked) => 
+                              onCheckedChange={(checked) =>
                                 setFormData((prev) => ({ ...prev, is_featured: checked as boolean }))
                               }
                             />
@@ -1666,6 +1670,21 @@ export function AdminDashboardSimple() {
                               className="text-sm font-medium text-primary-800 cursor-pointer"
                             >
                               Paquete destacado (aparece en home)
+                            </label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="is_grupal"
+                              checked={formData.is_grupal}
+                              onCheckedChange={(checked) =>
+                                setFormData((prev) => ({ ...prev, is_grupal: checked as boolean }))
+                              }
+                            />
+                            <label
+                              htmlFor="is_grupal"
+                              className="text-sm font-medium text-primary-800 cursor-pointer"
+                            >
+                              Salida grupal acompañada
                             </label>
                           </div>
                         </div>
@@ -1994,6 +2013,9 @@ export function AdminDashboardSimple() {
                               )}
                               {pkg.is_featured && (
                                 <Badge className="bg-amber-100 text-amber-800">Destacado</Badge>
+                              )}
+                              {pkg.is_grupal && (
+                                <Badge className="bg-emerald-100 text-emerald-800">Salida grupal</Badge>
                               )}
                               {pkg.priority_order > 0 && (
                                 <Badge className="bg-secondary-100 text-secondary-800">Prioridad: {pkg.priority_order}</Badge>

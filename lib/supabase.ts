@@ -23,6 +23,7 @@ export interface TravelPackage {
   is_active: boolean
   is_special: boolean
   is_featured: boolean
+  is_grupal: boolean
   priority_order: number
   transport_type?: "aereo" | "bus" | "crucero"
   ciudades?: string[] | null
@@ -153,8 +154,13 @@ export const packageService = {
           code
         )
       `)
-      .eq("destinations.code", destinationCode)
       .eq("is_active", true)
+
+    if (destinationCode === "grupales") {
+      query = query.eq("is_grupal", true)
+    } else {
+      query = query.eq("destinations.code", destinationCode)
+    }
 
     // Only filter by transport_type if the column exists and transportType is specified
     if (transportType) {
