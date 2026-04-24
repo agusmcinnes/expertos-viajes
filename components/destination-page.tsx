@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, MapPin, CheckCircle, Plane, Bus, Ship } from "lucide-react"
+import { ArrowLeft, MapPin, Plane, Bus, Ship } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -199,36 +199,6 @@ export function DestinationPage({ destination }: DestinationPageProps) {
           </div>
           
           <div className="max-w-6xl mx-auto">
-            {/* Highlights */}
-            {destination.highlights && destination.highlights.length > 0 && (
-              <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-16"
-            >
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">
-                Lo mejor de <span className="text-primary">{destination.name}</span>
-              </h2>
-
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {destination.highlights.map((highlight, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: index * 0.1 }}
-                    className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-                  >
-                    <CheckCircle className="w-6 h-6 text-primary flex-shrink-0 mt-1" />
-                    <span className="text-gray-700">{highlight}</span>
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>)}
-            
-
             {/* Packages Section */}
             <motion.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-8 text-center">Paquetes Disponibles</h2>

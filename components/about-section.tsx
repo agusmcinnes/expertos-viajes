@@ -74,7 +74,7 @@ export function AboutSection() {
               />
               <div className="absolute -bottom-6 -right-6 bg-primary p-4 rounded-lg shadow-lg">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-white">10+</div>
+                  <div className="text-2xl font-bold text-white">20+</div>
                   <div className="text-sm text-white/80">Años de experiencia</div>
                 </div>
               </div>
