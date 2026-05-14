@@ -148,6 +148,9 @@ export function PackageCard({ package: pkg, index = 0 }: PackageCardProps) {
               <div className="text-right shrink-0">
                 <p className="text-[10px] text-white/70 uppercase tracking-wider font-medium">Desde</p>
                 <p className="text-xl font-bold text-white drop-shadow-md">{pkg.price}</p>
+                {pkg.cuotas && (
+                  <p className="text-[10px] text-white/90 font-medium mt-0.5">{pkg.cuotas}</p>
+                )}
               </div>
             </div>
           </div>

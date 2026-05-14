@@ -33,6 +33,8 @@ export interface TravelPackage {
   flyer_pdf_url?: string | null
   piezas_redes_pdf_url?: string | null
   url?: string | null
+  novedades_category_id?: number | null
+  cuotas?: string | null
   created_at: string
   updated_at: string
   destinations?: {
@@ -40,6 +42,17 @@ export interface TravelPackage {
     name: string
     code: string
   }
+}
+
+export interface NovedadesCategory {
+  id: number
+  name: string
+  slug: string
+  is_active: boolean
+  display_order: number
+  image_url?: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface Accommodation {
@@ -512,6 +525,64 @@ export const siteConfigService = {
 
     if (error) throw error
     return data[0]
+  },
+}
+
+// Servicio para categorías de novedades
+export const novedadesCategoryService = {
+  async getAllActiveCategories(): Promise<NovedadesCategory[]> {
+    const { data, error } = await supabase
+      .from("novedades_categories")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true })
+
+    if (error) throw error
+    return data || []
+  },
+
+  async getAllCategories(): Promise<NovedadesCategory[]> {
+    const { data, error } = await supabase
+      .from("novedades_categories")
+      .select("*")
+      .order("display_order", { ascending: true })
+
+    if (error) throw error
+    return data || []
+  },
+
+  async getCategoryBySlug(slug: string): Promise<NovedadesCategory | null> {
+    const { data, error } = await supabase
+      .from("novedades_categories")
+      .select("*")
+      .eq("slug", slug)
+      .single()
+
+    if (error) {
+      if (error.code === "PGRST116") return null
+      throw error
+    }
+    return data
+  },
+
+  async getPackagesByCategory(categoryId: number) {
+    const { data, error } = await supabase
+      .from("travel_packages")
+      .select(`
+        *,
+        destinations (
+          id,
+          name,
+          code
+        )
+      `)
+      .eq("novedades_category_id", categoryId)
+      .eq("is_active", true)
+      .order("priority_order", { ascending: false })
+      .order("created_at", { ascending: false })
+
+    if (error) throw error
+    return data || []
   },
 }
 

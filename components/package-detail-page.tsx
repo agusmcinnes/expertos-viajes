@@ -311,6 +311,9 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Desde</p>
                 <p className="text-base font-bold text-green-700 mt-0.5">{package_.price}</p>
+                {package_.cuotas && (
+                  <p className="text-[10px] text-green-600 font-medium">{package_.cuotas}</p>
+                )}
               </div>
             </div>
           </div>
@@ -554,6 +557,9 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                     Desde {package_.price}
                   </div>
                   <p className="text-xs opacity-75 mt-1">en base doble</p>
+                  {package_.cuotas && (
+                    <p className="text-sm opacity-90 mt-1 font-medium">{package_.cuotas}</p>
+                  )}
                 </div>
 
                 <CardContent className="p-5 sm:p-6 space-y-5">
@@ -665,6 +671,9 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
           <div>
             <p className="text-xs text-gray-500">Desde</p>
             <p className="text-lg font-bold text-gray-900">{package_.price}</p>
+            {package_.cuotas && (
+              <p className="text-[10px] text-green-600 font-medium">{package_.cuotas}</p>
+            )}
           </div>
           <Button
             onClick={() => setShowPromoAlert(true)}

@@ -5,10 +5,10 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Menu, X, Users, Phone, ChevronDown, ChevronRight, Bus, Plane, Sparkles, Ship } from "lucide-react"
+import { Menu, X, Users, Phone, ChevronDown, ChevronRight, Bus, Plane, Sparkles, Ship, Newspaper } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
-import { destinationService } from "@/lib/supabase"
-import type { Destination } from "@/lib/supabase"
+import { destinationService, novedadesCategoryService } from "@/lib/supabase"
+import type { Destination, NovedadesCategory } from "@/lib/supabase"
 import { isAgencyAuthenticated, getCurrentAgency, logoutAgency } from "@/lib/agency-auth"
 
 interface HeaderProps {
@@ -22,12 +22,14 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
   const [destinations, setDestinations] = useState<Destination[]>([])
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const [specialSectionTitle, setSpecialSectionTitle] = useState("Seccion Especial")
+  const [novedadesCategories, setNovedadesCategories] = useState<NovedadesCategory[]>([])
   const [isAgencyLoggedIn, setIsAgencyLoggedIn] = useState(false)
   const [agencyName, setAgencyName] = useState("")
 
   useEffect(() => {
     loadDestinations()
     loadSpecialSectionTitle()
+    loadNovedadesCategories()
     checkAgencySession()
   }, [])
 
@@ -53,6 +55,15 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
       setSpecialSectionTitle(config.config_value)
     } catch (error) {
       console.log("Special section title not found, using default")
+    }
+  }
+
+  const loadNovedadesCategories = async () => {
+    try {
+      const data = await novedadesCategoryService.getAllActiveCategories()
+      setNovedadesCategories(data)
+    } catch (error) {
+      console.log("Novedades categories not loaded")
     }
   }
 
@@ -162,14 +173,14 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
             <Image
               src="/logo-expertos-viajes.png"
               alt="Expertos en Turismo"
-              width={180}
-              height={50}
-              className={`h-12 w-auto transition-all duration-500 ${logoFilter}`}
+              width={140}
+              height={40}
+              className={`h-9 w-auto transition-all duration-500 ${logoFilter}`}
             />
           </Link>
 
           {/* Desktop Navigation - Centered */}
-          <nav className="hidden lg:flex items-center space-x-8 absolute left-1/2 -translate-x-1/2">
+          <nav className="hidden lg:flex items-center space-x-5 absolute left-1/2 -translate-x-1/2">
             {/* En Avion Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -301,6 +312,36 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
               </DropdownMenuContent>
             </DropdownMenu>
 
+            {/* Novedades Dropdown */}
+            {novedadesCategories.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className={`flex items-center space-x-1.5 ${navTextColor} ${navHoverColor} transition-colors duration-200 p-0 h-auto font-medium text-sm tracking-wide bg-transparent hover:bg-transparent`}
+                  >
+                    <Newspaper className="w-4 h-4" />
+                    <span>Novedades</span>
+                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-64 rounded-xl shadow-2xl border border-gray-100/50 bg-white/95 backdrop-blur-xl p-2">
+                  {novedadesCategories.map((cat) => (
+                    <DropdownMenuItem key={cat.id} asChild className="rounded-lg px-3 py-2.5 cursor-pointer hover:bg-primary/5">
+                      <Link
+                        href={`/novedades/${cat.slug}`}
+                        onClick={() => handleNavigation(`/novedades/${cat.slug}`)}
+                        className="flex items-center space-x-2 w-full"
+                      >
+                        <Newspaper className="w-4 h-4 text-primary" />
+                        <span>{cat.name}</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
             {/* Seccion Especial */}
             <Link
               href="/seccion-especial"
@@ -308,18 +349,19 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
                 e.preventDefault()
                 handleNavigation("/seccion-especial")
               }}
-              className={`text-sm font-medium tracking-wide ${navTextColor} ${navHoverColor} transition-colors duration-200 flex items-center gap-1.5`}
+              className={`text-sm font-medium tracking-wide ${navTextColor} ${navHoverColor} transition-colors duration-200 flex items-center gap-1.5 whitespace-nowrap max-w-[140px] truncate`}
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              {specialSectionTitle}
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">{specialSectionTitle}</span>
             </Link>
           </nav>
 
           {/* CTA Buttons */}
-          <div className="hidden lg:flex items-center space-x-3">
+          <div className="hidden lg:flex items-center space-x-2">
             <Button
               asChild
-              className="bg-primary hover:bg-primary-600 text-white font-medium px-6 py-2.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-primary/25"
+              size="sm"
+              className="bg-primary hover:bg-primary-600 text-white font-medium px-4 py-1.5 rounded-full transition-all duration-300 hover:shadow-lg hover:shadow-primary/25 text-xs"
             >
               <Link
                 href="/#destinos"
@@ -336,7 +378,8 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
               <Button
                 variant="outline"
                 asChild
-                className={`border ${isHeaderSolid ? "border-primary/30 text-primary" : "border-white/30 text-white"} hover:bg-primary hover:text-white hover:border-primary px-5 py-2.5 rounded-full transition-all duration-300 bg-transparent`}
+                size="sm"
+                className={`border ${isHeaderSolid ? "border-primary/30 text-primary" : "border-white/30 text-white"} hover:bg-primary hover:text-white hover:border-primary px-4 py-1.5 rounded-full transition-all duration-300 bg-transparent text-xs`}
               >
                 <Link href="/agencias/login">
                   Ingreso Agencias
@@ -571,6 +614,57 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
                       )}
                     </AnimatePresence>
                   </motion.div>
+
+                  {/* Novedades - Mobile */}
+                  {novedadesCategories.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4, duration: 0.3 }}
+                      className="space-y-2"
+                    >
+                      <button
+                        onClick={() => toggleSection('novedades')}
+                        className="w-full flex items-center justify-between p-3 bg-primary/5 rounded-xl hover:bg-primary/10 transition-all duration-200"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                            <Newspaper className="w-4 h-4 text-primary" />
+                          </div>
+                          <span className="font-semibold text-gray-800">Novedades</span>
+                        </div>
+                        <ChevronRight
+                          className={`w-4 h-4 text-primary transition-transform duration-200 ${
+                            expandedSection === 'novedades' ? 'rotate-90' : ''
+                          }`}
+                        />
+                      </button>
+
+                      <AnimatePresence>
+                        {expandedSection === 'novedades' && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="ml-3 space-y-1 overflow-hidden"
+                          >
+                            {novedadesCategories.map((cat) => (
+                              <Link
+                                key={cat.id}
+                                href={`/novedades/${cat.slug}`}
+                                className="flex items-center space-x-2 text-gray-600 hover:text-primary transition-all duration-200 p-2.5 rounded-lg hover:bg-primary/5"
+                                onClick={() => handleNavigation(`/novedades/${cat.slug}`)}
+                              >
+                                <Newspaper className="w-3.5 h-3.5 text-primary/60" />
+                                <span className="text-sm font-medium">{cat.name}</span>
+                              </Link>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
 
                   {/* Seccion Especial - Mobile */}
                   <motion.div

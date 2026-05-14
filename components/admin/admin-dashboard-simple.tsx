@@ -11,14 +11,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
-import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar } from "lucide-react"
-import { supabase, packageService, agencyService, pdfService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType } from "@/lib/supabase"
+import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar, Newspaper } from "lucide-react"
+import { supabase, packageService, agencyService, pdfService, novedadesCategoryService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType, type NovedadesCategory } from "@/lib/supabase"
 import { supabaseAdmin, adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
 import { StockManager } from "./stock-manager"
 import { ReservationsManager } from "./reservations-manager"
+import { NovedadesManager } from "./novedades-manager"
 import { useToast } from "@/hooks/use-toast"
 
 export function AdminDashboardSimple() {
@@ -37,7 +38,8 @@ export function AdminDashboardSimple() {
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false)
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null)
   const [isAgencyDetailOpen, setIsAgencyDetailOpen] = useState(false)
-  
+  const [novedadesCategories, setNovedadesCategories] = useState<NovedadesCategory[]>([])
+
   // Filtros
   const [filterDestination, setFilterDestination] = useState<string>("all")
   
@@ -147,6 +149,8 @@ export function AdminDashboardSimple() {
     servicios_incluidos: "",
     servicios_adicionales: "",
     max_group_size: "",
+    cuotas: "",
+    novedades_category_id: "",
   })
 
   const [accommodationFormData, setAccommodationFormData] = useState({
@@ -210,6 +214,15 @@ export function AdminDashboardSimple() {
       } catch (error) {
         console.warn("Error loading agencies:", error)
         setAgencies([])
+      }
+
+      // Load novedades categories
+      try {
+        const categoriesData = await novedadesCategoryService.getAllCategories()
+        setNovedadesCategories(categoriesData || [])
+      } catch (error) {
+        console.warn("Error loading novedades categories:", error)
+        setNovedadesCategories([])
       }
     } catch (error) {
       console.error("Error loading data:", error)
@@ -344,6 +357,8 @@ export function AdminDashboardSimple() {
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
+      cuotas: "",
+      novedades_category_id: "",
     })
   }
 
@@ -370,6 +385,8 @@ export function AdminDashboardSimple() {
       servicios_incluidos: pkg.servicios_incluidos?.join(", ") || "",
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
       max_group_size: (pkg as any).max_group_size?.toString() || "",
+      cuotas: (pkg as any).cuotas || "",
+      novedades_category_id: (pkg as any).novedades_category_id?.toString() || "",
     })
     
     // Cargar alojamientos existentes
@@ -849,6 +866,8 @@ export function AdminDashboardSimple() {
           ? formData.servicios_adicionales.split(",").map((s) => s.trim()).filter(s => s.length > 0)
           : null,
         max_group_size: formData.max_group_size ? Number.parseInt(formData.max_group_size) : null,
+        cuotas: formData.cuotas || null,
+        novedades_category_id: formData.novedades_category_id ? Number.parseInt(formData.novedades_category_id) : null,
       }
 
       // Only add transport_type if the form has it
@@ -944,6 +963,8 @@ export function AdminDashboardSimple() {
       servicios_incluidos: "",
       servicios_adicionales: "",
       max_group_size: "",
+      cuotas: "",
+      novedades_category_id: "",
     })
     setAccommodationFormData({
       name: "",
@@ -1266,7 +1287,7 @@ export function AdminDashboardSimple() {
         {/* Tabs para diferentes secciones de administración */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <Tabs defaultValue="packages" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 bg-primary-100/60 p-1.5 rounded-xl h-auto">
+            <TabsList className="grid w-full grid-cols-6 bg-primary-100/60 p-1.5 rounded-xl h-auto">
               <TabsTrigger value="packages" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
                 <Package className="w-4 h-4" />
                 <span>Paquetes</span>
@@ -1283,9 +1304,13 @@ export function AdminDashboardSimple() {
                 <Users className="w-4 h-4" />
                 <span>Agencias</span>
               </TabsTrigger>
+              <TabsTrigger value="novedades" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
+                <Newspaper className="w-4 h-4" />
+                <span>Novedades</span>
+              </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center space-x-2 py-3 rounded-lg font-medium data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-primary/20 text-primary-700 hover:text-primary-900 transition-all">
                 <Settings className="w-4 h-4" />
-                <span>Configuración</span>
+                <span>Config</span>
               </TabsTrigger>
             </TabsList>
 
@@ -1356,6 +1381,14 @@ export function AdminDashboardSimple() {
                             value={formData.price}
                             onChange={(e) => setFormData((prev) => ({ ...prev, price: e.target.value }))}
                             placeholder="1200 USD | 1.400.000 ARS"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Cuotas</label>
+                          <Input
+                            value={formData.cuotas}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, cuotas: e.target.value }))}
+                            placeholder="Ej: 6 cuotas sin interés"
                           />
                         </div>
                         <div>
@@ -1686,6 +1719,25 @@ export function AdminDashboardSimple() {
                             >
                               Salida grupal acompañada
                             </label>
+                          </div>
+                          <div className="mt-3">
+                            <label className="block text-sm font-medium text-primary-800 mb-2">Categoría de Novedades</label>
+                            <Select
+                              value={formData.novedades_category_id}
+                              onValueChange={(value) => setFormData((prev) => ({ ...prev, novedades_category_id: value === "none" ? "" : value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Sin categoría de novedades" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sin categoría</SelectItem>
+                                {novedadesCategories.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.id.toString()}>
+                                    {cat.name} {!cat.is_active && "(inactiva)"}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                         <div>
@@ -2249,6 +2301,13 @@ export function AdminDashboardSimple() {
 
             <TabsContent value="reservations">
               <ReservationsManager />
+            </TabsContent>
+
+            <TabsContent value="novedades">
+              <NovedadesManager onCategoriesChange={async () => {
+                const cats = await novedadesCategoryService.getAllCategories()
+                setNovedadesCategories(cats || [])
+              }} />
             </TabsContent>
 
             <TabsContent value="config">
