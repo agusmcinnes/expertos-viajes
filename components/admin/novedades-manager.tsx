@@ -10,6 +10,7 @@ import { Plus, Edit, Trash2, Save, X, Newspaper, Upload, ImageIcon } from "lucid
 import { supabaseAdmin } from "@/lib/supabase-admin"
 import { novedadesCategoryService, type NovedadesCategory } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
+import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import Image from "next/image"
 
 const MAX_IMAGE_SIZE = 3 * 1024 * 1024 // 3MB
@@ -28,6 +29,12 @@ export function NovedadesManager({ onCategoriesChange }: NovedadesManagerProps) 
   const [formData, setFormData] = useState({ name: "", slug: "", display_order: "0", is_active: true, image_url: "" })
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    description: string
+    onConfirm: (() => void) | null
+  }>({ open: false, title: "", description: "", onConfirm: null })
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -157,7 +164,17 @@ export function NovedadesManager({ onCategoriesChange }: NovedadesManagerProps) 
     }
   }
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = (id: number) => {
+    const cat = categories.find(c => c.id === id)
+    setConfirmDialog({
+      open: true,
+      title: "Eliminar Categoría",
+      description: `¿Estás seguro de que querés eliminar "${cat?.name || ""}"? Los paquetes asociados ya no pertenecerán a esta categoría. Esta acción no se puede deshacer.`,
+      onConfirm: () => executeDelete(id),
+    })
+  }
+
+  const executeDelete = async (id: number) => {
     try {
       const { error } = await supabaseAdmin.from("novedades_categories").delete().eq("id", id)
       if (error) throw error
@@ -372,6 +389,16 @@ export function NovedadesManager({ onCategoriesChange }: NovedadesManagerProps) 
           </div>
         )}
       </CardContent>
+
+      <AlertDialogConfirm
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ open, title: "", description: "", onConfirm: null })}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        confirmText="Eliminar"
+        onConfirm={() => { if (confirmDialog.onConfirm) confirmDialog.onConfirm() }}
+        variant="destructive"
+      />
     </Card>
   )
 }
