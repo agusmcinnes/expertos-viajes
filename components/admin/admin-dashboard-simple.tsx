@@ -128,6 +128,7 @@ export function AdminDashboardSimple() {
     tarifa_tpl: "",
     tarifa_cpl: "",
     tarifa_menor: "",
+    currency: "USD",
   })
 
   const [formData, setFormData] = useState({
@@ -540,6 +541,7 @@ export function AdminDashboardSimple() {
       tarifa_tpl: parseFloat(rateFormData.tarifa_tpl) || null,
       tarifa_cpl: parseFloat(rateFormData.tarifa_cpl) || null,
       tarifa_menor: parseFloat(rateFormData.tarifa_menor) || null,
+      currency: rateFormData.currency || "USD",
     }
 
     // Si es un alojamiento nuevo, agregar a lista temporal
@@ -637,6 +639,7 @@ export function AdminDashboardSimple() {
       tarifa_tpl: "",
       tarifa_cpl: "",
       tarifa_menor: "",
+      currency: "USD",
     })
     setEditingRateId(null)
   }
@@ -651,6 +654,7 @@ export function AdminDashboardSimple() {
       tarifa_tpl: rate.tarifa_tpl?.toString() || "",
       tarifa_cpl: rate.tarifa_cpl?.toString() || "",
       tarifa_menor: rate.tarifa_menor?.toString() || "",
+      currency: rate.currency || "USD",
     })
   }
 
@@ -664,6 +668,7 @@ export function AdminDashboardSimple() {
       tarifa_tpl: "",
       tarifa_cpl: "",
       tarifa_menor: "",
+      currency: "USD",
     })
   }
 
@@ -728,6 +733,7 @@ export function AdminDashboardSimple() {
       tarifa_tpl: "",
       tarifa_cpl: "",
       tarifa_menor: "",
+      currency: "USD",
     })
   }
 
@@ -979,6 +985,7 @@ export function AdminDashboardSimple() {
       tarifa_tpl: "",
       tarifa_cpl: "",
       tarifa_menor: "",
+      currency: "USD",
     })
   }
 
@@ -2558,7 +2565,7 @@ export function AdminDashboardSimple() {
                   </Select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">DBL (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">DBL</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2568,7 +2575,7 @@ export function AdminDashboardSimple() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">TPL (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">TPL</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2578,7 +2585,7 @@ export function AdminDashboardSimple() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">CPL (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">CPL</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2588,7 +2595,7 @@ export function AdminDashboardSimple() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">MENOR (USD)</label>
+                  <label className="block text-sm font-medium text-primary-800 mb-1">MENOR</label>
                   <Input
                     type="number"
                     step="0.01"
@@ -2597,6 +2604,21 @@ export function AdminDashboardSimple() {
                     placeholder="75.00"
                   />
                 </div>
+              </div>
+              <div className="mt-4 max-w-[180px]">
+                <label className="block text-sm font-medium text-primary-800 mb-1">Moneda</label>
+                <Select
+                  value={rateFormData.currency}
+                  onValueChange={(value) => setRateFormData(prev => ({...prev, currency: value}))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Moneda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD (dólares)</SelectItem>
+                    <SelectItem value="ARS">ARS (pesos)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex gap-2 mt-4">
                 <Button

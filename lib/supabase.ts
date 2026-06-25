@@ -75,6 +75,7 @@ export interface AccommodationRate {
   tarifa_tpl: number
   tarifa_cpl: number
   tarifa_menor: number
+  currency?: string | null
   created_at: string
   updated_at: string
 }

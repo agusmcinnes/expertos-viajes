@@ -171,11 +171,12 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
     return months[month - 1]
   }
 
-  const formatCurrency = (amount: number | null | undefined) => {
+  const formatCurrency = (amount: number | null | undefined, currency?: string | null) => {
     if (amount == null || amount === 0) return '-'
-    return new Intl.NumberFormat('en-US', {
+    const code = (currency || 'USD').toUpperCase()
+    return new Intl.NumberFormat(code === 'ARS' ? 'es-AR' : 'en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: code,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount)
@@ -488,10 +489,10 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                                           <TableCell className="font-medium">
                                             {getMonthName(rate.mes)} {rate.anio}
                                           </TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl)}</TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl)}</TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl)}</TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor)}</TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl, rate.currency)}</TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl, rate.currency)}</TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl, rate.currency)}</TableCell>
+                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor, rate.currency)}</TableCell>
                                         </TableRow>
                                       ))}
                                   </TableBody>
@@ -510,19 +511,19 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                                       <div className="grid grid-cols-2 gap-1.5 text-sm">
                                         <div className="flex justify-between p-1.5">
                                           <span className="text-gray-500">Doble</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl)}</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl, rate.currency)}</span>
                                         </div>
                                         <div className="flex justify-between p-1.5">
                                           <span className="text-gray-500">Triple</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl)}</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl, rate.currency)}</span>
                                         </div>
                                         <div className="flex justify-between p-1.5">
                                           <span className="text-gray-500">Cuadruple</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl)}</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl, rate.currency)}</span>
                                         </div>
                                         <div className="flex justify-between p-1.5">
                                           <span className="text-gray-500">Menor</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor)}</span>
+                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor, rate.currency)}</span>
                                         </div>
                                       </div>
                                     </div>
