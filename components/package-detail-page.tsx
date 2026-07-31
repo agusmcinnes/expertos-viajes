@@ -66,6 +66,15 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
     loadPackageData()
   }, [packageId])
 
+  // El beneficio por autogestion solo aplica a paquetes en bus
+  const handleReservarClick = () => {
+    if (package_?.transport_type === "bus") {
+      setShowPromoAlert(true)
+    } else {
+      setShowReservationForm(true)
+    }
+  }
+
   useEffect(() => {
     if (showReservationForm) {
       setTimeout(() => {
@@ -612,7 +621,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                   {/* CTA Buttons */}
                   <div className="space-y-3">
                     <Button
-                      onClick={() => setShowPromoAlert(true)}
+                      onClick={handleReservarClick}
                       className="w-full bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white text-base font-semibold shadow-lg shadow-green-200/50 h-12 relative overflow-hidden group"
                       size="lg"
                     >
@@ -677,7 +686,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
             )}
           </div>
           <Button
-            onClick={() => setShowPromoAlert(true)}
+            onClick={handleReservarClick}
             className="bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-700 hover:to-emerald-600 text-white font-semibold h-11 px-6 shadow-lg shadow-green-200/50"
           >
             <Calendar className="w-4 h-4 mr-2" />
