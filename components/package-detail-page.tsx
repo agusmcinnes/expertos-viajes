@@ -6,16 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, Star, DollarSign, Mail, Phone, ChevronDown, ChevronUp, Utensils, CheckCircle2, PlusCircle, ExternalLink, MessageCircle } from "lucide-react"
+import { ArrowLeft, MapPin, Calendar, Clock, Users, Plane, Bus, Ship, Hotel, DollarSign, Mail, Phone, ChevronDown, ChevronUp, CheckCircle2, PlusCircle, MessageCircle } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import type { TravelPackage, Destination } from "@/lib/supabase"
+import type { TravelPackage, Destination, AccommodationRate } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeRaw from "rehype-raw"
 import { ContactFormFunctional } from "./contact-form-functional"
 import { ReservationForm } from "./reservation-form"
+import { DepartureRates } from "./departure-rates"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,16 +38,6 @@ interface Accommodation {
   enlace_web?: string
   regimen?: string
   rates?: AccommodationRate[]
-}
-
-interface AccommodationRate {
-  id: number
-  mes: number
-  anio: number
-  tarifa_dbl: number | null
-  tarifa_tpl: number | null
-  tarifa_cpl: number | null
-  tarifa_menor: number | null
 }
 
 export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
@@ -161,34 +151,6 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
       case "crucero": return "bg-blue-50 text-blue-700 border-blue-200"
       default: return "bg-purple-50 text-purple-700 border-purple-200"
     }
-  }
-
-  const renderStars = (stars: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        className={`w-4 h-4 ${i < stars ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`}
-      />
-    ))
-  }
-
-  const getMonthName = (month: number) => {
-    const months = [
-      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-    ]
-    return months[month - 1]
-  }
-
-  const formatCurrency = (amount: number | null | undefined, currency?: string | null) => {
-    if (amount == null || amount === 0) return '-'
-    const code = (currency || 'USD').toUpperCase()
-    return new Intl.NumberFormat(code === 'ARS' ? 'es-AR' : 'en-US', {
-      style: 'currency',
-      currency: code,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount)
   }
 
   if (isLoading) {
@@ -441,110 +403,18 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                   <CardHeader>
                     <CardTitle className="flex items-center text-lg sm:text-xl">
                       <Hotel className="w-5 h-5 mr-2" />
-                      Alojamientos y Tarifas
+                      Tarifas por Salida
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="space-y-5">
-                      {accommodations.map((accommodation) => (
-                        <div key={accommodation.id} className="border border-gray-200 rounded-xl overflow-hidden">
-                          {/* Hotel header */}
-                          <div className="p-4 sm:p-5 bg-gray-50 border-b border-gray-200">
-                            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1.5">{accommodation.name}</h3>
-                            <div className="flex items-center gap-3 flex-wrap">
-                              <div className="flex items-center gap-0.5">
-                                {renderStars(accommodation.stars)}
-                              </div>
-                              {accommodation.regimen && (
-                                <Badge variant="secondary" className="text-xs font-normal">
-                                  <Utensils className="w-3 h-3 mr-1" />
-                                  {accommodation.regimen}
-                                </Badge>
-                              )}
-                              {accommodation.enlace_web && (
-                                <a
-                                  href={accommodation.enlace_web}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                  Ver sitio web
-                                </a>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Rates */}
-                          {accommodation.rates && accommodation.rates.length > 0 ? (
-                            <div className="p-4 sm:p-5">
-                              {/* Desktop table */}
-                              <div className="hidden md:block">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="border-gray-200">
-                                      <TableHead className="font-semibold text-gray-900">Periodo</TableHead>
-                                      <TableHead className="font-semibold text-gray-900">Doble</TableHead>
-                                      <TableHead className="font-semibold text-gray-900">Triple</TableHead>
-                                      <TableHead className="font-semibold text-gray-900">Cuadruple</TableHead>
-                                      <TableHead className="font-semibold text-gray-900">Menor</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {accommodation.rates
-                                      .sort((a, b) => a.anio - b.anio || a.mes - b.mes)
-                                      .map((rate) => (
-                                        <TableRow key={rate.id} className="hover:bg-gray-50/50">
-                                          <TableCell className="font-medium">
-                                            {getMonthName(rate.mes)} {rate.anio}
-                                          </TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl, rate.currency)}</TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl, rate.currency)}</TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl, rate.currency)}</TableCell>
-                                          <TableCell className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor, rate.currency)}</TableCell>
-                                        </TableRow>
-                                      ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-
-                              {/* Mobile cards */}
-                              <div className="md:hidden space-y-3">
-                                {accommodation.rates
-                                  .sort((a, b) => a.anio - b.anio || a.mes - b.mes)
-                                  .map((rate) => (
-                                    <div key={rate.id} className="bg-gray-50 rounded-lg p-3">
-                                      <h5 className="font-semibold text-sm mb-2 text-gray-900">
-                                        {getMonthName(rate.mes)} {rate.anio}
-                                      </h5>
-                                      <div className="grid grid-cols-2 gap-1.5 text-sm">
-                                        <div className="flex justify-between p-1.5">
-                                          <span className="text-gray-500">Doble</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_dbl, rate.currency)}</span>
-                                        </div>
-                                        <div className="flex justify-between p-1.5">
-                                          <span className="text-gray-500">Triple</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_tpl, rate.currency)}</span>
-                                        </div>
-                                        <div className="flex justify-between p-1.5">
-                                          <span className="text-gray-500">Cuadruple</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_cpl, rate.currency)}</span>
-                                        </div>
-                                        <div className="flex justify-between p-1.5">
-                                          <span className="text-gray-500">Menor</span>
-                                          <span className="font-semibold text-green-700">{formatCurrency(rate.tarifa_menor, rate.currency)}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-sm text-gray-500 text-center py-4">No hay tarifas cargadas</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                    <DepartureRates
+                      accommodations={accommodations}
+                      availableDates={package_.available_dates}
+                      subtitle={[
+                        package_.duration,
+                        package_.ciudades && package_.ciudades.length > 0 ? package_.ciudades.join(", ") : destination?.name,
+                      ].filter(Boolean).join(" · ")}
+                    />
                   </CardContent>
                 </Card>
               </motion.div>
