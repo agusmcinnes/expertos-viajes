@@ -5,11 +5,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Save, Settings, RefreshCw } from "lucide-react"
 import { siteConfigService } from "@/lib/supabase"
 import type { SiteConfig } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
+
+// Claves que el admin siempre puede editar aunque todavía no existan en site_config
+const EDITABLE_KEYS = ['special_section_title', 'legal_terms_button_text', 'legal_terms_content']
+const MULTILINE_KEYS = ['legal_terms_content']
+// Claves que se administran desde otras pantallas
+const HIDDEN_KEY_PREFIXES = ['agency_file_']
 
 export function SiteConfigManager() {
   const { toast } = useToast()
@@ -28,8 +35,19 @@ export function SiteConfigManager() {
     try {
       setIsLoading(true)
       setError(null)
-      const data = await siteConfigService.getAllConfigs()
-      setConfigs(data)
+      const data: SiteConfig[] = await siteConfigService.getAllConfigs()
+      const visible = data.filter(c => !HIDDEN_KEY_PREFIXES.some(prefix => c.config_key.startsWith(prefix)))
+      const missing = EDITABLE_KEYS
+        .filter(key => !visible.some(c => c.config_key === key))
+        .map((key, i) => ({
+          id: -(i + 1),
+          config_key: key,
+          config_value: '',
+          description: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }))
+      setConfigs([...visible, ...missing])
     } catch (error: any) {
       console.error("Error loading configs:", error)
       setError(`Error cargando configuraciones: ${error.message}`)
@@ -54,7 +72,7 @@ export function SiteConfigManager() {
   const saveConfig = async (key: string) => {
     try {
       setIsSaving(true)
-      await siteConfigService.updateConfig(key, tempValue)
+      await siteConfigService.setConfig(key, tempValue, getConfigDescription(key))
       
       // Actualizar el estado local
       setConfigs(prev => 
@@ -85,14 +103,18 @@ export function SiteConfigManager() {
 
   const getConfigDisplayName = (key: string) => {
     const displayNames: Record<string, string> = {
-      'special_section_title': 'Título de Sección Especial'
+      'special_section_title': 'Título de Sección Especial',
+      'legal_terms_button_text': 'Términos Legales: texto del botón',
+      'legal_terms_content': 'Términos Legales: contenido'
     }
     return displayNames[key] || key
   }
 
   const getConfigDescription = (key: string) => {
     const descriptions: Record<string, string> = {
-      'special_section_title': 'El título que aparece en la sección especial de la página principal'
+      'special_section_title': 'El título que aparece en la sección especial de la página principal',
+      'legal_terms_button_text': 'El texto del botón del pie de página que abre los términos legales',
+      'legal_terms_content': 'El texto completo que se muestra en la ventana de términos legales. Si está vacío, el botón no aparece.'
     }
     return descriptions[key] || 'Configuración del sitio'
   }
@@ -168,23 +190,32 @@ export function SiteConfigManager() {
                   </p>
                 </div>
                 <div className="text-xs text-primary-300">
-                  Actualizado: {new Date(config.updated_at).toLocaleDateString()}
+                  {config.id > 0 && <>Actualizado: {new Date(config.updated_at).toLocaleDateString()}</>}
                 </div>
               </div>
 
               {editingConfig === config.config_key ? (
                 <div className="space-y-3">
-                  <Input
-                    value={tempValue}
-                    onChange={(e) => setTempValue(e.target.value)}
-                    placeholder="Ingresa el nuevo valor..."
-                    className="w-full"
-                  />
+                  {MULTILINE_KEYS.includes(config.config_key) ? (
+                    <Textarea
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                      placeholder="Ingresa el nuevo valor..."
+                      className="w-full min-h-[300px]"
+                    />
+                  ) : (
+                    <Input
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                      placeholder="Ingresa el nuevo valor..."
+                      className="w-full"
+                    />
+                  )}
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       onClick={() => saveConfig(config.config_key)}
-                      disabled={isSaving || !tempValue.trim()}
+                      disabled={isSaving || (!tempValue.trim() && !MULTILINE_KEYS.includes(config.config_key))}
                       className="bg-primary hover:bg-primary-700 text-white"
                     >
                       <Save className="w-4 h-4 mr-2" />
@@ -202,8 +233,8 @@ export function SiteConfigManager() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="p-3 bg-primary-50/50 rounded-lg border border-primary-100 text-primary-900 font-medium">
-                    {config.config_value}
+                  <div className={`p-3 bg-primary-50/50 rounded-lg border border-primary-100 text-primary-900 font-medium ${MULTILINE_KEYS.includes(config.config_key) ? 'whitespace-pre-line max-h-40 overflow-y-auto text-sm font-normal' : ''}`}>
+                    {config.config_value || <span className="text-primary-300 font-normal">Sin definir</span>}
                   </div>
                   <Button
                     size="sm"

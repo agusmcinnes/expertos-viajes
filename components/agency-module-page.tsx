@@ -6,7 +6,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Download, Package, FileText, Bus, Plane, Settings, CreditCard, Building2, FileCheck, File, Star, Users, Globe, Shield, MapPin, Clock, Eye, Calendar, ChevronDown, ChevronUp } from "lucide-react"
-import { agencyService, pdfService, getFileIcon, getFileTypeLabel, supabase } from '@/lib/supabase'
+import { agencyService, pdfService, agencyDocumentService, getFileIcon, getFileTypeLabel, supabase } from '@/lib/supabase'
+import type { AgencyDocumentKey } from '@/lib/supabase'
+import { LEGAJO_NUMERO } from '@/lib/utils'
 import { isAgencyAuthenticated, getCurrentAgency } from '@/lib/agency-auth'
 import type { TravelPackage } from '@/lib/supabase'
 import { motion } from "framer-motion"
@@ -16,6 +18,7 @@ export default function AgencyModulePage() {
   const [loading, setLoading] = useState(true)
   const [agency, setAgency] = useState<any>(null)
   const [activeSection, setActiveSection] = useState<'bus' | 'avion' | 'administracion'>('bus')
+  const [documentPaths, setDocumentPaths] = useState<Partial<Record<AgencyDocumentKey, string>>>({})
   const router = useRouter()
 
   useEffect(() => {
@@ -28,6 +31,9 @@ export default function AgencyModulePage() {
     const currentAgency = getCurrentAgency()
     setAgency(currentAgency)
     loadPackagesWithPDF()
+    agencyDocumentService.getCustomPaths()
+      .then(setDocumentPaths)
+      .catch((error) => console.error('Error loading agency documents:', error))
   }, [router])
 
   const loadPackagesWithPDF = async () => {
@@ -69,32 +75,14 @@ export default function AgencyModulePage() {
     router.push('/agencias/login')
   }
 
-  const handleAdminDownload = (fileName: string) => {
-    try {
-      console.log(`🔗 Descargando ${fileName}...`)
-      
-      // Mapear nombre a archivo en la carpeta public/pdfs
-      const fileMapping: Record<string, string> = {
-        'Tarjetas de Crédito': '/pdfs/tarjetas.pdf',
-        'Bancos': '/pdfs/bancos.pdf', 
-        'Contrato de Reserva': '/pdfs/reserva.pdf'
-      }
-      
-      const filePath = fileMapping[fileName]
-      if (!filePath) {
-        console.error('❌ Archivo no encontrado:', fileName)
-        alert('Archivo no disponible')
-        return
-      }
-      
-      console.log('✅ Descargando archivo desde:', filePath)
-      // Abrir el archivo directamente desde la carpeta public
-      window.open(filePath, '_blank')
-      
-    } catch (error) {
-      console.error('❌ Error en descarga:', error)
-      alert(`Error descargando ${fileName}`)
+  const handleAdminDownload = async (key: AgencyDocumentKey) => {
+    // Archivo cargado desde el admin; si no hay, el original de public/pdfs
+    const url = await agencyDocumentService.getDownloadUrl(key, documentPaths[key])
+    if (!url) {
+      alert('Archivo no disponible')
+      return
     }
+    window.open(url, '_blank')
   }
 
   const getBusPackages = () => packages.filter(pkg => pkg.transport_type === 'bus')
@@ -144,6 +132,7 @@ export default function AgencyModulePage() {
                         Bienvenido, <span className="font-semibold text-blue-600">{agency.name}</span>
                       </p>
                     )}
+                    <p className="text-xs text-gray-500">Expertos en Turismo · Legajo N° {LEGAJO_NUMERO}</p>
                   </div>
                 </div>
                 <Button 
@@ -304,7 +293,7 @@ export default function AgencyModulePage() {
                       Información sobre medios de pago con tarjetas
                     </p>
                     <Button 
-                      onClick={() => handleAdminDownload('Tarjetas de Crédito')}
+                      onClick={() => handleAdminDownload('tarjetas')}
                       size="sm" 
                       className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs lg:text-sm"
                     >
@@ -330,7 +319,7 @@ export default function AgencyModulePage() {
                       Información bancaria y transferencias
                     </p>
                     <Button 
-                      onClick={() => handleAdminDownload('Bancos')}
+                      onClick={() => handleAdminDownload('bancos')}
                       size="sm" 
                       className="w-full bg-green-600 hover:bg-green-700 text-white text-xs lg:text-sm"
                     >
@@ -356,7 +345,7 @@ export default function AgencyModulePage() {
                       Modelo de contrato para reservas de viajes
                     </p>
                     <Button 
-                      onClick={() => handleAdminDownload('Contrato de Reserva')}
+                      onClick={() => handleAdminDownload('reserva')}
                       size="sm" 
                       className="w-full bg-purple-600 hover:bg-purple-700 text-white text-xs lg:text-sm"
                     >

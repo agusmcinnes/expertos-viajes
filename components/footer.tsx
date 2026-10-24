@@ -1,5 +1,7 @@
 import Link from "next/link"
-import { Plane, MapPin, Phone, Mail } from "lucide-react"
+import { Plane, MapPin, Phone, Mail, BadgeCheck } from "lucide-react"
+import { LegalTermsButton } from "@/components/legal-terms-button"
+import { LEGAJO_NUMERO } from "@/lib/utils"
 
 export function Footer() {
   const currentYear = new Date().getFullYear()
@@ -24,6 +26,10 @@ export function Footer() {
               <div className="flex items-center text-gray-300">
                 <MapPin className="w-4 h-4 mr-2" />
                 <span>Bolivar Nº 1543, Corrientes, ARGENTINA</span>
+              </div>
+              <div className="flex items-center text-gray-300">
+                <BadgeCheck className="w-4 h-4 mr-2" />
+                <span>Legajo N° {LEGAJO_NUMERO}</span>
               </div>
               <div className="flex items-center text-gray-300">
                 <Phone className="w-4 h-4 mr-2" />
@@ -111,7 +117,10 @@ export function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">© {currentYear} Expertos en Turismo. Todos los derechos reservados.</p>
+          <p className="text-gray-400 text-sm">
+            © {currentYear} Expertos en Turismo · Leg. {LEGAJO_NUMERO}. Todos los derechos reservados.
+          </p>
+          <LegalTermsButton className="text-gray-400 text-sm hover:text-primary-300 transition-colors underline-offset-4 hover:underline mt-4 md:mt-0" />
         </div>
       </div>
     </footer>

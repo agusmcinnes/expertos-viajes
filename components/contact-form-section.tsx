@@ -2,6 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Phone, Mail, Clock, MapPin, Facebook, Instagram } from "lucide-react"
 import { ContactFormFunctional } from "./contact-form-functional"
+import { LEGAJO_NUMERO } from "@/lib/utils"
 import { motion } from "framer-motion"
 
 interface ContactFormSectionProps {
@@ -23,7 +24,7 @@ export function ContactFormSection({
     {
       icon: MapPin,
       title: "Ubicación",
-      details: ["Bolivar Nº 1543", "Corrientes, ARGENTINA"],
+      details: ["Bolivar Nº 1543", "Corrientes, ARGENTINA", `Legajo N° ${LEGAJO_NUMERO}`],
       color: "text-blue-600",
     },
     {

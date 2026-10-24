@@ -1,4 +1,5 @@
 import Script from 'next/script'
+import { LEGAJO_NUMERO } from '@/lib/utils'
 
 interface JsonLdProps {
   data: object
@@ -25,6 +26,11 @@ export const organizationJsonLd = {
   "description": "Creamos experiencias únicas e inolvidables. Desde playas paradisíacas hasta aventuras culturales. Somos la mejor agencia de viajes de Chubut.",
   "url": getBaseUrl(),
   "logo": `${getBaseUrl()}/logo-expertos-viajes.png`,
+  "identifier": {
+    "@type": "PropertyValue",
+    "name": "Legajo",
+    "value": LEGAJO_NUMERO
+  },
   "sameAs": [
     "https://www.facebook.com/expertosviajes",
     "https://www.instagram.com/expertosviajes"

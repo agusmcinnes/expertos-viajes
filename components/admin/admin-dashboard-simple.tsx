@@ -17,6 +17,7 @@ import { supabaseAdmin, adminPackageService, isAdminAuthenticated, signOutAdmin 
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
+import { AgencyFilesManager } from "./agency-files-manager"
 import { StockManager } from "./stock-manager"
 import { ReservationsManager } from "./reservations-manager"
 import { NovedadesManager } from "./novedades-manager"
@@ -2164,6 +2165,7 @@ export function AdminDashboardSimple() {
             </TabsContent>
 
             <TabsContent value="agencies">
+              <AgencyFilesManager />
               <Card>
                 <CardHeader>
                   <CardTitle className="font-heading text-primary-900">Gestión de Agencias</CardTitle>

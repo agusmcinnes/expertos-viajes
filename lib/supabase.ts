@@ -513,6 +513,13 @@ export const siteConfigService = {
     return data[0]
   },
 
+  // Actualizar o crear si la clave todavía no existe
+  async setConfig(key: string, value: string, description?: string) {
+    const updated = await this.updateConfig(key, value)
+    if (updated) return updated
+    return this.createConfig(key, value, description)
+  },
+
   // Crear nueva configuración
   async createConfig(key: string, value: string, description?: string) {
     const { data, error } = await supabase
@@ -911,6 +918,74 @@ export interface FileUploadResult {
   fileName?: string
   fileSize?: number
   fileType?: string
+}
+
+// Documentos del Centro de Administración del portal de agencias.
+// La ruta en Storage vive en site_config (agency_file_<key>); si está vacía se usa el archivo de /public.
+export const AGENCY_DOCUMENTS = [
+  { key: 'tarjetas', title: 'Tarjetas de Crédito', fallbackUrl: '/pdfs/tarjetas.pdf' },
+  { key: 'bancos', title: 'Bancos', fallbackUrl: '/pdfs/bancos.pdf' },
+  { key: 'reserva', title: 'Contrato de Reserva', fallbackUrl: '/pdfs/reserva.pdf' },
+] as const
+
+export type AgencyDocumentKey = typeof AGENCY_DOCUMENTS[number]['key']
+
+const agencyDocumentConfigKey = (key: AgencyDocumentKey) => `agency_file_${key}`
+
+export const agencyDocumentService = {
+  // Rutas en Storage de los archivos cargados desde el admin (solo las que existen)
+  async getCustomPaths(): Promise<Partial<Record<AgencyDocumentKey, string>>> {
+    const { data, error } = await supabase
+      .from("site_config")
+      .select("config_key, config_value")
+      .like("config_key", "agency_file_%")
+
+    if (error) throw error
+    const paths: Partial<Record<AgencyDocumentKey, string>> = {}
+    for (const doc of AGENCY_DOCUMENTS) {
+      const row = data?.find((r: { config_key: string }) => r.config_key === agencyDocumentConfigKey(doc.key))
+      if (row?.config_value) paths[doc.key] = row.config_value
+    }
+    return paths
+  },
+
+  // El bucket es privado: se descarga con signed URL; sin archivo propio, el original de /public
+  async getDownloadUrl(key: AgencyDocumentKey, customPath?: string): Promise<string | null> {
+    const doc = AGENCY_DOCUMENTS.find(d => d.key === key)
+    if (!customPath) return doc?.fallbackUrl ?? null
+
+    const { data, error } = await supabase.storage
+      .from('pdfs_expertos')
+      .createSignedUrl(customPath, 3600)
+
+    if (error) {
+      console.error('❌ Error creando signed URL:', error)
+      return doc?.fallbackUrl ?? null
+    }
+    return data.signedUrl
+  },
+
+  async upload(key: AgencyDocumentKey, file: File, previousPath?: string): Promise<FileUploadResult> {
+    const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'pdf'
+    // Nombre único por subida para que nunca se sirva una versión cacheada
+    const filePath = `agencias/${key}-${Date.now()}.${ext}`
+
+    const { error } = await supabase.storage
+      .from('pdfs_expertos')
+      .upload(filePath, file, { cacheControl: '3600' })
+
+    if (error) return { success: false, error: `Error de upload: ${error.message}` }
+
+    await siteConfigService.setConfig(agencyDocumentConfigKey(key), filePath, 'Archivo del portal de agencias')
+    if (previousPath) await supabase.storage.from('pdfs_expertos').remove([previousPath])
+    return { success: true, url: filePath }
+  },
+
+  // Vuelve al archivo original de /public
+  async reset(key: AgencyDocumentKey, previousPath?: string) {
+    await siteConfigService.setConfig(agencyDocumentConfigKey(key), '', 'Archivo del portal de agencias')
+    if (previousPath) await supabase.storage.from('pdfs_expertos').remove([previousPath])
+  },
 }
 
 // Servicio para manejo de PDFs en Supabase Storage
