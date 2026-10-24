@@ -86,8 +86,6 @@ export default function AgencyRegistrationForm() {
     setMessage(null)
 
     try {
-      console.log('Datos del formulario:', formData)
-      
       // Registrar agencia en la base de datos
       const result = await agencyService.registerAgency({
         razon_social: formData.razon_social,
@@ -150,9 +148,8 @@ export default function AgencyRegistrationForm() {
       })
       setMessage({ 
         type: 'error', 
-        text: error.message?.includes('duplicate') 
-          ? 'Ya existe una agencia registrada con este email' 
-          : `Error al procesar el registro: ${error.message || 'Error desconocido'}. Intente nuevamente.` 
+        // La RPC devuelve mensajes listos para mostrar (email duplicado, contraseña corta)
+        text: error.message || 'Error al procesar el registro. Intente nuevamente.'
       })
     } finally {
       setLoading(false)

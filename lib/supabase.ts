@@ -128,7 +128,7 @@ export interface Agency {
   email_contacto_1: string // obligatorio
   email_contacto_2?: string | null
   email_administracion: string
-  password: string
+  password?: string // solo se envía al registrarse; nunca se lee
   status: "pending" | "approved" | "rejected"
   created_at: string
   updated_at: string
@@ -450,10 +450,10 @@ export const destinationService = {
 export const contactService = {
   // Crear nueva consulta
   async createInquiry(inquiryData: Omit<ContactInquiry, "id" | "created_at">) {
-    const { data, error } = await supabase.from("contact_inquiries").insert([inquiryData]).select()
+    // Sin .select(): el público puede enviar consultas pero no leerlas
+    const { error } = await supabase.from("contact_inquiries").insert([inquiryData])
 
     if (error) throw error
-    return data[0]
   },
 
   // Obtener todas las consultas
@@ -740,106 +740,25 @@ export const accommodationRateService = {
 
 // Servicios para agencias
 export const agencyService = {
-  // Registrar nueva agencia
+  // Registrar nueva agencia (la RPC hashea la contraseña con bcrypt y la deja pendiente)
   async registerAgency(agencyData: Omit<Agency, 'id' | 'created_at' | 'updated_at' | 'status'>) {
-    try {
-      console.log('Registrando agencia con datos:', agencyData)
-      
-      // Hash de la contraseña usando una función simple (en producción usar bcrypt o similar)
-      const hashedPassword = await hashPassword(agencyData.password)
-      console.log('Password hasheado exitosamente')
-      
-      const insertData = {
-        ...agencyData,
-        password: hashedPassword,
-        status: 'pending' as const,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }
-      
-      console.log('Datos a insertar:', insertData)
-      
-      const { data, error } = await supabase
-        .from("agencies")
-        .insert([insertData])
-        .select()
+    const { data, error } = await supabase.rpc('register_agency', { p_data: agencyData })
 
-      if (error) {
-        console.error('Error de Supabase details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          fullError: error
-        })
-        throw new Error(`Error de base de datos: ${error.message || 'Error desconocido'}`)
-      }
-      
-      console.log('Agencia insertada exitosamente:', data)
-      return data[0]
-    } catch (error) {
+    if (error) {
       console.error('Error en registerAgency:', error)
-      throw error
+      throw new Error(error.message || 'Error desconocido')
     }
+    return data as number
   },
 
-  // Obtener agencia por email y validar contraseña
-  async validateAgencyLogin(email: string, password: string) {
-    try {
-      // Primero buscar la agencia sin filtrar por status
-      const { data, error } = await supabase
-        .from("agencies")
-        .select("*")
-        .eq("email_contacto_1", email)
-        .single()
+  // Validar login de agencia en la base (nunca se lee la tabla desde el navegador)
+  async validateAgencyLogin(email: string, password: string): Promise<{ success: boolean; agency?: Agency; message?: string }> {
+    const { data, error } = await supabase.rpc('agency_login', { p_email: email, p_password: password })
 
-      if (error && error.code === 'PGRST116') {
-        // No se encontró ninguna agencia con ese email
-        return { success: false, message: 'No existe una agencia registrada con este email' }
-      }
-      
-      if (error) throw error
-      if (!data) return { success: false, message: 'No existe una agencia registrada con este email' }
-
-      // Verificar el estado de la agencia
-      if (data.status === 'pending') {
-        return { success: false, message: 'Su solicitud de registro está siendo revisada por el administrador. Le notificaremos por email cuando sea aprobada.' }
-      }
-      
-      if (data.status === 'rejected') {
-        return { success: false, message: 'Su solicitud de registro fue rechazada. Contacte al administrador para más información.' }
-      }
-
-      // Si la agencia no tiene contraseña guardada (agencias antiguas), retornar null
-      if (!data.password) {
-        console.error('Agency does not have password set:', data.email_contacto_1)
-        return { success: false, message: 'Error de configuración de cuenta. Contacte al administrador.' }
-      }
-
-      // Validar contraseña
-      const isPasswordValid = await verifyPassword(password, data.password)
-      if (!isPasswordValid) {
-        return { success: false, message: 'Contraseña incorrecta' }
-      }
-
-      // Login exitoso
-      return { success: true, agency: data }
-      
-    } catch (error) {
+    if (error) {
       console.error('Error in validateAgencyLogin:', error)
       return { success: false, message: 'Error interno del servidor. Intente nuevamente.' }
     }
-  },
-
-  // Obtener agencia por email
-  async getAgencyByEmail(email: string) {
-    const { data, error } = await supabase
-      .from("agencies")
-      .select("*")
-      .eq("email_contacto_1", email)
-      .single()
-
-    if (error && error.code !== 'PGRST116') throw error
     return data
   },
 
@@ -867,7 +786,7 @@ export const agencyService = {
   async getAllAgencies() {
     const { data, error } = await supabase
       .from("agencies")
-      .select("*")
+      .select("id, razon_social, cuit, numero_legajo, nombre_fantasia, telefono_contacto_1, telefono_contacto_2, telefono_contacto_3, domicilio, ciudad, provincia, pais, email_contacto_1, email_contacto_2, email_administracion, status, created_at, updated_at")
       .order("created_at", { ascending: false })
 
     if (error) throw error
@@ -888,23 +807,6 @@ export const agencyService = {
     if (error) throw error
     return data[0]
   }
-}
-
-// Funciones auxiliares para manejo de contraseñas
-export const hashPassword = async (password: string): Promise<string> => {
-  // En una implementación de producción, usar bcrypt o similar
-  // Por ahora usamos una función hash simple
-  const encoder = new TextEncoder()
-  const data = encoder.encode(password + 'salt_secret_key')
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return hashHex
-}
-
-export const verifyPassword = async (password: string, hash: string): Promise<boolean> => {
-  const hashedInput = await hashPassword(password)
-  return hashedInput === hash
 }
 
 // Tipos para archivos (expandido para incluir todo tipo de archivos)
