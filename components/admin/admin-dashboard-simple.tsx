@@ -152,6 +152,8 @@ export function AdminDashboardSimple() {
     servicios_adicionales: "",
     max_group_size: "",
     cuotas: "",
+    price_label: "",
+    price_sublabel: "",
     novedades_category_id: "",
   })
 
@@ -360,6 +362,8 @@ export function AdminDashboardSimple() {
       servicios_adicionales: "",
       max_group_size: "",
       cuotas: "",
+      price_label: "",
+      price_sublabel: "",
       novedades_category_id: "",
     })
   }
@@ -388,6 +392,8 @@ export function AdminDashboardSimple() {
       servicios_adicionales: pkg.servicios_adicionales?.join(", ") || "",
       max_group_size: (pkg as any).max_group_size?.toString() || "",
       cuotas: (pkg as any).cuotas || "",
+      price_label: pkg.price_label || "",
+      price_sublabel: pkg.price_sublabel || "",
       novedades_category_id: (pkg as any).novedades_category_id?.toString() || "",
     })
     
@@ -874,6 +880,8 @@ export function AdminDashboardSimple() {
           : null,
         max_group_size: formData.max_group_size ? Number.parseInt(formData.max_group_size) : null,
         cuotas: formData.cuotas || null,
+        price_label: formData.price_label.trim() || null,
+        price_sublabel: formData.price_sublabel.trim() || null,
         novedades_category_id: formData.novedades_category_id ? Number.parseInt(formData.novedades_category_id) : null,
       }
 
@@ -971,6 +979,8 @@ export function AdminDashboardSimple() {
       servicios_adicionales: "",
       max_group_size: "",
       cuotas: "",
+      price_label: "",
+      price_sublabel: "",
       novedades_category_id: "",
     })
     setAccommodationFormData({
@@ -1398,6 +1408,28 @@ export function AdminDashboardSimple() {
                             onChange={(e) => setFormData((prev) => ({ ...prev, cuotas: e.target.value }))}
                             placeholder="Ej: 6 cuotas sin interés"
                           />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Texto arriba del precio</label>
+                          <Input
+                            value={formData.price_label}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, price_label: e.target.value }))}
+                            placeholder="Precio por persona"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Vacío = &quot;Precio por persona&quot;. Ej. para 2x1: &quot;Promoción 2x1&quot;
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-primary-800 mb-2">Texto abajo del precio</label>
+                          <Input
+                            value={formData.price_sublabel}
+                            onChange={(e) => setFormData((prev) => ({ ...prev, price_sublabel: e.target.value }))}
+                            placeholder="en base doble"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Vacío = &quot;en base doble&quot;. Ej. para 2x1: &quot;Válido para dos personas&quot;
+                          </p>
                         </div>
                         <div>
                           <label className="block text-sm font-medium text-primary-800 mb-2">Destino</label>

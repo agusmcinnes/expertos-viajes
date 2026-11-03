@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import { sortPackagesForDisplay } from "./date-utils"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
@@ -35,6 +36,8 @@ export interface TravelPackage {
   url?: string | null
   novedades_category_id?: number | null
   cuotas?: string | null
+  price_label?: string | null
+  price_sublabel?: string | null
   created_at: string
   updated_at: string
   destinations?: {
@@ -153,7 +156,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return data
+    return sortPackagesForDisplay(data)
   },
 
   // Obtener paquetes por destino y tipo de transporte
@@ -190,7 +193,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return data
+    return sortPackagesForDisplay(data)
   },
 
   // Obtener paquetes por tipo de transporte
@@ -235,12 +238,12 @@ export const packageService = {
               .order("created_at", { ascending: false })
 
             if (allError) throw allError
-            return allData
+            return sortPackagesForDisplay(allData)
           }
         }
         throw error
       }
-      return data
+      return sortPackagesForDisplay(data)
     } catch (error) {
       console.error("Error in getPackagesByTransport:", error)
       // Fallback: return empty array for bus, all packages for aereo
@@ -262,7 +265,7 @@ export const packageService = {
           .order("created_at", { ascending: false })
 
         if (fallbackError) throw fallbackError
-        return data || []
+        return sortPackagesForDisplay(data)
       }
     }
   },
@@ -412,7 +415,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return data
+    return sortPackagesForDisplay(data)
   },
 
   // Obtener paquetes destacados
@@ -433,7 +436,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return data
+    return sortPackagesForDisplay(data)
   },
 }
 
@@ -590,7 +593,7 @@ export const novedadesCategoryService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return data || []
+    return sortPackagesForDisplay(data)
   },
 }
 

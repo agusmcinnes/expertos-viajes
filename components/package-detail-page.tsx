@@ -432,11 +432,19 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
               <Card className="mb-6 shadow-xl ring-1 ring-gray-100 overflow-hidden">
                 {/* Price header */}
                 <div className={`${getTransportAccentColor(transportType)} px-6 py-5 text-white text-center`}>
-                  <p className="text-sm opacity-90 mb-1">Precio por persona</p>
-                  <div className="text-3xl sm:text-4xl font-bold tracking-tight">
-                    Desde {package_.price}
-                  </div>
-                  <p className="text-xs opacity-75 mt-1">en base doble</p>
+                  {package_.price?.trim() ? (
+                    <>
+                      <p className="text-sm opacity-90 mb-1">{package_.price_label?.trim() || "Precio por persona"}</p>
+                      <div className="text-3xl sm:text-4xl font-bold tracking-tight">
+                        Desde {package_.price}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-2xl sm:text-3xl font-bold tracking-tight">
+                      {package_.price_label?.trim() || "Precio por persona"}
+                    </p>
+                  )}
+                  <p className="text-xs opacity-75 mt-1">{package_.price_sublabel?.trim() || "en base doble"}</p>
                   {package_.cuotas && (
                     <p className="text-sm opacity-90 mt-1 font-medium">{package_.cuotas}</p>
                   )}

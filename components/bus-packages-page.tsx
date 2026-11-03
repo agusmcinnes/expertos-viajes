@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Bus, MapPin, Star, Users } from "lucide-react"
 import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
+import { sortPackagesForDisplay } from "@/lib/date-utils"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
 import { PackageCard } from "@/components/package-card"
@@ -39,7 +40,7 @@ export function BusPackagesPage() {
             .filter(d => d.id !== "todos")
             .map(dest => packageService.getPackagesByDestination(dest.id))
         )
-        data = allDestinations.flat()
+        data = sortPackagesForDisplay(allDestinations.flat())
       } else {
         data = await packageService.getPackagesByDestination(selectedDestination)
       }

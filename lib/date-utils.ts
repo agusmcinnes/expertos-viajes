@@ -52,3 +52,39 @@ export function getDaysUntil(dateStr: string): number | null {
   today.setHours(0, 0, 0, 0)
   return Math.ceil((parsed.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }
+
+/** Timestamp de la próxima salida (hoy o después), o null si no tiene ninguna futura legible. */
+export function getNextDepartureTime(dates: string[] | null | undefined): number | null {
+  const future = filterFutureDates(dates ?? null)
+  let min: number | null = null
+  for (const d of future) {
+    const t = parseSpanishDate(d)!.getTime()
+    if (min === null || t < min) min = t
+  }
+  return min
+}
+
+/**
+ * Orden de los listados públicos:
+ * 1. Prioridad manual (mayor primero) — para destacar un paquete a mano.
+ * 2. Próxima salida, la más cercana primero.
+ * 3. Sin salidas futuras al final, el más nuevo primero.
+ */
+export function sortPackagesForDisplay<
+  T extends { priority_order?: number | null; available_dates?: string[] | null; created_at?: string }
+>(packages: T[] | null | undefined): T[] {
+  if (!packages) return []
+  const next = new Map(packages.map((p) => [p, getNextDepartureTime(p.available_dates)]))
+  return [...packages].sort((a, b) => {
+    const prio = (b.priority_order ?? 0) - (a.priority_order ?? 0)
+    if (prio !== 0) return prio
+    const na = next.get(a) ?? null
+    const nb = next.get(b) ?? null
+    if (na !== nb) {
+      if (na === null) return 1
+      if (nb === null) return -1
+      return na - nb
+    }
+    return (b.created_at ?? "").localeCompare(a.created_at ?? "")
+  })
+}

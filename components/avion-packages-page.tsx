@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Plane, MapPin, Star, Users } from "lucide-react"
 import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
+import { sortPackagesForDisplay } from "@/lib/date-utils"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
 import { Breadcrumbs, BreadcrumbJsonLd } from "@/components/breadcrumbs"
@@ -43,7 +44,7 @@ export function AvionPackagesPage() {
             .filter(d => d.id !== "todos")
             .map(dest => packageService.getPackagesByDestination(dest.id))
         )
-        data = allDestinations.flat()
+        data = sortPackagesForDisplay(allDestinations.flat())
       } else {
         data = await packageService.getPackagesByDestination(selectedDestination)
       }
