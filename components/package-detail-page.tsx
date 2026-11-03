@@ -281,8 +281,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
                 <DollarSign className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">Desde</p>
-                <p className="text-base font-bold text-green-700 mt-0.5">{package_.price}</p>
+                <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold">{package_.price?.trim() ? "Desde" : "Precio"}</p>
+                <p className="text-base font-bold text-green-700 mt-0.5">{package_.price?.trim() || package_.price_label?.trim() || "Consultar"}</p>
                 {package_.cuotas && (
                   <p className="text-[10px] text-green-600 font-medium">{package_.cuotas}</p>
                 )}
@@ -557,8 +557,8 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t shadow-2xl p-3 lg:hidden">
         <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
           <div>
-            <p className="text-xs text-gray-500">Desde</p>
-            <p className="text-lg font-bold text-gray-900">{package_.price}</p>
+            <p className="text-xs text-gray-500">{package_.price?.trim() ? "Desde" : "Precio"}</p>
+            <p className="text-lg font-bold text-gray-900">{package_.price?.trim() || package_.price_label?.trim() || "Consultar"}</p>
             {package_.cuotas && (
               <p className="text-[10px] text-green-600 font-medium">{package_.cuotas}</p>
             )}
