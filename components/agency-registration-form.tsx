@@ -108,15 +108,19 @@ export default function AgencyRegistrationForm() {
       console.log('Agencia registrada:', result)
 
       // Enviar email de notificación al admin
-      await sendAgencyNotification({
+      const notified = await sendAgencyNotification({
         agency_name: formData.nombre_fantasia,
         agency_email: formData.email_contacto_1,
         agency_phone: formData.telefono_contacto_1
       })
 
-      setMessage({ 
-        type: 'success', 
-        text: 'Registro exitoso. Su solicitud ha sido enviada al administrador para revisión. Le notificaremos por email cuando sea aprobada.' 
+      if (!notified) {
+        console.warn('No se pudo enviar el aviso por mail al administrador; el registro quedó guardado')
+      }
+
+      setMessage({
+        type: 'success',
+        text: 'Registro exitoso. Recibimos su solicitud y la vamos a revisar. Lo vamos a contactar a ' + formData.email_contacto_1 + ' cuando esté aprobada.'
       })
       
       // Limpiar formulario
