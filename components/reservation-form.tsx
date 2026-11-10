@@ -307,7 +307,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       if (stockError) throw stockError
 
-      const accommodationIdsWithStock = Array.from(new Set(stockData?.map(s => s.accommodation_id) || []))
+      const accommodationIdsWithStock = Array.from(new Set(stockData?.map((s: { accommodation_id: number }) => s.accommodation_id) || []))
 
       const { data: accomData, error: accomError } = await supabase
         .from("accommodations")
@@ -319,7 +319,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       const uniqueAccommodationsMap: { [key: string]: Accommodation } = {}
 
-      ;(accomData || []).forEach(accom => {
+      ;(accomData || []).forEach((accom: Accommodation) => {
         const key = accom.name.trim().toLowerCase()
         if (!uniqueAccommodationsMap[key]) {
           uniqueAccommodationsMap[key] = {
@@ -526,7 +526,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       const passengersWithAge = passengers.map(p => ({
         ...p,
-        edad_al_viajar: p.fecha_nacimiento ? getAgeAtTravel(p.fecha_nacimiento) : undefined
+        edad_al_viajar: (p.fecha_nacimiento ? getAgeAtTravel(p.fecha_nacimiento) : null) ?? undefined
       }))
 
       const titular = passengers.find(p => p.tipo_pasajero === 'titular')
@@ -546,15 +546,16 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
       const result = await reservationService.createReservation(reservationData)
 
-      if (!result.success) {
+      if (!result.success || !result.reservation) {
         throw new Error(result.error || "Error al crear la reserva")
       }
 
-      setReservationId(result.reservation.id)
+      const createdReservationId = result.reservation.id
+      setReservationId(createdReservationId)
 
       const notified = await sendReservationNotification({
         packageName,
-        reservationId: result.reservation.id,
+        reservationId: createdReservationId,
         clientName: `${titular.nombre} ${titular.apellido}`,
         clientEmail: titular.email || '',
         clientPhone: titular.telefono || '',
