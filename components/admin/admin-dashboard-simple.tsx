@@ -14,6 +14,7 @@ import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar, Newspaper } from "lucide-react"
 import { supabase, packageService, agencyService, pdfService, novedadesCategoryService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType, type NovedadesCategory } from "@/lib/supabase"
 import { supabaseAdmin, adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
+import { rateYearOptions, suggestRateYear, formatPrice } from "@/lib/rates"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
@@ -124,7 +125,7 @@ export function AdminDashboardSimple() {
   const [editingRateId, setEditingRateId] = useState<number | null>(null)
   const [rateFormData, setRateFormData] = useState({
     mes: "",
-    anio: "2025",
+    anio: String(new Date().getFullYear()),
     tarifa_dbl: "",
     tarifa_tpl: "",
     tarifa_cpl: "",
@@ -641,7 +642,7 @@ export function AdminDashboardSimple() {
     // Limpiar formulario y resetear estado de edición
     setRateFormData({
       mes: "",
-      anio: "2025",
+      anio: String(new Date().getFullYear()),
       tarifa_dbl: "",
       tarifa_tpl: "",
       tarifa_cpl: "",
@@ -670,7 +671,7 @@ export function AdminDashboardSimple() {
     setEditingRateId(null)
     setRateFormData({
       mes: "",
-      anio: "2025",
+      anio: String(new Date().getFullYear()),
       tarifa_dbl: "",
       tarifa_tpl: "",
       tarifa_cpl: "",
@@ -735,7 +736,7 @@ export function AdminDashboardSimple() {
     setEditingRateId(null)
     setRateFormData({
       mes: "",
-      anio: "2025",
+      anio: String(new Date().getFullYear()),
       tarifa_dbl: "",
       tarifa_tpl: "",
       tarifa_cpl: "",
@@ -838,6 +839,7 @@ export function AdminDashboardSimple() {
           tarifa_tpl: rate.tarifa_tpl,
           tarifa_cpl: rate.tarifa_cpl,
           tarifa_menor: rate.tarifa_menor,
+          currency: rate.currency ?? "USD",
         }))
 
         const { error: insRatesError } = await supabaseAdmin
@@ -991,7 +993,7 @@ export function AdminDashboardSimple() {
     })
     setRateFormData({
       mes: "",
-      anio: "2025",
+      anio: String(new Date().getFullYear()),
       tarifa_dbl: "",
       tarifa_tpl: "",
       tarifa_cpl: "",
@@ -2553,7 +2555,7 @@ export function AdminDashboardSimple() {
                   <label className="block text-sm font-medium text-primary-800 mb-1">Mes</label>
                   <Select
                     value={rateFormData.mes}
-                    onValueChange={(value) => setRateFormData(prev => ({...prev, mes: value}))}
+                    onValueChange={(value) => setRateFormData(prev => ({...prev, mes: value, ...(editingRateId === null ? { anio: String(suggestRateYear(Number(value))) } : {})}))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Mes" />
@@ -2590,13 +2592,16 @@ export function AdminDashboardSimple() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {[2024, 2025, 2026, 2027].map((year) => (
+                      {rateYearOptions(new Date(), Number(rateFormData.anio) || undefined).map((year) => (
                         <SelectItem key={year} value={year.toString()}>
                           {year}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                  {rateFormData.mes && rateFormData.anio && new Date(Number(rateFormData.anio), Number(rateFormData.mes), 0, 23, 59, 59) < new Date() && (
+                    <p className="text-xs text-amber-700 mt-1">Ese mes ya pasó: esta tarifa no se va a mostrar en la web.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-primary-800 mb-1">DBL</label>
@@ -2692,16 +2697,16 @@ export function AdminDashboardSimple() {
                           {new Date(2024, rate.mes - 1).toLocaleDateString('es-ES', { month: 'long' })} {rate.anio}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">DBL:</span> {rate.tarifa_dbl ? `$${rate.tarifa_dbl}` : '-'}
+                          <span className="font-medium">DBL:</span> {formatPrice(rate.tarifa_dbl, rate.currency) ?? '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">TPL:</span> {rate.tarifa_tpl ? `$${rate.tarifa_tpl}` : '-'}
+                          <span className="font-medium">TPL:</span> {formatPrice(rate.tarifa_tpl, rate.currency) ?? '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">CPL:</span> {rate.tarifa_cpl ? `$${rate.tarifa_cpl}` : '-'}
+                          <span className="font-medium">CPL:</span> {formatPrice(rate.tarifa_cpl, rate.currency) ?? '-'}
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium">MENOR:</span> {rate.tarifa_menor ? `$${rate.tarifa_menor}` : '-'}
+                          <span className="font-medium">MENOR:</span> {formatPrice(rate.tarifa_menor, rate.currency) ?? '-'}
                         </div>
                         <div className="flex justify-end gap-2">
                           <Button
