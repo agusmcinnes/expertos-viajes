@@ -156,7 +156,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return sortPackagesForDisplay(data)
+    return sortPackagesForDisplay<TravelPackage>(data ?? [])
   },
 
   // Obtener paquetes por destino y tipo de transporte
@@ -193,7 +193,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return sortPackagesForDisplay(data)
+    return sortPackagesForDisplay<TravelPackage>(data ?? [])
   },
 
   // Obtener paquetes por tipo de transporte
@@ -238,12 +238,12 @@ export const packageService = {
               .order("created_at", { ascending: false })
 
             if (allError) throw allError
-            return sortPackagesForDisplay(allData)
+            return sortPackagesForDisplay<TravelPackage>(allData ?? [])
           }
         }
         throw error
       }
-      return sortPackagesForDisplay(data)
+      return sortPackagesForDisplay<TravelPackage>(data ?? [])
     } catch (error) {
       console.error("Error in getPackagesByTransport:", error)
       // Fallback: return empty array for bus, all packages for aereo
@@ -265,7 +265,7 @@ export const packageService = {
           .order("created_at", { ascending: false })
 
         if (fallbackError) throw fallbackError
-        return sortPackagesForDisplay(data)
+        return sortPackagesForDisplay<TravelPackage>(data ?? [])
       }
     }
   },
@@ -415,7 +415,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return sortPackagesForDisplay(data)
+    return sortPackagesForDisplay<TravelPackage>(data ?? [])
   },
 
   // Obtener paquetes destacados
@@ -436,7 +436,7 @@ export const packageService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return sortPackagesForDisplay(data)
+    return sortPackagesForDisplay<TravelPackage>(data ?? [])
   },
 }
 
@@ -593,7 +593,7 @@ export const novedadesCategoryService = {
       .order("created_at", { ascending: false })
 
     if (error) throw error
-    return sortPackagesForDisplay(data)
+    return sortPackagesForDisplay<TravelPackage>(data ?? [])
   },
 }
 
