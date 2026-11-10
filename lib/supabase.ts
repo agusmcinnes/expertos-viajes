@@ -197,7 +197,7 @@ export const packageService = {
   },
 
   // Obtener paquetes por tipo de transporte
-  async getPackagesByTransport(transportType: "aereo" | "bus") {
+  async getPackagesByTransport(transportType: "aereo" | "bus" | "crucero") {
     try {
       const { data, error } = await supabase
         .from("travel_packages")

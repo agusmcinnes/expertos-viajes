@@ -7,6 +7,7 @@ import {
   filterFutureDates,
   sortDatesChronologically,
   sortPackagesForDisplay,
+  uniqueById,
 } from "./date-utils"
 
 afterEach(() => vi.useRealTimers())
@@ -117,5 +118,14 @@ describe("sortPackagesForDisplay", () => {
 
   it("con null devuelve []", () => {
     expect(sortPackagesForDisplay(null)).toEqual([])
+  })
+})
+
+describe("uniqueById", () => {
+  it("quita repetidos conservando el primero", () => {
+    expect(uniqueById([{ id: 1, n: "a" }, { id: 2, n: "b" }, { id: 1, n: "c" }])).toEqual([
+      { id: 1, n: "a" },
+      { id: 2, n: "b" },
+    ])
   })
 })

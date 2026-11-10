@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Plane, MapPin, Star, Users } from "lucide-react"
 import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
-import { sortPackagesForDisplay } from "@/lib/date-utils"
+import { uniqueById } from "@/lib/date-utils"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
 import { Breadcrumbs, BreadcrumbJsonLd } from "@/components/breadcrumbs"
@@ -39,19 +39,14 @@ export function AvionPackagesPage() {
       
       if (selectedDestination === "todos") {
         // Cargar todos los paquetes aéreos
-        const allDestinations = await Promise.all(
-          destinations
-            .filter(d => d.id !== "todos")
-            .map(dest => packageService.getPackagesByDestination(dest.id))
-        )
-        data = sortPackagesForDisplay(allDestinations.flat())
+        data = await packageService.getPackagesByTransport("aereo")
       } else {
         data = await packageService.getPackagesByDestination(selectedDestination)
       }
       
       // Filtrar solo paquetes aéreos
       const aereoPackages = data.filter(pkg => pkg.transport_type === 'aereo')
-      setPackages(aereoPackages)
+      setPackages(uniqueById(aereoPackages))
     } catch (error) {
       console.error("Error loading packages:", error)
       setPackages([])

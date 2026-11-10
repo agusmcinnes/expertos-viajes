@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Bus, MapPin, Star, Users } from "lucide-react"
 import { motion } from "framer-motion"
 import { packageService } from "@/lib/supabase"
-import { sortPackagesForDisplay } from "@/lib/date-utils"
+import { uniqueById } from "@/lib/date-utils"
 import type { TravelPackage } from "@/lib/supabase"
 import { NavigationButton } from "@/components/navigation-button"
 import { PackageCard } from "@/components/package-card"
@@ -35,19 +35,14 @@ export function BusPackagesPage() {
       
       if (selectedDestination === "todos") {
         // Cargar todos los paquetes de bus
-        const allDestinations = await Promise.all(
-          destinations
-            .filter(d => d.id !== "todos")
-            .map(dest => packageService.getPackagesByDestination(dest.id))
-        )
-        data = sortPackagesForDisplay(allDestinations.flat())
+        data = await packageService.getPackagesByTransport("bus")
       } else {
         data = await packageService.getPackagesByDestination(selectedDestination)
       }
       
       // Filtrar solo paquetes de bus
       const busPackages = data.filter(pkg => pkg.transport_type === 'bus')
-      setPackages(busPackages)
+      setPackages(uniqueById(busPackages))
     } catch (error) {
       console.error("Error loading packages:", error)
       setPackages([])
