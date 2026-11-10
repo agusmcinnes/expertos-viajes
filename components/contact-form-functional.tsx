@@ -43,14 +43,8 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
         to_name: "Expertos en Turismo"
       }
 
-      // Enviar email con EmailJS
-      const emailSent = await sendEmail(emailData)
-      
-      if (!emailSent) {
-        throw new Error("Error al enviar el email")
-      }
-
-      // También guardar en Supabase si está disponible (opcional)
+      // Guardar primero en Supabase: es la copia confiable de la consulta
+      let saved = false
       try {
         await contactService.createInquiry({
           name: formData.name,
@@ -59,9 +53,16 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
           message: formData.message,
           status: "pending",
         })
-      } catch (supabaseError) {
-        console.warn("No se pudo guardar en Supabase:", supabaseError)
-        // No fallar si Supabase no está disponible
+        saved = true
+      } catch (dbError) {
+        console.error("No se pudo guardar la consulta:", dbError)
+      }
+
+      // El mail es un extra (sendEmail devuelve false en vez de tirar)
+      const emailSent = await sendEmail(emailData)
+
+      if (!saved && !emailSent) {
+        throw new Error("No se pudo guardar ni enviar la consulta")
       }
 
       setIsSuccess(true)
@@ -92,7 +93,7 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
       toast({
         variant: "destructive",
         title: "Error al enviar consulta",
-        description: "Por favor, intentá nuevamente o contactanos directamente.",
+        description: "No pudimos registrar tu consulta. Escribinos por WhatsApp al +54 9 379 587-0001.",
       })
     } finally {
       setIsSubmitting(false)
