@@ -1,10 +1,10 @@
 "use client"
 
-import { motion } from "framer-motion"
+import { motion, type Variants, type Transition } from "framer-motion"
 import { Shield, Clock, Headphones, Star, CreditCard, ArrowRight } from "lucide-react"
 import Image from "next/image"
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -15,7 +15,7 @@ const containerVariants = {
   },
 }
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, y: 40 },
   visible: {
     opacity: 1,
@@ -24,7 +24,7 @@ const cardVariants = {
   },
 }
 
-const headerVariants = {
+const headerVariants: Variants = {
   hidden: { opacity: 0, y: 30 },
   visible: {
     opacity: 1,
@@ -33,7 +33,7 @@ const headerVariants = {
   },
 }
 
-const lineVariants = {
+const lineVariants: Variants = {
   hidden: { scaleX: 0 },
   visible: {
     scaleX: 1,
@@ -235,7 +235,7 @@ export function WhyChooseUsSection() {
                 ...headerVariants,
                 visible: {
                   ...headerVariants.visible,
-                  transition: { ...headerVariants.visible.transition, delay: 0.15 },
+                  transition: { ...(headerVariants.visible as { transition: Transition }).transition, delay: 0.15 },
                 },
               }}
               className="text-lg md:text-xl text-gray-500 font-light max-w-3xl mx-auto"
