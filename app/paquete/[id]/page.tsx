@@ -3,7 +3,11 @@ import { PackageDetailPage } from "@/components/package-detail-page"
 import { Header } from "@/components/header"
 import type { Metadata } from "next"
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+interface PageProps {
+  params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params
   
   return {
@@ -22,7 +26,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   }
 }
 
-export default async function PaquetePage({ params }: { params: { id: string } }) {
+export default async function PaquetePage({ params }: PageProps) {
   const { id } = await params
   
   return (
