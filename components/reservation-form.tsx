@@ -169,6 +169,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   // Datos del formulario
   const [roomsData, setRoomsData] = useState<RoomDetail[]>([])
   const [passengers, setPassengers] = useState<Passenger[]>([])
+  const [titularConfirmado, setTitularConfirmado] = useState(false)
   const [comentarios, setComentarios] = useState("")
 
   // Navigation helpers
@@ -453,21 +454,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   }
 
   const removePassenger = (index: number) => {
-    const passengerToRemove = passengers[index]
-    if (passengerToRemove.tipo_pasajero === 'titular') {
-      setPassengers([{
-        tipo_pasajero: 'titular',
-        nombre: "",
-        apellido: "",
-        fecha_nacimiento: "",
-        dni: "",
-        email: "",
-        telefono: "",
-        datos_pendientes: false
-      }])
-    } else {
-      setPassengers(passengers.filter((_, i) => i !== index))
-    }
+    if (passengers[index]?.tipo_pasajero === 'titular') return
+    setPassengers(passengers.filter((_, i) => i !== index))
   }
 
   const updatePassenger = (index: number, field: keyof Passenger, value: string | boolean) => {
@@ -508,6 +496,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     if (!titular || !titular.fecha_nacimiento) return false
     return differenceInYears(new Date(), parseISODateLocal(titular.fecha_nacimiento)!) >= 18
   }
+
+  const titularListo = titularConfirmado && isTitularComplete() && isTitularAdult()
 
   const getTitularAge = () => {
     const titular = passengers.find(p => p.tipo_pasajero === 'titular')
@@ -1072,7 +1062,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                     <Badge variant="outline" className="text-xs">Obligatorio</Badge>
                   </div>
 
-                  {isTitularComplete() && isTitularAdult() ? (
+                  {titularListo ? (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -1086,10 +1076,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            const titularIndex = passengers.findIndex(p => p.tipo_pasajero === 'titular')
-                            if (titularIndex !== -1) removePassenger(titularIndex)
-                          }}
+                          onClick={() => setTitularConfirmado(false)}
                           className="text-gray-500 hover:text-gray-700 h-8"
                         >
                           <Edit className="w-3.5 h-3.5 mr-1" />
@@ -1225,6 +1212,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                               toast({ title: "Revisa los campos del titular", description: "Hay campos incompletos o con formato invalido", variant: "destructive" })
                               return
                             }
+                            setTitularConfirmado(true)
                             toast({ title: "Titular confirmado", description: "Datos guardados correctamente" })
                           }}
                           disabled={!isTitularComplete() || !isTitularAdult()}
@@ -1239,7 +1227,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                 </div>
 
                 {/* Companions Section */}
-                {isTitularComplete() && isTitularAdult() && (
+                {titularListo && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -1456,7 +1444,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                       }
                       nextStep()
                     }}
-                    disabled={!isTitularComplete() || !isTitularAdult()}
+                    disabled={!titularListo}
                     className="text-white min-w-[140px] h-11"
                     size="lg"
                   >
