@@ -1,11 +1,14 @@
 import emailjs from '@emailjs/browser'
 import { getRoomTypeName, getSubtypeLabel } from '@/lib/room-utils'
+import { parseISODateLocal } from '@/lib/date-utils'
 
-// Inicializar EmailJS con tu USER_ID
-export const initEmailJS = () => {
-  // Reemplaza 'YOUR_USER_ID' con tu User ID de EmailJS
-  emailjs.init(process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '')
-}
+// Se pasa en cada envío: init() sólo corría si se montaba el formulario de contacto
+const EMAILJS_OPTIONS = { publicKey: process.env.NEXT_PUBLIC_EMAILJS_USER_ID || '' }
+
+const formatFecha = (
+  iso: string,
+  options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }
+): string => parseISODateLocal(iso)?.toLocaleDateString('es-AR', options) ?? iso
 
 export interface EmailData {
   from_name: string
@@ -27,7 +30,8 @@ export const sendEmail = async (data: EmailData): Promise<boolean> => {
         message: data.message,
         to_name: data.to_name || 'Expertos en Turismo',
         reply_to: data.from_email,
-      }
+      },
+      EMAILJS_OPTIONS
     )
 
     console.log('Email sent successfully:', result.text)
@@ -57,7 +61,8 @@ export const sendAgencyNotification = async (data: AgencyNotificationData): Prom
         to_name: 'Administrador - Expertos en Turismo',
         admin_email: process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@expertosenvajes.com',
         subject: 'Nueva solicitud de agencia para aprobación'
-      }
+      },
+      EMAILJS_OPTIONS
     )
 
     console.log('Agency notification sent successfully:', result.text)
@@ -75,7 +80,7 @@ interface RoomDetail {
   subtipo_habitacion?: 'matrimonial' | 'twin' | null
 }
 
-interface Passenger {
+export interface Passenger {
   tipo_pasajero: 'titular' | 'acompañante'
   nombre: string
   apellido: string
@@ -100,6 +105,23 @@ export interface ReservationNotificationData {
   reservationId: number
 }
 
+export const buildPassengersDetail = (passengers: Passenger[]): string =>
+  passengers.map((p, index) => {
+    const tipo = p.tipo_pasajero === 'titular' ? 'TITULAR' : 'Acompañante'
+    let detail = `${index + 1}. ${tipo}: ${p.nombre} ${p.apellido}`
+    if (p.edad_al_viajar != null) detail += ` (${p.edad_al_viajar} años al viajar)`
+    detail += ` - Nac: ${formatFecha(p.fecha_nacimiento, { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+
+    if (p.datos_pendientes) {
+      detail += ' — ⚠️ DATOS PENDIENTES'
+    } else {
+      if (p.dni) detail += ` - DNI: ${p.dni}`
+      if (p.email) detail += ` - ${p.email}`
+      if (p.telefono) detail += ` - ${p.telefono}`
+    }
+    return detail
+  }).join('\n')
+
 export const sendReservationNotification = async (data: ReservationNotificationData): Promise<boolean> => {
   try {
     const roomDetails = data.rooms.map(room => {
@@ -108,21 +130,7 @@ export const sendReservationNotification = async (data: ReservationNotificationD
       return `${room.cantidad}× ${detail}`
     }).join(', ')
 
-    const passengersDetail = data.passengers.map((p, index) => {
-      const tipo = p.tipo_pasajero === 'titular' ? 'TITULAR' : 'Acompañante'
-      let detail = `${index + 1}. ${tipo}: ${p.nombre} ${p.apellido}`
-      if (p.edad_al_viajar) detail += ` (${p.edad_al_viajar} años al viajar)`
-      detail += ` - Nac: ${p.fecha_nacimiento}`
-
-      if (p.datos_pendientes) {
-        detail += ' — ⚠️ DATOS PENDIENTES'
-      } else {
-        if (p.dni) detail += ` - DNI: ${p.dni}`
-        if (p.email) detail += ` - ${p.email}`
-        if (p.telefono) detail += ` - ${p.telefono}`
-      }
-      return detail
-    }).join('\n')
+    const passengersDetail = buildPassengersDetail(data.passengers)
 
     const result = await emailjs.send(
       process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || '',
@@ -130,7 +138,7 @@ export const sendReservationNotification = async (data: ReservationNotificationD
       {
         package_name: data.packageName,
         accommodation_name: data.accommodation,
-        fecha_salida: data.departureDate,
+        fecha_salida: formatFecha(data.departureDate),
         cliente_nombre: data.clientName,
         cliente_email: data.clientEmail,
         cliente_telefono: data.clientPhone,
@@ -143,7 +151,8 @@ export const sendReservationNotification = async (data: ReservationNotificationD
         admin_email: process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@expertosenvajes.com',
         subject: `Nueva Reserva #${data.reservationId} - ${data.packageName}`,
         precio_info: 'PRECIO A COTIZAR POR AGENTE'
-      }
+      },
+      EMAILJS_OPTIONS
     )
 
     console.log('Reservation notification sent successfully:', result.text)

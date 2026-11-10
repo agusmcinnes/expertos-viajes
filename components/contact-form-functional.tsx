@@ -2,13 +2,13 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Send } from "lucide-react"
 import { contactService } from "@/lib/supabase"
-import { initEmailJS, sendEmail, type EmailData } from "@/lib/emailjs"
+import { sendEmail, type EmailData } from "@/lib/emailjs"
 import { motion } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
 
@@ -28,11 +28,6 @@ export function ContactFormFunctional({ packageName, onSuccess, className = "" }
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const { toast } = useToast()
-
-  // Inicializar EmailJS cuando se monta el componente
-  useEffect(() => {
-    initEmailJS()
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
