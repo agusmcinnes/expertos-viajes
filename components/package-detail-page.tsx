@@ -647,7 +647,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white sm:rounded-2xl p-4 sm:p-6 max-w-4xl w-full sm:my-8 min-h-screen sm:min-h-0 max-h-screen sm:max-h-[90vh] flex flex-col shadow-2xl"
+            className="bg-white sm:rounded-2xl p-4 sm:p-6 max-w-4xl w-full sm:my-8 h-[100dvh] sm:h-auto sm:max-h-[90vh] flex flex-col shadow-2xl"
           >
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
               <div>

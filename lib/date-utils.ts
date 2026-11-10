@@ -19,6 +19,29 @@ export function parseSpanishDate(dateStr: string): Date | null {
   return new Date(year, month, day)
 }
 
+/**
+ * "2027-01-03" → Date a la medianoche LOCAL.
+ * `new Date("2027-01-03")` la toma como UTC y en Argentina (UTC-3) cae el día anterior a las 21:00.
+ */
+export function parseISODateLocal(iso: string | null | undefined): Date | null {
+  const match = iso?.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) return null
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+}
+
+/** Date → "2027-01-03" con la fecha local (no la de UTC, como hace toISOString). */
+export function toISODateLocal(date: Date): string {
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  return `${date.getFullYear()}-${mm}-${dd}`
+}
+
+/** "3 Ene 2027" → "2027-01-03" */
+export function spanishDateToISO(dateStr: string): string | null {
+  const parsed = parseSpanishDate(dateStr)
+  return parsed ? toISODateLocal(parsed) : null
+}
+
 export function filterFutureDates(dates: string[] | null): string[] {
   if (!dates || dates.length === 0) return []
   const today = new Date()

@@ -17,6 +17,14 @@ import { BirthDatePicker } from "@/components/ui/birth-date-picker"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { differenceInYears } from "date-fns"
 import { getRoomTypeName, getRoomCapacity } from "@/lib/room-utils"
+import { filterFutureDates, parseISODateLocal, spanishDateToISO, toISODateLocal } from "@/lib/date-utils"
+
+// Barra de navegación de cada paso: queda pegada abajo para que "Continuar" se vea en el celular
+// aunque la lista sea larga.
+const NAV_BAR = "sticky bottom-0 z-10 bg-white border-t border-gray-100 -mx-1 px-1 pt-3 pb-2 mt-2 flex justify-between gap-3"
+
+// Con stock ilimitado no hay cupo que mostrar; igual se pone un techo razonable por tipo.
+const UNLIMITED_ROOMS = 10
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const DNI_REGEX = /^\d{7,8}$/
@@ -50,6 +58,7 @@ interface StockAvailable {
   stock_tpl: number
   stock_cpl: number
   flexible_dates?: boolean
+  is_unlimited?: boolean
 }
 
 interface RoomDetail {
@@ -137,7 +146,12 @@ function StepIndicator({ currentStep, totalSteps }: { currentStep: number; total
 
 export function ReservationForm({ packageId, packageName, onSuccess, onClose }: ReservationFormProps) {
   const [accommodations, setAccommodations] = useState<Accommodation[]>([])
-  const [availableDates, setAvailableDates] = useState<StockAvailable[]>([])
+  // Fechas de salida que se pueden reservar, en "AAAA-MM-DD"
+  const [availableDates, setAvailableDates] = useState<string[]>([])
+  // Stock del alojamiento elegido para la fecha elegida (paso 3)
+  const [selectedStock, setSelectedStock] = useState<StockAvailable | null>(null)
+  // El paquete tiene fechas en la página pero ninguna con cupo cargado
+  const [hasDatesWithoutStock, setHasDatesWithoutStock] = useState(false)
   const [selectedAccommodation, setSelectedAccommodation] = useState<number | null>(null)
   const [selectedDate, setSelectedDate] = useState<string>("")
   const [hasFlexibleStock, setHasFlexibleStock] = useState(false)
@@ -225,30 +239,52 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
       setIsLoadingDates(true)
       setHasFlexibleStock(false)
 
-      const { data, error } = await supabase
-        .from("package_stock")
-        .select("*")
-        .eq("package_id", packageId)
-        .eq("is_available", true)
+      setHasDatesWithoutStock(false)
 
-      if (error) throw error
+      const [stockRes, pkgRes] = await Promise.all([
+        supabase
+          .from("package_stock")
+          .select("fecha_salida, flexible_dates")
+          .eq("package_id", packageId)
+          .eq("is_available", true),
+        supabase
+          .from("travel_packages")
+          .select("available_dates")
+          .eq("id", packageId)
+          .single(),
+      ])
 
-      const flexibleStock = data?.find((item: any) => item.flexible_dates === true)
-      if (flexibleStock) {
-        setHasFlexibleStock(true)
-        setAvailableDates([flexibleStock])
+      if (stockRes.error) throw stockRes.error
+      if (pkgRes.error) throw pkgRes.error
+
+      const stock = stockRes.data || []
+      const today = toISODateLocal(new Date())
+
+      // Las fechas son las mismas que muestra la página del paquete.
+      const pageDates = filterFutureDates(pkgRes.data?.available_dates ?? null)
+        .map(spanishDateToISO)
+        .filter((d): d is string => !!d)
+
+      // El cupo sale del stock: uno flexible vale para cualquier fecha; uno con fecha, sólo para la suya.
+      const hasFlexible = stock.some((s: any) => s.flexible_dates)
+      const stockDates = new Set<string>(
+        stock
+          .filter((s: any) => !s.flexible_dates && s.fecha_salida && s.fecha_salida >= today)
+          .map((s: any) => s.fecha_salida as string)
+      )
+
+      let dates: string[]
+      if (pageDates.length > 0) {
+        dates = hasFlexible ? pageDates : pageDates.filter(d => stockDates.has(d))
+        setHasDatesWithoutStock(dates.length === 0)
       } else {
-        setHasFlexibleStock(false)
-        const uniqueDates = Array.from(new Set(
-          data?.filter((item: any) =>
-            item.fecha_salida && new Date(item.fecha_salida) >= new Date()
-          ).map((item: any) => item.fecha_salida)
-        )).sort((a: any, b: any) =>
-          new Date(a).getTime() - new Date(b).getTime()
-        ).map(fecha => ({ fecha_salida: fecha }))
-
-        setAvailableDates(uniqueDates as StockAvailable[])
+        // Paquete sin fechas en la página: se usan las del stock
+        dates = [...stockDates]
       }
+
+      setAvailableDates([...new Set(dates)].sort())
+      // Sin fechas en la página y con stock flexible: se elige cualquier fecha a mano
+      setHasFlexibleStock(hasFlexible && pageDates.length === 0)
     } catch (error) {
       console.error("Error loading dates:", error)
       setError("Error al cargar las fechas disponibles")
@@ -315,6 +351,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
   const loadStockForSelection = async () => {
     try {
+      setSelectedStock(null)
       const { data, error } = await supabase
         .from("package_stock")
         .select("*")
@@ -322,16 +359,24 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         .eq("accommodation_id", selectedAccommodation)
         .or(`fecha_salida.eq.${selectedDate},flexible_dates.eq.true`)
         .eq("is_available", true)
-        .single()
 
       if (error) throw error
 
-      if (data) {
-        setAvailableDates([data])
-      }
+      // Igual que la reserva: primero el stock de esa fecha, si no el flexible
+      const rows = (data || []) as StockAvailable[]
+      setSelectedStock(rows.find(r => r.fecha_salida === selectedDate) ?? rows.find(r => r.flexible_dates) ?? null)
     } catch (error) {
       console.error("Error loading stock:", error)
     }
+  }
+
+  // Cambiar la fecha invalida el alojamiento y las habitaciones elegidas antes
+  const selectDate = (fecha: string) => {
+    if (fecha === selectedDate) return
+    setSelectedDate(fecha)
+    setSelectedAccommodation(null)
+    setSelectedStock(null)
+    setRoomsData([])
   }
 
   const getTotalCapacity = () => {
@@ -345,8 +390,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   }
 
   const getStockForRoomType = (tipo: 'dbl' | 'tpl' | 'cpl') => {
-    if (availableDates.length === 0) return 0
-    const stock = availableDates[0]
+    const stock = selectedStock
+    if (!stock) return 0
+    if (stock.is_unlimited) return UNLIMITED_ROOMS
     if (tipo === 'dbl') return stock.stock_dbl
     if (tipo === 'tpl') return stock.stock_tpl
     if (tipo === 'cpl') return stock.stock_cpl
@@ -460,18 +506,18 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const isTitularAdult = () => {
     const titular = passengers.find(p => p.tipo_pasajero === 'titular')
     if (!titular || !titular.fecha_nacimiento) return false
-    return differenceInYears(new Date(), new Date(titular.fecha_nacimiento)) >= 18
+    return differenceInYears(new Date(), parseISODateLocal(titular.fecha_nacimiento)!) >= 18
   }
 
   const getTitularAge = () => {
     const titular = passengers.find(p => p.tipo_pasajero === 'titular')
     if (!titular || !titular.fecha_nacimiento) return null
-    return differenceInYears(new Date(), new Date(titular.fecha_nacimiento))
+    return differenceInYears(new Date(), parseISODateLocal(titular.fecha_nacimiento)!)
   }
 
   const getAgeAtTravel = (fechaNacimiento: string) => {
     if (!fechaNacimiento || !selectedDate) return null
-    return differenceInYears(new Date(selectedDate), new Date(fechaNacimiento))
+    return differenceInYears(parseISODateLocal(selectedDate)!, parseISODateLocal(fechaNacimiento)!)
   }
 
   const canSubmit = () => {
@@ -570,7 +616,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
   const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return ""
-    return new Date(dateStr).toLocaleDateString('es-ES', {
+    const date = parseISODateLocal(dateStr)
+    if (!date) return ""
+    return date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -666,11 +714,6 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                     <div className="animate-spin rounded-full h-10 w-10 border-2 border-primary border-t-transparent mx-auto mb-3"></div>
                     <p className="text-gray-500 text-sm">Cargando fechas...</p>
                   </div>
-                ) : availableDates.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-50 rounded-2xl">
-                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No hay fechas disponibles para este paquete</p>
-                  </div>
                 ) : hasFlexibleStock ? (
                   <Card className="border-2 border-dashed border-primary/30 bg-primary/5">
                     <CardContent className="p-6">
@@ -682,18 +725,27 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                       <Input
                         type="date"
                         value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => selectDate(e.target.value)}
+                        min={toISODateLocal(new Date())}
                         className="w-full text-lg h-12"
                       />
                     </CardContent>
                   </Card>
+                ) : availableDates.length === 0 ? (
+                  <div className="text-center py-12 px-4 bg-gray-50 rounded-2xl">
+                    <Calendar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">
+                      {hasDatesWithoutStock
+                        ? "Las salidas de este paquete todavía no tienen cupos para reservar online. Escribinos y te ayudamos con la reserva."
+                        : "No hay fechas disponibles para este paquete"}
+                    </p>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {availableDates.map((date) => {
-                      const dateObj = date.fecha_salida ? new Date(date.fecha_salida) : null
+                    {availableDates.map((fecha) => {
+                      const dateObj = parseISODateLocal(fecha)
                       if (!dateObj) return null
-                      const isSelected = selectedDate === date.fecha_salida
+                      const isSelected = selectedDate === fecha
                       const dayName = dateObj.toLocaleDateString('es-ES', { weekday: 'short' })
                       const day = dateObj.getDate()
                       const month = dateObj.toLocaleDateString('es-ES', { month: 'short' })
@@ -701,8 +753,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
 
                       return (
                         <motion.button
-                          key={date.fecha_salida}
-                          onClick={() => setSelectedDate(date.fecha_salida || "")}
+                          key={fecha}
+                          onClick={() => selectDate(fecha)}
                           className={`relative p-4 rounded-xl border-2 text-left transition-all ${
                             isSelected
                               ? "border-primary bg-primary/5 shadow-md shadow-primary/10"
@@ -742,7 +794,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                 )}
 
                 {/* Navigation */}
-                <div className="flex justify-between gap-3 pt-2">
+                <div className={NAV_BAR}>
                   {onClose && (
                     <Button variant="ghost" onClick={onClose} className="text-gray-500">
                       Cancelar
@@ -836,7 +888,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                   </div>
                 )}
 
-                <div className="flex justify-between gap-3 pt-2">
+                <div className={NAV_BAR}>
                   <Button variant="ghost" onClick={prevStep} className="text-gray-500">
                     <ChevronLeft className="w-4 h-4 mr-1" />
                     Atras
@@ -889,7 +941,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                         <h4 className="font-bold text-sm sm:text-base mb-0.5">{getRoomTypeName(tipo)}</h4>
                         <p className="text-xs text-gray-500 mb-1">{getRoomCapacity(tipo)} personas</p>
                         <p className={`text-[11px] mb-2 font-medium ${sinStock ? 'text-gray-400' : puedeAgregar ? 'text-green-600' : 'text-amber-600'}`}>
-                          {sinStock ? 'Sin cupo' : `Quedan ${restantes}`}
+                          {sinStock ? 'Sin cupo' : selectedStock?.is_unlimited ? 'Disponible' : `Quedan ${restantes}`}
                         </p>
                         <Button
                           onClick={() => addRoom(tipo)}
@@ -965,7 +1017,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                   </div>
                 )}
 
-                <div className="flex justify-between gap-3 pt-2">
+                <div className={NAV_BAR}>
                   <Button variant="ghost" onClick={prevStep} className="text-gray-500">
                     <ChevronLeft className="w-4 h-4 mr-1" />
                     Atras
@@ -1100,9 +1152,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento *</label>
                               <BirthDatePicker
-                                date={passengers[0]?.fecha_nacimiento ? new Date(passengers[0].fecha_nacimiento) : undefined}
+                                date={parseISODateLocal(passengers[0]?.fecha_nacimiento) ?? undefined}
                                 onSelect={(date) => {
-                                  if (date) updatePassenger(0, 'fecha_nacimiento', date.toISOString().split('T')[0])
+                                  if (date) updatePassenger(0, 'fecha_nacimiento', toISODateLocal(date))
                                 }}
                                 placeholder="Selecciona fecha"
                                 maxYear={new Date().getFullYear() - 18}
@@ -1305,9 +1357,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                   <div className="sm:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de Nacimiento *</label>
                                     <BirthDatePicker
-                                      date={passenger.fecha_nacimiento ? new Date(passenger.fecha_nacimiento) : undefined}
+                                      date={parseISODateLocal(passenger.fecha_nacimiento) ?? undefined}
                                       onSelect={(date) => {
-                                        if (date) updatePassenger(index, 'fecha_nacimiento', date.toISOString().split('T')[0])
+                                        if (date) updatePassenger(index, 'fecha_nacimiento', toISODateLocal(date))
                                       }}
                                       placeholder="Selecciona fecha"
                                       maxYear={new Date().getFullYear()}
@@ -1391,7 +1443,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                   </motion.div>
                 )}
 
-                <div className="flex justify-between gap-3 pt-2">
+                <div className={NAV_BAR}>
                   <Button variant="ghost" onClick={prevStep} className="text-gray-500">
                     <ChevronLeft className="w-4 h-4 mr-1" />
                     Atras
@@ -1522,7 +1574,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                 </div>
 
                 {/* Actions */}
-                <div className="flex flex-col sm:flex-row justify-between gap-3 pt-2">
+                <div className={`${NAV_BAR} flex-col sm:flex-row`}>
                   <Button variant="ghost" onClick={prevStep} className="text-gray-500 order-2 sm:order-1">
                     <ChevronLeft className="w-4 h-4 mr-1" />
                     Volver a Pasajeros

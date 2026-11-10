@@ -51,15 +51,12 @@ const ROOM_COLUMNS = [
   { field: "tarifa_menor", label: "Menor" },
 ] as const
 
+// La moneda va escrita ("USD 720", "ARS 850.000"): "$720" se lee como pesos.
 const formatCurrency = (amount: number | null | undefined, currency?: string | null) => {
   if (amount == null || amount === 0) return null
   const code = (currency || "USD").toUpperCase()
-  return new Intl.NumberFormat(code === "ARS" ? "es-AR" : "en-US", {
-    style: "currency",
-    currency: code,
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount)
+  const number = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(amount)
+  return `${code} ${number}`
 }
 
 // Las tarifas se cargan por mes: cada salida toma la tarifa de su mes en cada alojamiento
