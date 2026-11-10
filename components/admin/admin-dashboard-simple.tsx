@@ -148,6 +148,7 @@ export function AdminDashboardSimple() {
     is_special: false,
     is_featured: false,
     priority_order: "0",
+    is_grupal: false,
     ciudades: "",
     servicios_incluidos: "",
     servicios_adicionales: "",
@@ -190,7 +191,7 @@ export function AdminDashboardSimple() {
         setPackages([])
       } else {
         console.log("📦 Paquetes cargados:", packagesData?.length || 0)
-        console.log("📦 IDs de paquetes:", packagesData?.map(p => p.id) || [])
+        console.log("📦 IDs de paquetes:", packagesData?.map((p: { id: number }) => p.id) || [])
         // Add transport_type if missing and set default is_special, is_featured, and priority_order
         const packagesWithTransport = (packagesData || []).map((pkg: any) => ({
           ...pkg,
@@ -760,7 +761,7 @@ export function AdminDashboardSimple() {
 
       if (fetchError) throw fetchError
 
-      const existingIds = new Set((existingRows || []).map(r => r.id as number))
+      const existingIds = new Set((existingRows || []).map((r: { id: number }) => r.id))
       const formIds = new Set<number>()
 
       // Mapeo original id (form) → id real en DB, para re-asociar rates luego
@@ -802,8 +803,8 @@ export function AdminDashboardSimple() {
       // Si alguno tiene FKs (rates/stocks/reservations), el DELETE va a fallar:
       // en ese caso lo loggeamos y seguimos — el admin los puede limpiar desde el admin.
       const toDelete = (existingRows || [])
-        .filter(r => !formIds.has(r.id as number))
-        .map(r => r.id as number)
+        .filter((r: { id: number }) => !formIds.has(r.id))
+        .map((r: { id: number }) => r.id)
 
       if (toDelete.length > 0) {
         const { error: deleteError } = await supabaseAdmin

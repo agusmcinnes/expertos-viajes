@@ -1422,7 +1422,7 @@ export const stockService = {
       throw new Error('El paquete no tiene alojamientos cargados. Creá uno antes de marcar stock ilimitado.')
     }
 
-    const rows = accommodations.map(a => ({
+    const rows = accommodations.map((a: { id: number }) => ({
       package_id: packageId,
       accommodation_id: a.id,
       fecha_salida: null,
@@ -1468,7 +1468,7 @@ export const stockService = {
       statusByPackage.set(pkgId, curr)
     }
 
-    return (pkgs || []).map(pkg => {
+    return (pkgs || []).map((pkg: { id: number }) => {
       const info = statusByPackage.get(pkg.id)
       let status: PackageStockStatus = 'none'
       if (info) status = info.unlimited ? 'unlimited' : 'loaded'

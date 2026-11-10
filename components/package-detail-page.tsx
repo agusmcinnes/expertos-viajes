@@ -107,7 +107,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
 
       if (accommodationsError) throw accommodationsError
 
-      const accommodationsWithRates = accommodationsData.map(acc => ({
+      const accommodationsWithRates = accommodationsData.map((acc: any) => ({ // TODO tipos de Supabase
         ...acc,
         rates: acc.accommodation_rates || []
       }))
