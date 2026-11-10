@@ -209,9 +209,16 @@ export function BusPackagesPage() {
                 size="lg" 
                 variant="secondary"
                 className="bg-white text-bus hover:bg-orange-50"
+                asChild
               >
-                <Bus className="w-5 h-5 mr-2" />
-                Consultar Disponibilidad
+                <a
+                  href="https://api.whatsapp.com/send/?phone=%2B5493795870001&text=Hola%21%20Quiero%20consultar%20disponibilidad%20de%20viajes%20en%20bus."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Bus className="w-5 h-5 mr-2" />
+                  Consultar Disponibilidad
+                </a>
               </Button>
               <Button 
                 size="lg" 

@@ -201,9 +201,16 @@ export function CruceroPackagesPage() {
                 size="lg" 
                 variant="secondary"
                 className="bg-white text-blue-600 hover:bg-blue-50"
+                asChild
               >
-                <Ship className="w-5 h-5 mr-2" />
-                Ver Disponibilidad
+                <a
+                  href="https://api.whatsapp.com/send/?phone=%2B5493795870001&text=Hola%21%20Quiero%20consultar%20disponibilidad%20de%20cruceros."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Ship className="w-5 h-5 mr-2" />
+                  Ver Disponibilidad
+                </a>
               </Button>
               <Button 
                 size="lg" 

@@ -66,17 +66,17 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Enlaces Rápidos</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="#inicio" className="text-gray-300 hover:text-primary-300 transition-colors">
+                <Link href="/#inicio" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Inicio
                 </Link>
               </li>
               <li>
-                <Link href="#nosotros" className="text-gray-300 hover:text-primary-300 transition-colors">
+                <Link href="/#nosotros" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Nosotros
                 </Link>
               </li>
               <li>
-                <Link href="#destinos" className="text-gray-300 hover:text-primary-300 transition-colors">
+                <Link href="/#destinos" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Destinos
                 </Link>
               </li>
@@ -93,22 +93,22 @@ export function Footer() {
             <h3 className="text-lg font-semibold mb-4">Destinos Populares</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
+                <Link href="/destinos/argentina" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Argentina
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
+                <Link href="/destinos/brasil" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Brasil
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
+                <Link href="/destinos/caribe" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Caribe
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-gray-300 hover:text-primary-300 transition-colors">
+                <Link href="/destinos/grupales" className="text-gray-300 hover:text-primary-300 transition-colors">
                   Salidas Grupales Acompañadas
                 </Link>
               </li>

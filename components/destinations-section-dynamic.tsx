@@ -153,8 +153,9 @@ export function DestinationsSectionDynamic() {
               <Button
                 size="lg"
                 className="bg-white hover:bg-white/90 text-primary font-semibold transition-all duration-300 hover:-translate-y-0.5 shadow-lg hover:shadow-xl"
+                asChild
               >
-                Crear Viaje Personalizado
+                <Link href="/contacto">Crear Viaje Personalizado</Link>
               </Button>
             </div>
           </motion.div>
