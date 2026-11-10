@@ -129,7 +129,7 @@ export default function AgencyModulePage() {
                     </h1>
                     {agency && (
                       <p className="text-sm lg:text-base text-gray-600">
-                        Bienvenido, <span className="font-semibold text-blue-600">{agency.name}</span>
+                        Bienvenido, <span className="font-semibold text-blue-600">{agency.nombre_fantasia || agency.razon_social}</span>
                       </p>
                     )}
                     <p className="text-xs text-gray-500">Expertos en Turismo · Legajo N° {LEGAJO_NUMERO}</p>

@@ -36,10 +36,8 @@ export function SpecialSectionPage() {
         const specialPackages = await packageService.getSpecialPackages()
         setPackages(specialPackages)
       } catch (error) {
-        // Fallback: mostrar paquetes de alto precio
-        const allPackages = await packageService.getActivePackages()
-        const fallbackPackages = allPackages.filter(pkg => pkg.price >= 2000)
-        setPackages(fallbackPackages)
+        // si falla la carga, la sección queda vacía (antes filtraba un texto como número y daba vacío igual)
+        setPackages([])
       }
     } catch (error) {
       console.error("Error loading special section data:", error)

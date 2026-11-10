@@ -72,7 +72,7 @@ export function Header({ position = "fixed", solid = false }: HeaderProps) {
     setIsAgencyLoggedIn(authenticated)
     if (authenticated) {
       const agency = getCurrentAgency()
-      setAgencyName(agency?.name || "Agencia")
+      setAgencyName(agency?.nombre_fantasia || agency?.razon_social || "Agencia")
     }
   }
 
