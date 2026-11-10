@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { Calendar, ExternalLink, Hotel, Star, Utensils } from "lucide-react"
+import { formatPrice } from "@/lib/rates"
 import { filterFutureDates, parseSpanishDate, sortDatesChronologically, getDaysUntil } from "@/lib/date-utils"
 
 interface Rate {
@@ -50,14 +51,6 @@ const ROOM_COLUMNS = [
   { field: "tarifa_cpl", label: "Cuádruple" },
   { field: "tarifa_menor", label: "Menor" },
 ] as const
-
-// La moneda va escrita ("USD 720", "ARS 850.000"): "$720" se lee como pesos.
-const formatCurrency = (amount: number | null | undefined, currency?: string | null) => {
-  if (amount == null || amount === 0) return null
-  const code = (currency || "USD").toUpperCase()
-  const number = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(amount)
-  return `${code} ${number}`
-}
 
 // Las tarifas se cargan por mes: cada salida toma la tarifa de su mes en cada alojamiento
 const hotelsForMonth = (accommodations: AccommodationWithRates[], mes: number, anio: number) =>
@@ -108,7 +101,7 @@ const buildDepartures = (accommodations: AccommodationWithRates[], availableDate
 
 const lowestPrice = (departure: Departure) => {
   const cheapest = departure.hotels.find((h) => h.rate.tarifa_dbl)
-  return cheapest ? formatCurrency(cheapest.rate.tarifa_dbl, cheapest.rate.currency) : null
+  return cheapest ? formatPrice(cheapest.rate.tarifa_dbl, cheapest.rate.currency) : null
 }
 
 function Stars({ count }: { count: number }) {
@@ -242,7 +235,7 @@ export function DepartureRates({ accommodations, availableDates, subtitle }: Dep
                       <HotelInfo accommodation={accommodation} />
                     </td>
                     {ROOM_COLUMNS.map((col) => {
-                      const price = formatCurrency(rate[col.field], rate.currency)
+                      const price = formatPrice(rate[col.field], rate.currency)
                       return (
                         <td
                           key={col.field}
@@ -273,7 +266,7 @@ export function DepartureRates({ accommodations, availableDates, subtitle }: Dep
                 </div>
                 <div className="grid grid-cols-2 gap-2 mt-3">
                   {ROOM_COLUMNS.map((col) => {
-                    const price = formatCurrency(rate[col.field], rate.currency)
+                    const price = formatPrice(rate[col.field], rate.currency)
                     return (
                       <div key={col.field} className="rounded-lg bg-gray-50 px-2.5 py-2">
                         <p className="text-[11px] text-gray-500">{col.label}</p>
