@@ -672,7 +672,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             )}
             {passengers.find(p => p.tipo_pasajero === 'titular')?.email && (
               <p className="text-sm text-gray-600">
-                Enviamos confirmacion a {passengers.find(p => p.tipo_pasajero === 'titular')?.email}
+                Te vamos a contactar a {passengers.find(p => p.tipo_pasajero === 'titular')?.email} para confirmar y cotizar.
               </p>
             )}
           </motion.div>
