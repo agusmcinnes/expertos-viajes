@@ -13,6 +13,7 @@ import { reservationService, type ReservationWithDetails, type Reservation, type
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
 import { getRoomTypeName, getSubtypeLabel } from "@/lib/room-utils"
+import { parseISODateLocal } from "@/lib/date-utils"
 
 const ROOM_CAPACITY: Record<string, number> = { dbl: 2, tpl: 3, cpl: 4, qpl: 5 }
 
@@ -144,7 +145,7 @@ export function ReservationsManager() {
         toast({
           title: "Reserva cancelada",
           description: wasConfirmed && impact
-            ? `Se repuso al stock: ${impact}.`
+            ? `Si tenía cupo descontado, se devolvió al stock (${impact}).`
             : 'Reserva cancelada (no tenía stock descontado).',
         })
       }
@@ -152,9 +153,10 @@ export function ReservationsManager() {
       if (selectedReservation?.id === reservation.id) setIsDetailModalOpen(false)
     } catch (error) {
       console.error("Error processing reservation:", error)
+      const motivo = (error as { message?: string } | null)?.message
       toast({
-        title: type === 'confirm' ? "Error al confirmar" : "Error al cancelar",
-        description: "Intenta nuevamente en unos segundos.",
+        title: type === 'confirm' ? "No se pudo confirmar" : "No se pudo cancelar",
+        description: motivo || "Error de conexión. Probá de nuevo en unos segundos.",
         variant: "destructive",
       })
     } finally {
@@ -163,7 +165,8 @@ export function ReservationsManager() {
   }
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00')
+    const date = parseISODateLocal(dateString)
+    if (!date) return dateString
     return date.toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' })
   }
 
@@ -569,9 +572,8 @@ export function ReservationsManager() {
                             )}
                           </div>
                           <div className="text-xs text-gray-600 grid grid-cols-2 gap-x-4 gap-y-0.5">
-                            <span>Nacimiento: {new Date(passenger.fecha_nacimiento).toLocaleDateString('es-AR')}</span>
+                            <span>Nacimiento: {parseISODateLocal(passenger.fecha_nacimiento)?.toLocaleDateString('es-AR') ?? passenger.fecha_nacimiento}</span>
                             {passenger.dni && <span>DNI: {passenger.dni}</span>}
-                            {passenger.cuil && <span>CUIL: {passenger.cuil}</span>}
                             {passenger.email && <span className="truncate">✉ {passenger.email}</span>}
                             {passenger.telefono && <span>☎ {passenger.telefono}</span>}
                           </div>
