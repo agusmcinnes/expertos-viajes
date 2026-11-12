@@ -581,15 +581,15 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
         <AlertDialogContent className="max-w-lg rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl sm:text-2xl">
-              Beneficio por Autogestion!
+              ¡Beneficio por autogestión!
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4 text-sm sm:text-base text-muted-foreground">
                 <p className="text-gray-700">
-                  <strong>Por auto gestionar tu reserva accedes a una tarifa promocionada</strong>, lo veras reflejado en tu liquidacion.
+                  <strong>Por autogestionar tu reserva accedés a una tarifa promocionada</strong>; lo vas a ver reflejado en tu liquidación.
                 </p>
                 <p className="text-gray-600">
-                  Completar el formulario no genera gastos. No compartiremos tu informacion personal y no te solicitaremos datos de tus medios de pago en esta instancia.
+                  Completar el formulario no genera gastos. No compartiremos tu información personal y no te solicitaremos datos de tus medios de pago en esta instancia.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -651,7 +651,7 @@ export function PackageDetailPage({ packageId }: PackageDetailPageProps) {
           >
             <div className="flex justify-between items-center mb-4 flex-shrink-0">
               <div>
-                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Reserva tu viaje</h2>
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Reservá tu viaje</h2>
                 <p className="text-xs sm:text-sm text-gray-500 mt-0.5">{package_.name}</p>
               </div>
               <Button

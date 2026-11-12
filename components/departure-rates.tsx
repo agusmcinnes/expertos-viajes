@@ -3,18 +3,8 @@
 import { useMemo, useState } from "react"
 import { Calendar, ExternalLink, Hotel, Star, Utensils } from "lucide-react"
 import { formatPrice } from "@/lib/rates"
-import { filterFutureDates, parseSpanishDate, sortDatesChronologically, getDaysUntil } from "@/lib/date-utils"
-
-interface Rate {
-  id: number
-  mes: number
-  anio: number
-  tarifa_dbl: number | null
-  tarifa_tpl: number | null
-  tarifa_cpl: number | null
-  tarifa_menor: number | null
-  currency?: string | null
-}
+import type { AccommodationRate } from "@/lib/supabase"
+import { buildDepartureTable, lowestPrice } from "./departure-rates-data"
 
 interface AccommodationWithRates {
   id: number
@@ -22,7 +12,7 @@ interface AccommodationWithRates {
   stars: number
   enlace_web?: string
   regimen?: string
-  rates?: Rate[]
+  rates?: AccommodationRate[]
 }
 
 interface DepartureRatesProps {
@@ -31,77 +21,13 @@ interface DepartureRatesProps {
   subtitle?: string
 }
 
-interface Departure {
-  key: string
-  shortLabel: string
-  longLabel: string
-  daysUntil: number | null
-  hotels: { accommodation: AccommodationWithRates; rate: Rate }[]
-}
-
-const MONTHS = [
-  "enero", "febrero", "marzo", "abril", "mayo", "junio",
-  "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
-]
-const MONTHS_SHORT = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-
-const ROOM_COLUMNS = [
-  { field: "tarifa_dbl", label: "Doble" },
-  { field: "tarifa_tpl", label: "Triple" },
-  { field: "tarifa_cpl", label: "Cuádruple" },
-  { field: "tarifa_menor", label: "Menor" },
-] as const
-
-// Las tarifas se cargan por mes: cada salida toma la tarifa de su mes en cada alojamiento
-const hotelsForMonth = (accommodations: AccommodationWithRates[], mes: number, anio: number) =>
-  accommodations
-    .map((accommodation) => ({
-      accommodation,
-      rate: accommodation.rates?.find((r) => r.mes === mes && r.anio === anio),
-    }))
-    .filter((h): h is { accommodation: AccommodationWithRates; rate: Rate } => !!h.rate)
-    .sort((a, b) => (a.rate.tarifa_dbl || Infinity) - (b.rate.tarifa_dbl || Infinity))
-
-const buildDepartures = (accommodations: AccommodationWithRates[], availableDates: string[] | null): Departure[] => {
-  const dates = sortDatesChronologically(filterFutureDates(availableDates))
-
-  if (dates.length > 0) {
-    return dates.map((dateStr) => {
-      const date = parseSpanishDate(dateStr)!
-      return {
-        key: dateStr,
-        shortLabel: `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`,
-        longLabel: `${date.getDate()} de ${MONTHS[date.getMonth()]} de ${date.getFullYear()}`,
-        daysUntil: getDaysUntil(dateStr),
-        hotels: hotelsForMonth(accommodations, date.getMonth() + 1, date.getFullYear()),
-      }
-    })
-  }
-
-  // Sin fechas de salida cargadas: agrupar por los meses que tienen tarifa
-  const now = new Date()
-  const months = new Map<string, { mes: number; anio: number }>()
-  accommodations.forEach((acc) =>
-    acc.rates?.forEach((r) => {
-      if (r.anio > now.getFullYear() || (r.anio === now.getFullYear() && r.mes >= now.getMonth() + 1)) {
-        months.set(`${r.anio}-${r.mes}`, { mes: r.mes, anio: r.anio })
-      }
-    })
-  )
-  return [...months.values()]
-    .sort((a, b) => a.anio - b.anio || a.mes - b.mes)
-    .map(({ mes, anio }) => ({
-      key: `${anio}-${mes}`,
-      shortLabel: `${MONTHS_SHORT[mes - 1]} ${String(anio).slice(2)}`,
-      longLabel: `${MONTHS[mes - 1].charAt(0).toUpperCase()}${MONTHS[mes - 1].slice(1)} ${anio}`,
-      daysUntil: null,
-      hotels: hotelsForMonth(accommodations, mes, anio),
-    }))
-}
-
-const lowestPrice = (departure: Departure) => {
-  const cheapest = departure.hotels.find((h) => h.rate.tarifa_dbl)
-  return cheapest ? formatPrice(cheapest.rate.tarifa_dbl, cheapest.rate.currency) : null
+// Grilla de montos de cada hotel en las tarjetas: 2 por fila. Con 5 o 6 montos las tarjetas se usan hasta xl,
+// así que desde sm van en una fila (6, en dos filas de 3); con 5, el último (Menor) ocupa la fila entera en el
+// celular para no quedar huérfano.
+const MOBILE_GRID: Record<number, string> = {
+  4: "grid-cols-2",
+  5: "grid-cols-2 sm:grid-cols-5",
+  6: "grid-cols-2 sm:grid-cols-3",
 }
 
 function Stars({ count }: { count: number }) {
@@ -147,8 +73,8 @@ function SiteLink({ href }: { href?: string }) {
 }
 
 export function DepartureRates({ accommodations, availableDates, subtitle }: DepartureRatesProps) {
-  const departures = useMemo(
-    () => buildDepartures(accommodations, availableDates),
+  const { departures, columns } = useMemo(
+    () => buildDepartureTable(accommodations, availableDates),
     [accommodations, availableDates]
   )
   const [activeKey, setActiveKey] = useState<string | null>(null)
@@ -158,6 +84,9 @@ export function DepartureRates({ accommodations, availableDates, subtitle }: Dep
   }
 
   const active = departures.find((d) => d.key === activeKey) ?? departures[0]
+  // Con Single o Quíntuple la tabla no entra en la columna principal hasta xl: hasta ahí, tarjetas.
+  const wide = columns.length > 4
+  const cellPadding = columns.length > 5 ? "px-2" : "px-3"
 
   return (
     <div>
@@ -217,13 +146,13 @@ export function DepartureRates({ accommodations, availableDates, subtitle }: Dep
       ) : (
         <>
           {/* Desktop */}
-          <div className="hidden md:block rounded-xl border border-gray-200 overflow-hidden">
+          <div className={`hidden ${wide ? "xl:block" : "md:block"} rounded-xl border border-gray-200 overflow-hidden`}>
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200 text-xs text-gray-500">
                   <th className="text-left font-medium px-4 py-2.5">Alojamiento</th>
-                  {ROOM_COLUMNS.map((col) => (
-                    <th key={col.field} className="text-right font-medium px-3 py-2.5">{col.label}</th>
+                  {columns.map((col) => (
+                    <th key={col.field} className={`text-right font-medium ${cellPadding} py-2.5`}>{col.label}</th>
                   ))}
                   <th className="px-4 py-2.5"><span className="sr-only">Sitio web</span></th>
                 </tr>
@@ -234,12 +163,12 @@ export function DepartureRates({ accommodations, availableDates, subtitle }: Dep
                     <td className="px-4 py-3.5">
                       <HotelInfo accommodation={accommodation} />
                     </td>
-                    {ROOM_COLUMNS.map((col) => {
+                    {columns.map((col) => {
                       const price = formatPrice(rate[col.field], rate.currency)
                       return (
                         <td
                           key={col.field}
-                          className={`px-3 py-3.5 text-right tabular-nums whitespace-nowrap ${
+                          className={`${cellPadding} py-3.5 text-right tabular-nums whitespace-nowrap ${
                             price ? "font-semibold text-green-700" : "text-gray-300"
                           }`}
                         >
@@ -257,18 +186,22 @@ export function DepartureRates({ accommodations, availableDates, subtitle }: Dep
           </div>
 
           {/* Mobile */}
-          <div className="md:hidden space-y-3">
+          <div className={`${wide ? "xl:hidden" : "md:hidden"} space-y-3`}>
             {active.hotels.map(({ accommodation, rate }) => (
               <div key={accommodation.id} className="rounded-xl border border-gray-200 p-3.5">
                 <div className="flex items-start justify-between gap-3">
                   <HotelInfo accommodation={accommodation} />
                   <SiteLink href={accommodation.enlace_web} />
                 </div>
-                <div className="grid grid-cols-2 gap-2 mt-3">
-                  {ROOM_COLUMNS.map((col) => {
+                <div className={`grid ${MOBILE_GRID[columns.length] ?? MOBILE_GRID[4]} gap-2 mt-3`}>
+                  {columns.map((col, i) => {
                     const price = formatPrice(rate[col.field], rate.currency)
+                    const lonely = columns.length % 2 === 1 && i === columns.length - 1
                     return (
-                      <div key={col.field} className="rounded-lg bg-gray-50 px-2.5 py-2">
+                      <div
+                        key={col.field}
+                        className={`rounded-lg bg-gray-50 px-2.5 py-2 ${lonely ? "col-span-2 sm:col-span-1" : ""}`}
+                      >
                         <p className="text-[11px] text-gray-500">{col.label}</p>
                         <p className={`text-sm tabular-nums ${price ? "font-semibold text-green-700" : "text-gray-300"}`}>
                           {price ?? "—"}

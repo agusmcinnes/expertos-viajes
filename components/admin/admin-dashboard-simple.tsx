@@ -12,9 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Plus, Edit, Trash2, Save, X, Package, Plane, Bus, Settings, Ship, Hotel, Star, DollarSign, Users, Calendar, Newspaper } from "lucide-react"
-import { supabase, packageService, agencyService, pdfService, novedadesCategoryService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType, type NovedadesCategory } from "@/lib/supabase"
+import { supabase, packageService, agencyService, pdfService, novedadesCategoryService, accommodationRateService, getFileIcon, getFileTypeLabel, type FileUploadResult, type FileType, type NovedadesCategory } from "@/lib/supabase"
 import { supabaseAdmin, adminPackageService, isAdminAuthenticated, signOutAdmin } from "@/lib/supabase-admin"
-import { rateYearOptions, suggestRateYear, formatPrice } from "@/lib/rates"
+import { RateManager, draftRatesToInput, type DraftRate } from "./rate-manager"
 import type { TravelPackage, Destination, Agency } from "@/lib/supabase"
 import { motion } from "framer-motion"
 import { SiteConfigManager } from "./site-config-manager"
@@ -35,7 +35,6 @@ export function AdminDashboardSimple() {
   const [isAdding, setIsAdding] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingAccommodations, setIsLoadingAccommodations] = useState(false)
-  const [isLoadingRates, setIsLoadingRates] = useState(false)
   const [editingAccommodation, setEditingAccommodation] = useState<number | null>(null)
   const [isLoadingAgencies, setIsLoadingAgencies] = useState(false)
   const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null)
@@ -120,18 +119,8 @@ export function AdminDashboardSimple() {
   const [showAccommodations, setShowAccommodations] = useState(false)
   const [showRatesModal, setShowRatesModal] = useState(false)
   const [selectedAccommodationForRates, setSelectedAccommodationForRates] = useState<any>(null)
-  const [rates, setRates] = useState<any[]>([])
-  const [accommodationRates, setAccommodationRates] = useState<{[key: number]: any[]}>({}) // Nuevo estado para tarifas por alojamiento
-  const [editingRateId, setEditingRateId] = useState<number | null>(null)
-  const [rateFormData, setRateFormData] = useState({
-    mes: "",
-    anio: String(new Date().getFullYear()),
-    tarifa_dbl: "",
-    tarifa_tpl: "",
-    tarifa_cpl: "",
-    tarifa_menor: "",
-    currency: "USD",
-  })
+  // Tarifas de hoteles nuevos (id temporal), en memoria hasta guardar el paquete
+  const [accommodationRates, setAccommodationRates] = useState<Record<number, DraftRate[]>>({})
 
   const [formData, setFormData] = useState({
     name: "",
@@ -496,254 +485,16 @@ export function AdminDashboardSimple() {
     setAccommodations(prev => prev.filter(acc => acc.id !== id))
   }
 
-  // Función para abrir modal de tarifas
-  const handleManageRates = async (accommodation: any) => {
+  // Función para abrir modal de tarifas (el gestor carga las tarifas del hotel; las de un hotel nuevo viven en accommodationRates)
+  const handleManageRates = (accommodation: any) => {
     setSelectedAccommodationForRates(accommodation)
     setShowRatesModal(true)
-    
-    // Si es un alojamiento existente (no nuevo), cargar sus tarifas
-    if (!accommodation.isNew) {
-      await loadRatesForAccommodation(accommodation.id)
-    } else {
-      // Si es nuevo, cargar tarifas temporales si existen
-      const tempRates = accommodationRates[accommodation.id] || []
-      setRates(tempRates)
-    }
-  }
-
-  // Función para cargar tarifas de un alojamiento
-  const loadRatesForAccommodation = async (accommodationId: number) => {
-    try {
-      setIsLoadingRates(true)
-      const { data, error } = await supabase
-        .from("accommodation_rates")
-        .select("*")
-        .eq("accommodation_id", accommodationId)
-        .order("anio", { ascending: true })
-        .order("mes", { ascending: true })
-
-      if (error) throw error
-      setRates(data || [])
-    } catch (error) {
-      console.error("Error loading rates:", error)
-      setRates([])
-    } finally {
-      setIsLoadingRates(false)
-    }
-  }
-
-  // Función para guardar tarifas
-  const handleSaveRate = async () => {
-    if (!rateFormData.mes || !rateFormData.anio) {
-      toast({
-        title: "Datos incompletos",
-        description: "Por favor selecciona mes y año.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const rateData = {
-      mes: parseInt(rateFormData.mes),
-      anio: parseInt(rateFormData.anio),
-      tarifa_dbl: parseFloat(rateFormData.tarifa_dbl) || null,
-      tarifa_tpl: parseFloat(rateFormData.tarifa_tpl) || null,
-      tarifa_cpl: parseFloat(rateFormData.tarifa_cpl) || null,
-      tarifa_menor: parseFloat(rateFormData.tarifa_menor) || null,
-      currency: rateFormData.currency || "USD",
-    }
-
-    // Si es un alojamiento nuevo, agregar a lista temporal
-    if (selectedAccommodationForRates.isNew) {
-      const newRate = {
-        id: editingRateId || Date.now(),
-        ...rateData,
-        accommodation_id: selectedAccommodationForRates.id,
-        isNew: true,
-      }
-      
-      // Actualizar las tarifas para este alojamiento específico
-      setAccommodationRates(prev => {
-        const currentRates = prev[selectedAccommodationForRates.id] || []
-        let filteredRates
-        
-        if (editingRateId) {
-          // Si estamos editando, reemplazar la tarifa existente
-          filteredRates = currentRates.filter(r => r.id !== editingRateId)
-        } else {
-          // Si es nueva, eliminar cualquier tarifa existente para el mismo mes/año
-          filteredRates = currentRates.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
-        }
-        
-        return {
-          ...prev,
-          [selectedAccommodationForRates.id]: [...filteredRates, newRate]
-        }
-      })
-      
-      // También actualizar el estado rates para el modal
-      setRates(prev => {
-        let filtered
-        if (editingRateId) {
-          filtered = prev.filter(r => r.id !== editingRateId)
-        } else {
-          filtered = prev.filter(r => !(r.mes === rateData.mes && r.anio === rateData.anio))
-        }
-        return [...filtered, newRate]
-      })
-      
-      toast({
-        title: editingRateId ? "Tarifa actualizada" : "Tarifa agregada",
-        description: "Los cambios se guardarán al guardar el paquete.",
-      })
-    } else {
-      // Si es un alojamiento existente, guardar en base de datos
-      try {
-        if (editingRateId) {
-          // Actualizar tarifa existente
-          const { error } = await supabase
-            .from("accommodation_rates")
-            .update(rateData)
-            .eq("id", editingRateId)
-
-          if (error) throw error
-          toast({
-            title: "Tarifa actualizada",
-            description: "La tarifa se actualizó exitosamente.",
-          })
-        } else {
-          // Crear nueva tarifa o actualizar si ya existe para el mismo mes/año
-          const { error } = await supabase
-            .from("accommodation_rates")
-            .upsert({
-              ...rateData,
-              accommodation_id: selectedAccommodationForRates.id,
-            }, {
-              onConflict: "accommodation_id,mes,anio",
-            })
-
-          if (error) throw error
-          toast({
-            title: "Tarifa guardada",
-            description: "La tarifa se guardó exitosamente.",
-          })
-        }
-        
-        await loadRatesForAccommodation(selectedAccommodationForRates.id)
-      } catch (error) {
-        console.error("Error saving rate:", error)
-        toast({
-          title: "Error al guardar tarifa",
-          description: "No se pudo guardar la tarifa. Intenta nuevamente.",
-          variant: "destructive",
-        })
-      }
-    }
-
-    // Limpiar formulario y resetear estado de edición
-    setRateFormData({
-      mes: "",
-      anio: String(new Date().getFullYear()),
-      tarifa_dbl: "",
-      tarifa_tpl: "",
-      tarifa_cpl: "",
-      tarifa_menor: "",
-      currency: "USD",
-    })
-    setEditingRateId(null)
-  }
-
-  // Función para editar tarifa
-  const handleEditRate = (rate: any) => {
-    setEditingRateId(rate.id)
-    setRateFormData({
-      mes: rate.mes.toString(),
-      anio: rate.anio.toString(),
-      tarifa_dbl: rate.tarifa_dbl?.toString() || "",
-      tarifa_tpl: rate.tarifa_tpl?.toString() || "",
-      tarifa_cpl: rate.tarifa_cpl?.toString() || "",
-      tarifa_menor: rate.tarifa_menor?.toString() || "",
-      currency: rate.currency || "USD",
-    })
-  }
-
-  // Función para cancelar edición
-  const handleCancelEdit = () => {
-    setEditingRateId(null)
-    setRateFormData({
-      mes: "",
-      anio: String(new Date().getFullYear()),
-      tarifa_dbl: "",
-      tarifa_tpl: "",
-      tarifa_cpl: "",
-      tarifa_menor: "",
-      currency: "USD",
-    })
-  }
-
-  // Función para eliminar tarifa
-  const handleDeleteRate = (rateId: number) => {
-    setConfirmDialog({
-      open: true,
-      title: "Eliminar Tarifa",
-      description: "¿Estás seguro de que quieres eliminar esta tarifa? Esta acción no se puede deshacer.",
-      variant: "destructive",
-      onConfirm: () => executeDeleteRate(rateId)
-    })
-  }
-
-  const executeDeleteRate = async (rateId: number) => {
-    if (selectedAccommodationForRates.isNew) {
-      // Eliminar de lista temporal y del estado del modal
-      setAccommodationRates(prev => {
-        const currentRates = prev[selectedAccommodationForRates.id] || []
-        const filteredRates = currentRates.filter(r => r.id !== rateId)
-        return {
-          ...prev,
-          [selectedAccommodationForRates.id]: filteredRates
-        }
-      })
-      setRates(prev => prev.filter(r => r.id !== rateId))
-    } else {
-      // Eliminar de base de datos
-      try {
-        const { error } = await supabase
-          .from("accommodation_rates")
-          .delete()
-          .eq("id", rateId)
-
-        if (error) throw error
-        await loadRatesForAccommodation(selectedAccommodationForRates.id)
-        toast({
-          title: "Tarifa eliminada",
-          description: "La tarifa se eliminó exitosamente.",
-        })
-      } catch (error) {
-        console.error("Error deleting rate:", error)
-        toast({
-          title: "Error al eliminar tarifa",
-          description: "No se pudo eliminar la tarifa. Intenta nuevamente.",
-          variant: "destructive",
-        })
-      }
-    }
   }
 
   // Función para cerrar modal de tarifas
   const handleCloseRatesModal = () => {
     setShowRatesModal(false)
     setSelectedAccommodationForRates(null)
-    setRates([])
-    setEditingRateId(null)
-    setRateFormData({
-      mes: "",
-      anio: String(new Date().getFullYear()),
-      tarifa_dbl: "",
-      tarifa_tpl: "",
-      tarifa_cpl: "",
-      tarifa_menor: "",
-      currency: "USD",
-    })
   }
 
   // Guarda los alojamientos del paquete preservando IDs existentes:
@@ -821,8 +572,10 @@ export function AdminDashboardSimple() {
 
       // 4. Insertar las rates acumuladas en el form SOLO para alojamientos nuevos.
       //    Los alojamientos existentes ya manejan sus tarifas directamente desde el modal
-      //    "Gestionar Tarifas" (handleSaveRate / handleDeleteRate), así que tocarlas acá
+      //    "Gestionar Tarifas" (RateManager), así que tocarlas acá
       //    borraría las tarifas recién guardadas al cerrar el form del paquete.
+      //    El hotel es nuevo: no tiene filas en la base, así que alcanza con un insert
+      //    (las tarifas en memoria ya son una por mes y una por salida).
       for (const originalAcc of accommodations) {
         if (!originalAcc.isNew) continue
 
@@ -832,21 +585,9 @@ export function AdminDashboardSimple() {
         const ratesForThisAcc = accommodationRates[originalAcc.id] || []
         if (ratesForThisAcc.length === 0) continue
 
-        const ratesToInsert = ratesForThisAcc.map(rate => ({
-          accommodation_id: realId,
-          mes: rate.mes,
-          anio: rate.anio,
-          tarifa_dbl: rate.tarifa_dbl,
-          tarifa_tpl: rate.tarifa_tpl,
-          tarifa_cpl: rate.tarifa_cpl,
-          tarifa_menor: rate.tarifa_menor,
-          currency: rate.currency ?? "USD",
-        }))
-
-        const { error: insRatesError } = await supabaseAdmin
-          .from("accommodation_rates")
-          .insert(ratesToInsert)
-        if (insRatesError) throw insRatesError
+        await accommodationRateService.createMultipleRates(draftRatesToInput(ratesForThisAcc, realId), {
+          client: supabaseAdmin,
+        })
       }
     } catch (error) {
       console.error("Error saving accommodations:", error)
@@ -957,7 +698,6 @@ export function AdminDashboardSimple() {
     setIsEditing(null)
     setShowAccommodations(false)
     setAccommodations([])
-    setRates([])
     setAccommodationRates({}) // Limpiar tarifas temporales
     setShowRatesModal(false)
     setSelectedAccommodationForRates(null)
@@ -991,15 +731,6 @@ export function AdminDashboardSimple() {
       stars: "3",
       enlace_web: "",
       regimen: "",
-    })
-    setRateFormData({
-      mes: "",
-      anio: String(new Date().getFullYear()),
-      tarifa_dbl: "",
-      tarifa_tpl: "",
-      tarifa_cpl: "",
-      tarifa_menor: "",
-      currency: "USD",
     })
   }
 
@@ -2545,203 +2276,17 @@ export function AdminDashboardSimple() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="p-6 space-y-6">
-            {/* Formulario para agregar/editar tarifa */}
-            <div className={`p-5 rounded-xl ${editingRateId ? 'bg-secondary-50 border-2 border-secondary-300' : 'bg-primary-50/50 border border-primary-100'}`}>
-              <h3 className="font-medium mb-4">
-                {editingRateId ? '✏️ Editando Tarifa' : '➕ Agregar Nueva Tarifa'}
-              </h3>
-              <div className="grid md:grid-cols-6 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">Mes</label>
-                  <Select
-                    value={rateFormData.mes}
-                    onValueChange={(value) => setRateFormData(prev => ({...prev, mes: value, ...(editingRateId === null ? { anio: String(suggestRateYear(Number(value))) } : {})}))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Mes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[
-                        { value: "1", label: "Enero" },
-                        { value: "2", label: "Febrero" },
-                        { value: "3", label: "Marzo" },
-                        { value: "4", label: "Abril" },
-                        { value: "5", label: "Mayo" },
-                        { value: "6", label: "Junio" },
-                        { value: "7", label: "Julio" },
-                        { value: "8", label: "Agosto" },
-                        { value: "9", label: "Septiembre" },
-                        { value: "10", label: "Octubre" },
-                        { value: "11", label: "Noviembre" },
-                        { value: "12", label: "Diciembre" },
-                      ].map((month) => (
-                        <SelectItem key={month.value} value={month.value}>
-                          {month.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">Año</label>
-                  <Select
-                    value={rateFormData.anio}
-                    onValueChange={(value) => setRateFormData(prev => ({...prev, anio: value}))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rateYearOptions(new Date(), Number(rateFormData.anio) || undefined).map((year) => (
-                        <SelectItem key={year} value={year.toString()}>
-                          {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {rateFormData.mes && rateFormData.anio && new Date(Number(rateFormData.anio), Number(rateFormData.mes), 0, 23, 59, 59) < new Date() && (
-                    <p className="text-xs text-amber-700 mt-1">Ese mes ya pasó: esta tarifa no se va a mostrar en la web.</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">DBL</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={rateFormData.tarifa_dbl}
-                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_dbl: e.target.value}))}
-                    placeholder="150.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">TPL</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={rateFormData.tarifa_tpl}
-                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_tpl: e.target.value}))}
-                    placeholder="120.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">CPL</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={rateFormData.tarifa_cpl}
-                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_cpl: e.target.value}))}
-                    placeholder="100.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-800 mb-1">MENOR</label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={rateFormData.tarifa_menor}
-                    onChange={(e) => setRateFormData(prev => ({...prev, tarifa_menor: e.target.value}))}
-                    placeholder="75.00"
-                  />
-                </div>
-              </div>
-              <div className="mt-4 max-w-[180px]">
-                <label className="block text-sm font-medium text-primary-800 mb-1">Moneda</label>
-                <Select
-                  value={rateFormData.currency}
-                  onValueChange={(value) => setRateFormData(prev => ({...prev, currency: value}))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Moneda" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD (dólares)</SelectItem>
-                    <SelectItem value="ARS">ARS (pesos)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-2 mt-4">
-                <Button
-                  onClick={handleSaveRate}
-                  className="bg-primary hover:bg-primary-700 text-white"
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  {editingRateId ? "Actualizar Tarifa" : "Guardar Tarifa"}
-                </Button>
-                {editingRateId && (
-                  <Button
-                    onClick={handleCancelEdit}
-                    variant="outline"
-                    className="border-gray-400 text-gray-600 hover:bg-gray-50"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Cancelar
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Lista de tarifas existentes */}
-            {isLoadingRates ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                <span className="ml-2 text-gray-600">Cargando tarifas...</span>
-              </div>
-            ) : rates.length > 0 ? (
-              <div>
-                <h3 className="font-medium mb-4">Tarifas Existentes</h3>
-                <div className="space-y-2">
-                  {rates.map((rate) => (
-                    <div key={rate.id} className={`flex items-center justify-between p-3 border rounded-xl ${editingRateId === rate.id ? 'bg-primary-50 border-primary-300' : 'bg-white border-primary-100 hover:bg-primary-50/30'}`}>
-                      <div className="grid grid-cols-6 gap-4 flex-1">
-                        <div className="font-medium">
-                          {new Date(2024, rate.mes - 1).toLocaleDateString('es-ES', { month: 'long' })} {rate.anio}
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">DBL:</span> {formatPrice(rate.tarifa_dbl, rate.currency) ?? '-'}
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">TPL:</span> {formatPrice(rate.tarifa_tpl, rate.currency) ?? '-'}
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">CPL:</span> {formatPrice(rate.tarifa_cpl, rate.currency) ?? '-'}
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">MENOR:</span> {formatPrice(rate.tarifa_menor, rate.currency) ?? '-'}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEditRate(rate)}
-                            className="border-primary-300 text-primary-600 hover:bg-primary hover:text-white"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeleteRate(rate.id)}
-                            className="border-red-300 text-red-500 hover:bg-red-500 hover:text-white"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-            {!isLoadingRates && rates.length === 0 && (
-              <div className="text-center py-8 text-primary-400">
-                <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-30 text-primary-300" />
-                <p>No hay tarifas configuradas</p>
-                <p className="text-sm">Agrega la primera tarifa para este alojamiento</p>
-              </div>
-            )}
-          </div>
+          {selectedAccommodationForRates && (
+            <RateManager
+              key={selectedAccommodationForRates.id}
+              accommodation={selectedAccommodationForRates}
+              availableDates={formData.available_dates.split(",").map((d) => d.trim()).filter((d) => d.length > 0)}
+              draftRates={selectedAccommodationForRates.isNew ? accommodationRates[selectedAccommodationForRates.id] || [] : undefined}
+              onDraftRatesChange={(rows) =>
+                setAccommodationRates((prev) => ({ ...prev, [selectedAccommodationForRates.id]: rows }))
+              }
+            />
+          )}
         </DialogContent>
       </Dialog>
 

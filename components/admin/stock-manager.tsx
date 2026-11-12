@@ -14,9 +14,10 @@ import {
   Calendar, Hotel, Edit, Trash2, Plus, Package as PackageIcon,
   ArrowLeft, Search, Zap, ZapOff, MapPin, Plane, Bus, Ship
 } from "lucide-react"
-import { supabase, stockService, type PackageStock, type PackageWithStockStatus, type PackageStockStatus } from "@/lib/supabase"
+import { supabase, stockService, type PackageStock, type PackageStockInput, type PackageWithStockStatus, type PackageStockStatus } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
+import { ROOM_TYPES, getRoomTypeName, getRoomStock, type RoomType } from "@/lib/room-utils"
 
 interface Accommodation {
   id: number
@@ -38,6 +39,43 @@ const TRANSPORT_META: Record<string, { label: string; icon: typeof Plane; color:
   aereo: { label: 'Aéreo', icon: Plane, color: 'bg-blue-100 text-blue-700 border-blue-200' },
   bus: { label: 'Bus', icon: Bus, color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   crucero: { label: 'Crucero', icon: Ship, color: 'bg-purple-100 text-purple-700 border-purple-200' },
+}
+
+type StockFormField = `stock_${RoomType}`
+
+/** Single y Quíntuple son opcionales: vacío = no se controla el cupo (se guarda NULL, la reserva queda a confirmar). */
+const isOptionalStock = (tipo: RoomType) => tipo === 'sgl' || tipo === 'qpl'
+
+/** Estilo de cada casillero de cupo en las tarjetas, en orden canónico. */
+const STOCK_BOX_STYLE: Record<RoomType, { box: string; label: string; value: string }> = {
+  sgl: { box: 'bg-primary-50', label: 'text-primary-500', value: 'text-primary-600' },
+  dbl: { box: 'bg-primary-100/60', label: 'text-primary-500', value: 'text-primary-700' },
+  tpl: { box: 'bg-primary-50', label: 'text-primary-500', value: 'text-primary-600' },
+  cpl: { box: 'bg-secondary-100/60', label: 'text-secondary-600', value: 'text-secondary-700' },
+  qpl: { box: 'bg-secondary-50', label: 'text-secondary-600', value: 'text-secondary-700' },
+}
+
+const EMPTY_FORM = {
+  accommodation_id: "",
+  fecha_salida: "",
+  stock_sgl: "",
+  stock_dbl: "0",
+  stock_tpl: "0",
+  stock_cpl: "0",
+  stock_qpl: "",
+  is_available: true,
+  flexible_dates: false,
+}
+
+/**
+ * Lee un casillero de cupo del formulario.
+ * Devuelve el número, `null` (vacío en un tipo opcional = no se controla) o `undefined` si no es válido.
+ */
+function parseStockField(tipo: RoomType, raw: string): number | null | undefined {
+  const value = raw.trim()
+  if (value === '') return isOptionalStock(tipo) ? null : undefined
+  const n = Number(value)
+  return Number.isInteger(n) && n >= 0 ? n : undefined
 }
 
 function StockStatusBadge({ status }: { status: PackageStockStatus }) {
@@ -80,15 +118,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
   const [filterStockStatus, setFilterStockStatus] = useState<string>("all")
   const [filterTransport, setFilterTransport] = useState<string>("all")
 
-  const [formData, setFormData] = useState({
-    accommodation_id: "",
-    fecha_salida: "",
-    stock_dbl: "0",
-    stock_tpl: "0",
-    stock_cpl: "0",
-    is_available: true,
-    flexible_dates: false,
-  })
+  const [formData, setFormData] = useState(EMPTY_FORM)
 
   useEffect(() => {
     loadPackagesWithStatus()
@@ -222,23 +252,18 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
       setFormData({
         accommodation_id: stockItem.accommodation_id.toString(),
         fecha_salida: stockItem.fecha_salida || "",
+        // Filas viejas sin sgl/qpl (o en NULL): casillero vacío = no se controla
+        stock_sgl: stockItem.stock_sgl?.toString() ?? "",
         stock_dbl: stockItem.stock_dbl.toString(),
         stock_tpl: stockItem.stock_tpl.toString(),
         stock_cpl: stockItem.stock_cpl.toString(),
+        stock_qpl: stockItem.stock_qpl?.toString() ?? "",
         is_available: stockItem.is_available,
         flexible_dates: stockItem.flexible_dates || false,
       })
     } else {
       setEditingStock(null)
-      setFormData({
-        accommodation_id: "",
-        fecha_salida: "",
-        stock_dbl: "0",
-        stock_tpl: "0",
-        stock_cpl: "0",
-        is_available: true,
-        flexible_dates: false,
-      })
+      setFormData(EMPTY_FORM)
     }
     setIsModalOpen(true)
   }
@@ -247,10 +272,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
     setIsModalOpen(false)
     setEditingStock(null)
     setTarifaWarning(null)
-    setFormData({
-      accommodation_id: "", fecha_salida: "", stock_dbl: "0", stock_tpl: "0", stock_cpl: "0",
-      is_available: true, flexible_dates: false,
-    })
+    setFormData(EMPTY_FORM)
   }
 
   const handleSave = async () => {
@@ -263,24 +285,56 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
       return
     }
 
+    const cupos: Partial<Record<RoomType, number | null>> = {}
+    for (const tipo of ROOM_TYPES) {
+      const value = parseStockField(tipo, formData[`stock_${tipo}`])
+      if (value === undefined) {
+        toast({
+          title: "Cupo inválido",
+          description: isOptionalStock(tipo)
+            ? `${getRoomTypeName(tipo)}: poné un número entero desde 0, o dejalo vacío si no controlás ese cupo.`
+            : `${getRoomTypeName(tipo)}: poné un número entero desde 0.`,
+          variant: "destructive",
+        })
+        return
+      }
+      cupos[tipo] = value
+    }
+    const sgl = cupos.sgl ?? null
+    const qpl = cupos.qpl ?? null
+
     try {
       const stockData = {
-        stock_dbl: parseInt(formData.stock_dbl),
-        stock_tpl: parseInt(formData.stock_tpl),
-        stock_cpl: parseInt(formData.stock_cpl),
+        stock_dbl: cupos.dbl ?? 0,
+        stock_tpl: cupos.tpl ?? 0,
+        stock_cpl: cupos.cpl ?? 0,
         is_available: formData.is_available,
         flexible_dates: formData.flexible_dates,
       }
 
+      // Editar: Single y Quíntuple sólo viajan si cambian (editar sin tocarlos no los modifica).
+      // Alta: viajan siempre (número o NULL), porque el upsert puede caer sobre una fila existente
+      // y tiene que quedar lo que se ve en el formulario.
+      const optionalStock: Pick<PackageStockInput, 'stock_sgl' | 'stock_qpl'> = {}
       if (editingStock) {
-        await stockService.updateStock(editingStock.id, stockData)
+        if (sgl !== (editingStock.stock_sgl ?? null)) optionalStock.stock_sgl = sgl
+        if (qpl !== (editingStock.stock_qpl ?? null)) optionalStock.stock_qpl = qpl
       } else {
-        await stockService.upsertStock({
+        optionalStock.stock_sgl = sgl
+        optionalStock.stock_qpl = qpl
+      }
+
+      if (editingStock) {
+        await stockService.updateStock(editingStock.id, { ...stockData, ...optionalStock })
+      } else {
+        const input: PackageStockInput = {
           package_id: selectedPackage.id,
           accommodation_id: parseInt(formData.accommodation_id),
           fecha_salida: formData.flexible_dates ? null : formData.fecha_salida,
           ...stockData,
-        } as any)
+          ...optionalStock,
+        }
+        await stockService.upsertStock(input)
       }
 
       await loadStock(selectedPackage.id)
@@ -319,15 +373,18 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
     if (!accommodationId || !fecha) return
     try {
       const [year, month] = fecha.split('-').map(Number)
+      // Puede haber varias filas en el mes (tarifa del mes + tarifas por salida): sirve la de esta
+      // salida o la del mes (fecha_salida vacía). Las filas sin fecha_salida cuentan como del mes.
       const { data, error } = await supabase
         .from('accommodation_rates')
         .select('*')
         .eq('accommodation_id', parseInt(accommodationId))
         .eq('mes', month)
         .eq('anio', year)
-        .single()
-      if (error || !data) {
-        setTarifaWarning(`No hay tarifas configuradas para ${month}/${year}. Las reservas no podrán calcular precios.`)
+      const rows = (data || []) as { fecha_salida?: string | null }[]
+      const hasRate = rows.some(r => r.fecha_salida == null || r.fecha_salida === fecha)
+      if (error || !hasRate) {
+        setTarifaWarning(`No hay tarifas cargadas para esta salida ni para ${month}/${year}. La web va a mostrar la tarifa «a consultar».`)
       } else {
         setTarifaWarning(null)
       }
@@ -678,20 +735,31 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
                           Stock ilimitado — las reservas no descuentan cupos.
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="bg-primary-100/60 rounded-xl p-3">
-                            <div className="text-xs text-primary-500 mb-1 font-medium uppercase tracking-wide">Dobles</div>
-                            <div className="text-2xl font-bold font-heading text-primary-700">{item.stock_dbl}</div>
+                        <>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            {ROOM_TYPES.map(tipo => {
+                              const cupo = getRoomStock(item, tipo)
+                              const style = STOCK_BOX_STYLE[tipo]
+                              return (
+                                <div key={tipo} className={`${style.box} rounded-xl p-3`}>
+                                  <div className={`text-xs ${style.label} mb-1 font-medium uppercase tracking-wide`}>
+                                    {getRoomTypeName(tipo)}s
+                                  </div>
+                                  {cupo === null ? (
+                                    <div className="text-sm font-semibold text-gray-500 leading-8">A confirmar</div>
+                                  ) : (
+                                    <div className={`text-2xl font-bold font-heading ${style.value}`}>{cupo}</div>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
-                          <div className="bg-primary-50 rounded-xl p-3">
-                            <div className="text-xs text-primary-500 mb-1 font-medium uppercase tracking-wide">Triples</div>
-                            <div className="text-2xl font-bold font-heading text-primary-600">{item.stock_tpl}</div>
-                          </div>
-                          <div className="bg-secondary-100/60 rounded-xl p-3">
-                            <div className="text-xs text-secondary-600 mb-1 font-medium uppercase tracking-wide">Cuádruples</div>
-                            <div className="text-2xl font-bold font-heading text-secondary-700">{item.stock_cpl}</div>
-                          </div>
-                        </div>
+                          {ROOM_TYPES.some(tipo => getRoomStock(item, tipo) === null) && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              A confirmar: ese tipo no tiene cupo cargado. Se puede reservar y la agencia confirma la disponibilidad.
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -723,7 +791,7 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
 
       {/* Modal de Agregar/Editar Stock */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>{editingStock ? "Editar Stock" : "Agregar Stock"}</DialogTitle>
           </DialogHeader>
@@ -819,22 +887,35 @@ export function StockManager({ destinations = [] }: StockManagerProps) {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-primary-800 mb-2">Stock Dobles</label>
-                <Input type="number" min="0" value={formData.stock_dbl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, stock_dbl: e.target.value }))} />
+            <div>
+              <p className="block text-sm font-medium text-primary-800 mb-2">Stock por tipo de habitación</p>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {ROOM_TYPES.map(tipo => {
+                  const field: StockFormField = `stock_${tipo}`
+                  const optional = isOptionalStock(tipo)
+                  return (
+                    <div key={tipo} className="flex flex-col justify-end">
+                      <label htmlFor={field} className="block text-xs font-medium text-primary-800 mb-1">
+                        {getRoomTypeName(tipo)}s
+                        {optional && <span className="block font-normal text-gray-500">opcional</span>}
+                      </label>
+                      <Input
+                        id={field}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={formData[field]}
+                        placeholder={optional ? "A confirmar" : undefined}
+                        className="placeholder:text-xs"
+                        onChange={(e) => setFormData(prev => ({ ...prev, [field]: e.target.value }))}
+                      />
+                    </div>
+                  )
+                })}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-800 mb-2">Stock Triples</label>
-                <Input type="number" min="0" value={formData.stock_tpl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, stock_tpl: e.target.value }))} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-800 mb-2">Stock Cuádruples</label>
-                <Input type="number" min="0" value={formData.stock_cpl}
-                  onChange={(e) => setFormData(prev => ({ ...prev, stock_cpl: e.target.value }))} />
-              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Single y Quíntuple: vacío = se puede reservar y queda a confirmar por la agencia. 0 = sin cupo.
+              </p>
             </div>
 
             {tarifaWarning && (

@@ -9,27 +9,124 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialogConfirm } from "@/components/ui/alert-dialog-confirm"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, User, Hotel, Check, X, Eye, Filter, Search, AlertCircle, BedDouble } from "lucide-react"
-import { reservationService, type ReservationWithDetails, type Reservation, type ReservationDetail } from "@/lib/supabase"
+import { supabase, reservationService, type ReservationWithDetails, type Reservation, type ReservationDetail, type PackageStock } from "@/lib/supabase"
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
-import { getRoomTypeName, getSubtypeLabel } from "@/lib/room-utils"
+import { ROOM_TYPES, formatMenores, formatRoomDetail, getRoomCapacity, getRoomStock, getRoomTypeName, getSubtypeLabel, roomsCapacity, type RoomType } from "@/lib/room-utils"
 import { parseISODateLocal } from "@/lib/date-utils"
-
-const ROOM_CAPACITY: Record<string, number> = { dbl: 2, tpl: 3, cpl: 4, qpl: 5 }
 
 function summarizeRooms(details: ReservationDetail[] | undefined): string {
   if (!details || details.length === 0) return 'Sin habitaciones'
   return details
-    .map(d => {
-      const base = `${d.cantidad}× ${getRoomTypeName(d.tipo_habitacion)}`
-      return d.subtipo_habitacion ? `${base} (${getSubtypeLabel(d.subtipo_habitacion)})` : base
-    })
-    .join(' + ')
+    .map(d => formatRoomDetail(d.tipo_habitacion, d.cantidad, d.subtipo_habitacion, d.menores))
+    .join(', ')
 }
 
-function describeStockImpact(details: ReservationDetail[] | undefined): string {
-  if (!details || details.length === 0) return ''
-  return details.map(d => `${d.cantidad} ${getRoomTypeName(d.tipo_habitacion).toLowerCase()}`).join(', ')
+/** Lectura de la fila de stock de la reserva para describir el impacto en cupo antes de confirmar o cancelar. */
+type StockLookup =
+  | { reservationId: number; status: 'loading' }
+  | { reservationId: number; status: 'error' }
+  | { reservationId: number; status: 'ready'; row: PackageStock | null }
+
+/**
+ * Misma fila que usan confirm/cancel_reservation_atomic: la de la fecha exacta y, si no hay,
+ * la de fechas flexibles; en los dos casos sólo las disponibles.
+ */
+async function findStockRow(r: ReservationWithDetails): Promise<PackageStock | null> {
+  const base = () => supabase
+    .from('package_stock')
+    .select('*')
+    .eq('package_id', r.package_id)
+    .eq('accommodation_id', r.accommodation_id)
+    .eq('is_available', true)
+  const { data: exact, error } = await base().eq('fecha_salida', r.fecha_salida).limit(1)
+  if (error) throw error
+  if (exact && exact.length > 0) return exact[0] as PackageStock
+  const { data: flexible, error: flexibleError } = await base().eq('flexible_dates', true).limit(1)
+  if (flexibleError) throw flexibleError
+  return (flexible?.[0] as PackageStock | undefined) ?? null
+}
+
+/** Habitaciones de la reserva sumadas por tipo, en orden canónico (el cupo cuenta habitaciones, no menores). */
+function roomsByType(details: ReservationDetail[] | undefined): { tipo: RoomType; cantidad: number }[] {
+  const totals = new Map<RoomType, number>()
+  for (const d of details || []) totals.set(d.tipo_habitacion, (totals.get(d.tipo_habitacion) || 0) + d.cantidad)
+  return ROOM_TYPES.filter(t => totals.has(t)).map(tipo => ({ tipo, cantidad: totals.get(tipo) || 0 }))
+}
+
+interface StockImpact {
+  /** «1 doble, 1 triple»: tipos con cupo controlado, que se descuentan o reponen. Vacío si no hay. */
+  controlled: string
+  /** Nombres de los tipos sin cupo controlado (columna en NULL): no descuentan ni reponen. */
+  uncontrolled: string[]
+}
+
+function stockImpact(details: ReservationDetail[] | undefined, row: PackageStock): StockImpact {
+  const controlled: string[] = []
+  const uncontrolled: string[] = []
+  for (const { tipo, cantidad } of roomsByType(details)) {
+    if (getRoomStock(row, tipo) === null) uncontrolled.push(getRoomTypeName(tipo))
+    else controlled.push(`${cantidad} ${getRoomTypeName(tipo).toLowerCase()}`)
+  }
+  return { controlled: controlled.join(', '), uncontrolled }
+}
+
+/** «Quíntuple no descuenta cupo…» / «Single y Quíntuple no descuentan cupo…». */
+function describeUncontrolled(names: string[], action: 'confirm' | 'cancel'): string {
+  if (names.length === 0) return ''
+  const plural = names.length > 1
+  const verbo = action === 'confirm'
+    ? (plural ? 'descuentan' : 'descuenta')
+    : (plural ? 'reponen' : 'repone')
+  const motivo = plural ? 'esos tipos no tienen cupo controlado' : 'ese tipo no tiene cupo controlado'
+  return `${names.join(' y ')} no ${verbo} cupo: ${motivo}${action === 'confirm' ? ' (queda a confirmar)' : ''}.`
+}
+
+/** Texto del diálogo sobre qué pasa con el cupo al confirmar o cancelar. */
+function describeStockImpact(r: ReservationWithDetails, action: 'confirm' | 'cancel', lookup: StockLookup | null): string {
+  if (action === 'cancel' && r.estado !== 'confirmada') return 'No había stock descontado para esta reserva.'
+  if (!r.reservation_details || r.reservation_details.length === 0) return 'La reserva no tiene habitaciones cargadas.'
+  if (!lookup || lookup.reservationId !== r.id || lookup.status === 'loading') return 'Revisando el stock cargado…'
+  if (lookup.status === 'error') {
+    return action === 'confirm'
+      ? 'No se pudo leer el stock cargado. Al confirmar se descuentan sólo los tipos con cupo controlado.'
+      : 'No se pudo leer el stock cargado. Al cancelar se reponen sólo los tipos con cupo controlado.'
+  }
+  const row = lookup.row
+  if (!row) {
+    return action === 'confirm'
+      ? 'No hay stock cargado para esta salida y alojamiento: cargalo en Stock antes de confirmar.'
+      : 'No se encontró el stock de esta salida y alojamiento: no se repone cupo.'
+  }
+  if (row.is_unlimited) {
+    return action === 'confirm'
+      ? 'El stock de este alojamiento es ilimitado: no se descuenta cupo.'
+      : 'El stock de este alojamiento es ilimitado: no hay cupo para reponer.'
+  }
+  const { controlled, uncontrolled } = stockImpact(r.reservation_details, row)
+  const parts: string[] = []
+  if (controlled) parts.push(action === 'confirm' ? `Se descontará del stock: ${controlled}.` : `Se repondrá al stock: ${controlled}.`)
+  parts.push(describeUncontrolled(uncontrolled, action))
+  return parts.filter(Boolean).join(' ')
+}
+
+/** Descripción del aviso después de confirmar o cancelar, con la fila leída antes de la acción. */
+function describeStockResult(r: ReservationWithDetails, action: 'confirm' | 'cancel', lookup: StockLookup | null): string {
+  const fallback = action === 'confirm'
+    ? `Reserva #${r.id} confirmada.`
+    : (r.estado === 'confirmada' ? `Reserva #${r.id} cancelada.` : 'Reserva cancelada (no tenía stock descontado).')
+  if (action === 'cancel' && r.estado !== 'confirmada') return fallback
+  if (!lookup || lookup.reservationId !== r.id || lookup.status !== 'ready' || !lookup.row) return fallback
+  if (lookup.row.is_unlimited) {
+    return action === 'confirm' ? 'Stock ilimitado: no se descontó cupo.' : 'Stock ilimitado: no había cupo para reponer.'
+  }
+  const { controlled, uncontrolled } = stockImpact(r.reservation_details, lookup.row)
+  const parts: string[] = []
+  if (controlled) parts.push(action === 'confirm' ? `Stock descontado: ${controlled}.` : `Se devolvió al stock: ${controlled}.`)
+  if (uncontrolled.length > 0) {
+    parts.push(`${uncontrolled.join(' y ')}: sin cupo controlado, a confirmar.`)
+  }
+  return parts.length > 0 ? parts.join(' ') : fallback
 }
 
 export function ReservationsManager() {
@@ -52,6 +149,7 @@ export function ReservationsManager() {
     type: 'confirm' | 'cancel' | null
     reservation: ReservationWithDetails | null
   }>({ open: false, type: null, reservation: null })
+  const [stockLookup, setStockLookup] = useState<StockLookup | null>(null)
 
   useEffect(() => {
     loadReservations()
@@ -117,12 +215,26 @@ export function ReservationsManager() {
     setIsDetailModalOpen(true)
   }
 
+  // Lee la fila de stock para que el diálogo diga qué tipos descuentan (o reponen) cupo y cuáles no se controlan
+  const loadStockLookup = async (r: ReservationWithDetails) => {
+    setStockLookup({ reservationId: r.id, status: 'loading' })
+    try {
+      const row = await findStockRow(r)
+      setStockLookup(prev => prev?.reservationId === r.id ? { reservationId: r.id, status: 'ready', row } : prev)
+    } catch (error) {
+      console.error("Error loading stock for reservation:", error)
+      setStockLookup(prev => prev?.reservationId === r.id ? { reservationId: r.id, status: 'error' } : prev)
+    }
+  }
+
   const askConfirm = (r: ReservationWithDetails) => {
     setConfirmDialog({ open: true, type: 'confirm', reservation: r })
+    loadStockLookup(r)
   }
 
   const askCancel = (r: ReservationWithDetails) => {
     setConfirmDialog({ open: true, type: 'cancel', reservation: r })
+    if (r.estado === 'confirmada') loadStockLookup(r)
   }
 
   const executeAction = async () => {
@@ -133,20 +245,15 @@ export function ReservationsManager() {
       setIsProcessing(true)
       if (type === 'confirm') {
         await reservationService.confirmReservation(reservation.id)
-        const impact = describeStockImpact(reservation.reservation_details)
         toast({
           title: "Reserva confirmada",
-          description: impact ? `Stock descontado: ${impact}.` : `Reserva #${reservation.id} confirmada.`,
+          description: describeStockResult(reservation, 'confirm', stockLookup),
         })
       } else {
         await reservationService.cancelReservation(reservation.id)
-        const wasConfirmed = reservation.estado === 'confirmada'
-        const impact = describeStockImpact(reservation.reservation_details)
         toast({
           title: "Reserva cancelada",
-          description: wasConfirmed && impact
-            ? `Si tenía cupo descontado, se devolvió al stock (${impact}).`
-            : 'Reserva cancelada (no tenía stock descontado).',
+          description: describeStockResult(reservation, 'cancel', stockLookup),
         })
       }
       await loadReservations()
@@ -523,10 +630,13 @@ export function ReservationsManager() {
                       <div key={detail.id} className="border border-primary-100 rounded-lg p-3 bg-primary-50/30 flex justify-between items-center">
                         <div>
                           <h4 className="font-semibold text-sm">
-                            {detail.cantidad}× {getRoomTypeName(detail.tipo_habitacion)}
+                            {formatRoomDetail(detail.tipo_habitacion, detail.cantidad, null, detail.menores)}
                           </h4>
                           <p className="text-xs text-gray-500">
-                            Capacidad: {detail.cantidad * (ROOM_CAPACITY[detail.tipo_habitacion] || 0)} personas
+                            Capacidad: {roomsCapacity([detail])} {roomsCapacity([detail]) === 1 ? 'persona' : 'personas'}
+                            {detail.menores
+                              ? ` (${detail.cantidad * getRoomCapacity(detail.tipo_habitacion)} + ${formatMenores(detail.menores)})`
+                              : ''}
                           </p>
                         </div>
                         {detail.subtipo_habitacion && (
@@ -640,8 +750,8 @@ export function ReservationsManager() {
         description={
           confirmDialog.reservation
             ? confirmDialog.type === 'confirm'
-              ? `Vas a confirmar la reserva de ${confirmDialog.reservation.cliente_nombre}. Se descontará del stock: ${describeStockImpact(confirmDialog.reservation.reservation_details)}.`
-              : `Vas a cancelar la reserva de ${confirmDialog.reservation.cliente_nombre}. ${confirmDialog.reservation.estado === 'confirmada' ? `Se repondrá al stock: ${describeStockImpact(confirmDialog.reservation.reservation_details)}.` : 'No había stock descontado para esta reserva.'}`
+              ? `Vas a confirmar la reserva de ${confirmDialog.reservation.cliente_nombre}. ${describeStockImpact(confirmDialog.reservation, 'confirm', stockLookup)}`
+              : `Vas a cancelar la reserva de ${confirmDialog.reservation.cliente_nombre}. ${describeStockImpact(confirmDialog.reservation, 'cancel', stockLookup)}`
             : ''
         }
         confirmText={confirmDialog.type === 'confirm' ? "Confirmar" : "Sí, cancelar"}

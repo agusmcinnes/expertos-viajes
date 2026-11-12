@@ -1,5 +1,5 @@
 import emailjs from '@emailjs/browser'
-import { getRoomTypeName, getSubtypeLabel } from '@/lib/room-utils'
+import { getRoomTypeName, getSubtypeLabel, formatMenores, type RoomDetailInput } from '@/lib/room-utils'
 import { parseISODateLocal } from '@/lib/date-utils'
 
 // Se pasa en cada envío: init() sólo corría si se montaba el formulario de contacto
@@ -73,13 +73,6 @@ export const sendAgencyNotification = async (data: AgencyNotificationData): Prom
   }
 }
 
-// Interfaces para el sistema de reservas
-interface RoomDetail {
-  tipo_habitacion: 'dbl' | 'tpl' | 'cpl' | 'qpl'
-  cantidad: number
-  subtipo_habitacion?: 'matrimonial' | 'twin' | null
-}
-
 export interface Passenger {
   tipo_pasajero: 'titular' | 'acompañante'
   nombre: string
@@ -99,7 +92,7 @@ export interface ReservationNotificationData {
   clientName: string
   clientEmail: string
   clientPhone: string
-  rooms: RoomDetail[]
+  rooms: RoomDetailInput[]
   passengers: Passenger[]
   comments?: string
   reservationId: number
@@ -122,13 +115,18 @@ export const buildPassengersDetail = (passengers: Passenger[]): string =>
     return detail
   }).join('\n')
 
+// "1× Doble (Matrimonial) + 1 menor, 1× Single". Sin menores, el texto es el de siempre.
+export const buildRoomsDetail = (rooms: RoomDetailInput[]): string =>
+  rooms.map(room => {
+    let detail = `${room.cantidad}× ${getRoomTypeName(room.tipo_habitacion)}`
+    if (room.subtipo_habitacion) detail += ` (${getSubtypeLabel(room.subtipo_habitacion)})`
+    if (room.menores) detail += ` + ${formatMenores(room.menores)}`
+    return detail
+  }).join(', ')
+
 export const sendReservationNotification = async (data: ReservationNotificationData): Promise<boolean> => {
   try {
-    const roomDetails = data.rooms.map(room => {
-      let detail = getRoomTypeName(room.tipo_habitacion)
-      if (room.subtipo_habitacion) detail += ` (${getSubtypeLabel(room.subtipo_habitacion)})`
-      return `${room.cantidad}× ${detail}`
-    }).join(', ')
+    const roomDetails = buildRoomsDetail(data.rooms)
 
     const passengersDetail = buildPassengersDetail(data.passengers)
 

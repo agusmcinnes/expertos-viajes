@@ -46,6 +46,14 @@ describe("parseSpanishDate", () => {
       expect(parseSpanishDate(s)).toBeNull()
     }
   })
+
+  it("no lee lo que la base (parse_departure_date, la del bot) tampoco lee", () => {
+    for (const s of ["24 Ene 2027 (últimos lugares)", "31 Feb 2027", "0 Ene 2027", "3abc Ene 2027", "3 Ene 202", "2027-01-03"]) {
+      expect(parseSpanishDate(s)).toBeNull()
+    }
+    expect(parseSpanishDate("29 Feb 2028")).not.toBeNull()
+    expect(parseSpanishDate("29 Feb 2027")).toBeNull()
+  })
 })
 
 describe("parseISODateLocal", () => {

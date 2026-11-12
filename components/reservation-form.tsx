@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Separator } from "@/components/ui/separator"
-import { Calendar, Hotel, Users, Check, AlertCircle, Plus, X, Edit, Info, BedDouble, ClipboardCheck, CheckCircle2, ChevronLeft, ChevronRight, Star, Utensils } from "lucide-react"
+import { Calendar, Hotel, Users, Check, AlertCircle, Plus, Minus, X, Edit, Info, BedDouble, ClipboardCheck, CheckCircle2, ChevronLeft, ChevronRight, Star, Utensils } from "lucide-react"
 import { supabase, stockService, reservationService, type CreateReservationData } from "@/lib/supabase"
 import { sendReservationNotification } from "@/lib/emailjs"
 import { motion, AnimatePresence } from "framer-motion"
@@ -16,18 +16,30 @@ import { toast } from "@/hooks/use-toast"
 import { BirthDatePicker } from "@/components/ui/birth-date-picker"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { differenceInYears } from "date-fns"
-import { getRoomTypeName, getRoomCapacity } from "@/lib/room-utils"
+import {
+  ROOM_TYPES,
+  getRoomTypeName,
+  getRoomCapacity,
+  maxMenores,
+  roomsCapacity,
+  roomStockStatus,
+  validateRoomDetails,
+  formatMenores,
+  type RoomType,
+  type RoomDetailInput,
+  type RoomStockLike,
+} from "@/lib/room-utils"
 import { filterFutureDates, parseISODateLocal, spanishDateToISO, toISODateLocal } from "@/lib/date-utils"
 
 // Barra de navegación de cada paso: queda pegada abajo para que "Continuar" se vea en el celular
 // aunque la lista sea larga.
 const NAV_BAR = "sticky bottom-0 z-10 bg-white border-t border-gray-100 -mx-1 px-1 pt-3 pb-2 mt-2 flex justify-between gap-3"
 
-// Con stock ilimitado no hay cupo que mostrar; igual se pone un techo razonable por tipo.
-const UNLIMITED_ROOMS = 10
-
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const DNI_REGEX = /^\d{7,8}$/
+
+// "1 persona" / "3 personas"
+const contar = (n: number, singular: string, plural: string) => `${n} ${n === 1 ? singular : plural}`
 
 const normalizeDni = (value: string) => value.replace(/\D/g, '')
 const normalizePhone = (value: string) => value.replace(/\D/g, '')
@@ -51,20 +63,11 @@ interface ReservationFormProps {
   onClose?: () => void
 }
 
-interface StockAvailable {
+// Fila de package_stock. Las filas viejas pueden no traer stock_sgl / stock_qpl (cupo «a confirmar»).
+interface StockAvailable extends RoomStockLike {
   fecha_salida: string | null
   accommodation_id: number
-  stock_dbl: number
-  stock_tpl: number
-  stock_cpl: number
   flexible_dates?: boolean
-  is_unlimited?: boolean
-}
-
-interface RoomDetail {
-  tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
-  cantidad: number
-  subtipo_habitacion?: 'matrimonial' | 'twin' | null
 }
 
 interface Passenger {
@@ -167,7 +170,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
   const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   // Datos del formulario
-  const [roomsData, setRoomsData] = useState<RoomDetail[]>([])
+  const [roomsData, setRoomsData] = useState<RoomDetailInput[]>([])
   const [passengers, setPassengers] = useState<Passenger[]>([])
   const [titularConfirmado, setTitularConfirmado] = useState(false)
   const [comentarios, setComentarios] = useState("")
@@ -380,34 +383,23 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     setRoomsData([])
   }
 
-  const getTotalCapacity = () => {
-    return roomsData.reduce((sum, room) => {
-      let capacity = 0
-      if (room.tipo_habitacion === 'dbl') capacity = 2
-      else if (room.tipo_habitacion === 'tpl') capacity = 3
-      else if (room.tipo_habitacion === 'cpl') capacity = 4
-      return sum + (room.cantidad * capacity)
-    }, 0)
-  }
+  // Capacidad con menores: la única cuenta es roomsCapacity (lib/room-utils)
+  const getTotalCapacity = () => roomsCapacity(roomsData)
 
-  const getStockForRoomType = (tipo: 'dbl' | 'tpl' | 'cpl') => {
-    const stock = selectedStock
-    if (!stock) return 0
-    if (stock.is_unlimited) return UNLIMITED_ROOMS
-    if (tipo === 'dbl') return stock.stock_dbl
-    if (tipo === 'tpl') return stock.stock_tpl
-    if (tipo === 'cpl') return stock.stock_cpl
-    return 0
-  }
+  const getTotalMenores = () => roomsData.reduce((sum, room) => sum + (room.menores || 0), 0)
 
-  const addRoom = (tipo: 'dbl' | 'tpl' | 'cpl') => {
-    const currentCount = roomsData.filter(r => r.tipo_habitacion === tipo).reduce((sum, r) => sum + r.cantidad, 0)
-    const stockAvailable = getStockForRoomType(tipo)
+  // Pasajeros cargados de más (pasa si se vuelve al paso 3 y se saca una habitación o se bajan menores).
+  // No se borra a nadie: el paso 4 avisa y no deja seguir hasta que se resuelva.
+  const getExcessPassengers = () => (roomsData.length > 0 ? Math.max(0, passengers.length - getTotalCapacity()) : 0)
 
-    if (currentCount >= stockAvailable) {
+  const countRoomsOfType = (tipo: RoomType) =>
+    roomsData.filter(r => r.tipo_habitacion === tipo).reduce((sum, r) => sum + r.cantidad, 0)
+
+  const addRoom = (tipo: RoomType) => {
+    if (!roomStockStatus(selectedStock, tipo, countRoomsOfType(tipo)).canAdd) {
       toast({
-        title: "Limite alcanzado",
-        description: `No puedes agregar mas habitaciones ${getRoomTypeName(tipo)}`,
+        title: "Límite alcanzado",
+        description: `No podés agregar más habitaciones ${getRoomTypeName(tipo)}`,
         variant: "destructive"
       })
       return
@@ -416,7 +408,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     setRoomsData([...roomsData, {
       tipo_habitacion: tipo,
       cantidad: 1,
-      subtipo_habitacion: 'matrimonial'
+      // En una single no hay tipo de cama
+      subtipo_habitacion: tipo === 'sgl' ? null : 'matrimonial',
+      menores: 0
     }])
   }
 
@@ -430,12 +424,21 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     setRoomsData(newRoomsData)
   }
 
+  const updateRoomMenores = (index: number, delta: number) => {
+    setRoomsData(roomsData.map((room, i) => {
+      if (i !== index) return room
+      const max = maxMenores(room.tipo_habitacion) * room.cantidad
+      const menores = Math.min(max, Math.max(0, (room.menores || 0) + delta))
+      return { ...room, menores }
+    }))
+  }
+
   const addPassenger = (tipo: 'acompañante') => {
     const totalCapacity = getTotalCapacity()
     if (passengers.length >= totalCapacity) {
       toast({
-        title: "Capacidad maxima alcanzada",
-        description: `Solo puedes agregar ${totalCapacity} pasajeros segun las habitaciones seleccionadas`,
+        title: "Capacidad máxima alcanzada",
+        description: `Solo podés agregar ${contar(totalCapacity, 'pasajero', 'pasajeros')} según las habitaciones seleccionadas`,
         variant: "destructive"
       })
       return
@@ -510,9 +513,25 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
     return differenceInYears(parseISODateLocal(selectedDate)!, parseISODateLocal(fechaNacimiento)!)
   }
 
+  // Aviso suave (nunca bloquea): menores declarados en las habitaciones contra pasajeros menores de 18 al viajar.
+  // Los marcados «lo completo después» no se juzgan por su fecha: pueden ser los menores, así que tampoco disparan el aviso.
+  const getMenoresWarning = () => {
+    const declarados = getTotalMenores()
+    if (declarados === 0) return null
+    const cargados = passengers.filter(p => {
+      if (p.datos_pendientes || !p.fecha_nacimiento) return false
+      const edad = getAgeAtTravel(p.fecha_nacimiento)
+      return edad !== null && edad < 18
+    }).length
+    const pendientes = passengers.filter(p => p.datos_pendientes).length
+    if (declarados <= cargados + pendientes) return null
+    return { declarados, cargados }
+  }
+
   const canSubmit = () => {
     if (!passengers.some(p => p.tipo_pasajero === 'titular')) return false
     if (!isTitularAdult()) return false
+    if (passengers.length > getTotalCapacity()) return false
     const duplicates = getDuplicateDnis()
     return passengers.every(p => isPassengerValid(p, duplicates))
   }
@@ -530,7 +549,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
       }))
 
       const titular = passengers.find(p => p.tipo_pasajero === 'titular')
-      if (!titular) throw new Error('No se encontro el titular')
+      if (!titular) throw new Error('No se encontró el titular')
 
       const reservationData: CreateReservationData = {
         package_id: packageId,
@@ -540,7 +559,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         cliente_email: titular.email || '',
         cliente_telefono: titular.telefono || '',
         comentarios: comentarios || undefined,
-        details: roomsData,
+        details: roomsData.map(room => ({
+          tipo_habitacion: room.tipo_habitacion,
+          cantidad: room.cantidad,
+          subtipo_habitacion: room.tipo_habitacion === 'sgl' ? null : room.subtipo_habitacion ?? null,
+          menores: room.menores ?? 0
+        })),
         passengers: passengersWithAge
       }
 
@@ -561,7 +585,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
         clientPhone: titular.telefono || '',
         accommodation: accommodations.find(a => a.id === selectedAccommodation)?.name || "",
         departureDate: selectedDate,
-        rooms: roomsData,
+        rooms: reservationData.details,
         passengers: passengersWithAge,
         comments: comentarios
       })
@@ -569,14 +593,14 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
       if (!notified) {
         toast({
           title: "Reserva creada, aviso pendiente",
-          description: "Tu reserva quedó registrada. Si no recibís contacto en 24hs, escribinos por WhatsApp.",
+          description: "Tu reserva quedó registrada. Si no recibís contacto en 24 hs, escribinos por WhatsApp.",
           variant: "default"
         })
       }
 
       setSuccess(true)
       toast({
-        title: "Reserva exitosa!",
+        title: "¡Reserva exitosa!",
         description: "Tu pre-reserva ha sido registrada correctamente",
       })
 
@@ -661,7 +685,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             >
               <Check className="w-10 h-10 text-white" />
             </motion.div>
-            <h3 className="text-2xl font-bold text-green-800 mb-3">Reserva Exitosa!</h3>
+            <h3 className="text-2xl font-bold text-green-800 mb-3">¡Reserva exitosa!</h3>
             <p className="text-green-700 mb-4 max-w-md mx-auto">
               Tu pre-reserva ha sido registrada correctamente. En breve te contactaremos para confirmar y cotizar.
             </p>
@@ -696,8 +720,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             {step === 1 && (
               <div className="space-y-4 sm:space-y-6">
                 <div className="text-center mb-2">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Selecciona tu fecha de salida</h2>
-                  <p className="text-sm text-gray-500 mt-1">Elige cuando queres viajar</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Seleccioná tu fecha de salida</h2>
+                  <p className="text-sm text-gray-500 mt-1">Elegí cuándo querés viajar</p>
                 </div>
 
                 {isLoadingDates ? (
@@ -712,7 +736,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                         <Calendar className="w-5 h-5 text-primary" />
                         <span className="font-semibold text-primary">Fechas Flexibles</span>
                       </div>
-                      <p className="text-sm text-gray-600 mb-4">Este paquete tiene fechas flexibles. Elegi cualquier fecha disponible.</p>
+                      <p className="text-sm text-gray-600 mb-4">Este paquete tiene fechas flexibles. Elegí cualquier fecha disponible.</p>
                       <Input
                         type="date"
                         value={selectedDate}
@@ -882,7 +906,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                 <div className={NAV_BAR}>
                   <Button variant="ghost" onClick={prevStep} className="text-gray-500">
                     <ChevronLeft className="w-4 h-4 mr-1" />
-                    Atras
+                    Atrás
                   </Button>
                   <Button
                     onClick={nextStep}
@@ -901,126 +925,211 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             {step === 3 && (
               <div className="space-y-4 sm:space-y-6">
                 <div className="text-center mb-2">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Arma tu habitacion</h2>
-                  <p className="text-sm text-gray-500 mt-1">Toca <strong>+</strong> para agregar habitaciones</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Armá tu habitación</h2>
+                  <p className="text-sm text-gray-500 mt-1">Tocá <strong>+</strong> para agregar habitaciones</p>
                 </div>
 
-                {/* Room type cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {(['dbl', 'tpl', 'cpl'] as const).map((tipo) => {
+                {/* Room type cards: en celular y tablet, una fila por tipo; desde md, las cinco en línea */}
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 md:gap-3">
+                  {ROOM_TYPES.map((tipo) => {
                     const agregadas = roomsData.filter(r => r.tipo_habitacion === tipo).length
-                    const stockDisponible = getStockForRoomType(tipo)
-                    const restantes = Math.max(0, stockDisponible - agregadas)
-                    const puedeAgregar = restantes > 0
-                    const sinStock = stockDisponible === 0
+                    const cupo = roomStockStatus(selectedStock, tipo, countRoomsOfType(tipo))
+                    const puedeAgregar = cupo.canAdd
+                    const sinStock = cupo.kind === 'sold_out'
+                    const capacidad = getRoomCapacity(tipo)
+                    const nombre = getRoomTypeName(tipo)
+                    const cupoColor = sinStock
+                      ? 'text-gray-400'
+                      : !puedeAgregar
+                      ? 'text-amber-600'
+                      : cupo.kind === 'unconfirmed'
+                      ? 'text-blue-600'
+                      : 'text-green-600'
 
                     return (
                       <motion.div
                         key={tipo}
-                        className={`rounded-xl border-2 p-3 sm:p-4 text-center transition-all ${
+                        className={`rounded-xl border-2 p-3 md:p-4 flex items-center gap-3 md:flex-col md:items-stretch md:gap-0 md:text-center transition-all ${
                           sinStock ? 'border-gray-100 bg-gray-50 opacity-40' :
                           !puedeAgregar ? 'border-gray-200 bg-gray-50' :
                           'border-gray-200 hover:border-primary/30 hover:shadow-sm'
                         }`}
                         whileTap={puedeAgregar ? { scale: 0.97 } : {}}
                       >
-                        <div className="flex items-center justify-center gap-1 mb-2">
-                          {Array.from({ length: getRoomCapacity(tipo) }, (_, i) => (
-                            <Users key={i} className="w-3 h-3 text-primary/60" />
-                          ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1 mb-1 md:justify-center md:mb-2" aria-hidden="true">
+                            {Array.from({ length: capacidad }, (_, i) => (
+                              <Users key={i} className="w-3 h-3 text-primary/60" />
+                            ))}
+                          </div>
+                          <div className="flex items-baseline gap-2 md:block">
+                            <h4 className="font-bold text-sm md:text-base md:mb-0.5">{nombre}</h4>
+                            <p className="text-xs text-gray-500 md:mb-1">{capacidad} {capacidad === 1 ? 'persona' : 'personas'}</p>
+                          </div>
+                          <p className={`text-[11px] font-medium md:mb-2 ${cupoColor}`}>
+                            {cupo.label}
+                            {agregadas > 0 && (
+                              <span className="md:hidden text-primary"> · {agregadas} agregada{agregadas > 1 ? 's' : ''}</span>
+                            )}
+                          </p>
                         </div>
-                        <h4 className="font-bold text-sm sm:text-base mb-0.5">{getRoomTypeName(tipo)}</h4>
-                        <p className="text-xs text-gray-500 mb-1">{getRoomCapacity(tipo)} personas</p>
-                        <p className={`text-[11px] mb-2 font-medium ${sinStock ? 'text-gray-400' : puedeAgregar ? 'text-green-600' : 'text-amber-600'}`}>
-                          {sinStock ? 'Sin cupo' : selectedStock?.is_unlimited ? 'Disponible' : `Quedan ${restantes}`}
-                        </p>
                         <Button
                           onClick={() => addRoom(tipo)}
                           disabled={!puedeAgregar}
                           size="sm"
-                          className="w-full text-white rounded-lg h-9"
+                          className="shrink-0 text-white rounded-lg h-11 w-11 md:h-9 md:w-full"
+                          aria-label={`Agregar habitación ${nombre}`}
                         >
                           <Plus className="w-4 h-4" />
                         </Button>
                         {agregadas > 0 && (
-                          <p className="text-xs text-primary font-medium mt-2">{agregadas} agregada{agregadas > 1 ? 's' : ''}</p>
+                          <p className="hidden md:block text-xs text-primary font-medium mt-2">{agregadas} agregada{agregadas > 1 ? 's' : ''}</p>
                         )}
                       </motion.div>
                     )
                   })}
                 </div>
 
+                {/* Menores: no son un tipo de habitación, se suman dentro de cada una */}
+                <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50 border border-blue-200">
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                  <p className="text-xs sm:text-sm text-blue-900">
+                    <strong>¿Viajás con menores?</strong> Agregá la habitación y sumá los menores dentro de ella: hasta 2 en una Doble, Triple o Cuádruple. El menor comparte la habitación y paga tarifa de menor; la edad límite depende del hotel y te la confirma el asesor.
+                  </p>
+                </div>
+
                 {/* Selected rooms */}
                 {roomsData.length > 0 && (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <h4 className="font-semibold text-base">Habitaciones seleccionadas</h4>
                       <Badge variant="outline" className="text-sm font-medium">
                         <Users className="w-3.5 h-3.5 mr-1" />
-                        {getTotalCapacity()} personas
+                        {contar(getTotalCapacity(), 'persona', 'personas')}
+                        {getTotalMenores() > 0 && ` (incluye ${formatMenores(getTotalMenores())})`}
                       </Badge>
                     </div>
 
                     <Separator />
 
                     <div className="space-y-2">
-                      {roomsData.map((room, index) => (
-                        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <BedDouble className="w-4 h-4 text-primary" />
-                              <span className="font-medium text-sm">{getRoomTypeName(room.tipo_habitacion)}</span>
-                              <span className="text-xs text-gray-500">({getRoomCapacity(room.tipo_habitacion)} pers.)</span>
+                      {roomsData.map((room, index) => {
+                        const nombre = getRoomTypeName(room.tipo_habitacion)
+                        const menores = room.menores || 0
+                        const topeMenores = maxMenores(room.tipo_habitacion) * room.cantidad
+                        const cupoAConfirmar = roomStockStatus(selectedStock, room.tipo_habitacion).kind === 'unconfirmed'
+                        return (
+                          <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-xl">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <BedDouble className="w-4 h-4 text-primary" />
+                                <span className="font-medium text-sm">{nombre}</span>
+                                <span className="text-xs text-gray-500">
+                                  ({getRoomCapacity(room.tipo_habitacion)} pers.{menores > 0 ? ` + ${formatMenores(menores)}` : ''})
+                                </span>
+                                {cupoAConfirmar && (
+                                  <span className="text-[11px] font-medium text-blue-600">Cupo a confirmar por el asesor</span>
+                                )}
+                              </div>
+                              {/* Bed type toggle (una single no lleva) */}
+                              {room.tipo_habitacion !== 'sgl' && (
+                                <div className="flex gap-1.5 mt-2">
+                                  <button
+                                    onClick={() => updateRoomSubtype(index, 'matrimonial')}
+                                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                                      room.subtipo_habitacion === 'matrimonial'
+                                        ? 'bg-primary text-white border-primary'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:border-primary/50'
+                                    }`}
+                                  >
+                                    Matrimonial
+                                  </button>
+                                  <button
+                                    onClick={() => updateRoomSubtype(index, 'twin')}
+                                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
+                                      room.subtipo_habitacion === 'twin'
+                                        ? 'bg-primary text-white border-primary'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:border-primary/50'
+                                    }`}
+                                  >
+                                    Camas separadas
+                                  </button>
+                                </div>
+                              )}
+                              {/* Menores de esta habitación */}
+                              {topeMenores > 0 && (
+                                <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-gray-200">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-700">Menores</p>
+                                    <p className="text-[11px] text-gray-500">Hasta {topeMenores} · pagan tarifa de menor</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => updateRoomMenores(index, -1)}
+                                      disabled={menores === 0}
+                                      className="w-10 h-10 rounded-full border border-gray-300 bg-white text-gray-700 flex items-center justify-center transition-colors hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      aria-label={`Quitar un menor de la habitación ${nombre}`}
+                                    >
+                                      <Minus className="w-4 h-4" />
+                                    </button>
+                                    <span className="w-6 text-center font-semibold tabular-nums" aria-live="polite">{menores}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => updateRoomMenores(index, 1)}
+                                      disabled={menores >= topeMenores}
+                                      className="w-10 h-10 rounded-full border border-gray-300 bg-white text-gray-700 flex items-center justify-center transition-colors hover:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
+                                      aria-label={`Sumar un menor a la habitación ${nombre}`}
+                                    >
+                                      <Plus className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            {/* Bed type toggle */}
-                            <div className="flex gap-1.5">
-                              <button
-                                onClick={() => updateRoomSubtype(index, 'matrimonial')}
-                                className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                                  room.subtipo_habitacion === 'matrimonial'
-                                    ? 'bg-primary text-white border-primary'
-                                    : 'bg-white text-gray-600 border-gray-300 hover:border-primary/50'
-                                }`}
-                              >
-                                Matrimonial
-                              </button>
-                              <button
-                                onClick={() => updateRoomSubtype(index, 'twin')}
-                                className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                                  room.subtipo_habitacion === 'twin'
-                                    ? 'bg-primary text-white border-primary'
-                                    : 'bg-white text-gray-600 border-gray-300 hover:border-primary/50'
-                                }`}
-                              >
-                                Camas separadas
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => removeRoom(index)}
+                              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              aria-label={`Quitar habitación ${nombre}`}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => removeRoom(index)}
-                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
+
+                    {/* Si se achicó la capacidad por debajo de los pasajeros ya cargados: se avisa, no se borra a nadie */}
+                    {getExcessPassengers() > 0 && (
+                      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                        <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                        <p className="text-xs sm:text-sm text-amber-900">
+                          Ya cargaste {contar(passengers.length, 'pasajero', 'pasajeros')} y estas habitaciones alcanzan para {getTotalCapacity()}.
+                          Sumá lugar (otra habitación o un menor) o, en el paso siguiente, quitá {getExcessPassengers()} {getExcessPassengers() === 1 ? 'acompañante' : 'acompañantes'}.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 <div className={NAV_BAR}>
                   <Button variant="ghost" onClick={prevStep} className="text-gray-500">
                     <ChevronLeft className="w-4 h-4 mr-1" />
-                    Atras
+                    Atrás
                   </Button>
                   <Button
                     onClick={() => {
                       if (roomsData.length === 0) {
-                        toast({ title: "Agrega al menos una habitacion", variant: "destructive" })
+                        toast({ title: "Agregá al menos una habitación", variant: "destructive" })
                         return
                       }
-                      if (!roomsData.every(r => r.subtipo_habitacion)) {
-                        toast({ title: "Selecciona el tipo de cama para todas las habitaciones", variant: "destructive" })
+                      if (!roomsData.every(r => r.tipo_habitacion === 'sgl' || r.subtipo_habitacion)) {
+                        toast({ title: "Seleccioná el tipo de cama para todas las habitaciones", variant: "destructive" })
+                        return
+                      }
+                      const roomsError = validateRoomDetails(roomsData)
+                      if (roomsError) {
+                        toast({ title: roomsError, variant: "destructive" })
                         return
                       }
                       nextStep()
@@ -1041,17 +1150,38 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
               <div className="space-y-4 sm:space-y-6">
                 <div className="text-center mb-2">
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Datos de pasajeros</h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {passengers.length} de {getTotalCapacity()} pasajeros
+                  <p className={`text-sm mt-1 ${getExcessPassengers() > 0 ? 'text-amber-700 font-medium' : 'text-gray-500'}`}>
+                    {passengers.length} de {contar(getTotalCapacity(), 'pasajero', 'pasajeros')}
+                    {getTotalMenores() > 0 && ` (incluye ${formatMenores(getTotalMenores())})`}
                   </p>
                   {/* Mini progress bar */}
                   <div className="w-48 h-1.5 bg-gray-200 rounded-full mx-auto mt-2 overflow-hidden">
                     <motion.div
-                      className="h-full bg-primary rounded-full"
-                      animate={{ width: `${(passengers.length / Math.max(getTotalCapacity(), 1)) * 100}%` }}
+                      className={`h-full rounded-full ${getExcessPassengers() > 0 ? 'bg-amber-500' : 'bg-primary'}`}
+                      animate={{ width: `${Math.min(1, passengers.length / Math.max(getTotalCapacity(), 1)) * 100}%` }}
                     />
                   </div>
                 </div>
+
+                {/* Capacidad achicada en el paso 3: no se borra a nadie, se pide resolverlo */}
+                {getExcessPassengers() > 0 && (
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                    <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                    <div className="text-xs sm:text-sm text-amber-900">
+                      <p>
+                        Hay {contar(passengers.length, 'pasajero cargado', 'pasajeros cargados')} y las habitaciones alcanzan para {getTotalCapacity()}.
+                        Quitá {getExcessPassengers()} {getExcessPassengers() === 1 ? 'acompañante' : 'acompañantes'} o sumá lugar en Habitaciones.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => goToStep(3)}
+                        className="mt-1 font-medium text-amber-800 underline underline-offset-2"
+                      >
+                        Volver a Habitaciones
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Titular Section */}
                 <div className="space-y-3">
@@ -1089,7 +1219,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                           <p><span className="text-gray-500">Nombre:</span> <strong>{titular.nombre} {titular.apellido}</strong></p>
                           <p><span className="text-gray-500">DNI:</span> <strong>{titular.dni}</strong></p>
                           <p><span className="text-gray-500">Email:</span> <strong>{titular.email}</strong></p>
-                          <p><span className="text-gray-500">Edad:</span> <strong>{getTitularAge()} anios</strong></p>
+                          <p><span className="text-gray-500">Edad:</span> <strong>{getTitularAge()} años</strong></p>
                         </div>
                       ))}
                     </motion.div>
@@ -1128,12 +1258,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                               />
                               {passengers[0]?.dni && !isValidDni(passengers[0].dni) && (
                                 <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                  <AlertCircle className="w-3 h-3" /> DNI invalido (7 u 8 digitos)
+                                  <AlertCircle className="w-3 h-3" /> DNI inválido (7 u 8 dígitos)
                                 </p>
                               )}
                               {passengers[0]?.dni && isValidDni(passengers[0].dni) && getDuplicateDnis().has(normalizeDni(passengers[0].dni)) && (
                                 <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                  <AlertCircle className="w-3 h-3" /> Este DNI ya esta en otro pasajero
+                                  <AlertCircle className="w-3 h-3" /> Este DNI ya está en otro pasajero
                                 </p>
                               )}
                             </div>
@@ -1144,20 +1274,20 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                 onSelect={(date) => {
                                   if (date) updatePassenger(0, 'fecha_nacimiento', toISODateLocal(date))
                                 }}
-                                placeholder="Selecciona fecha"
+                                placeholder="Seleccioná fecha"
                                 maxYear={new Date().getFullYear() - 18}
                                 minYear={1920}
                               />
                               {passengers[0]?.fecha_nacimiento && selectedDate && isTitularAdult() && (
                                 <div className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600">
                                   <Info className="w-3 h-3" />
-                                  Edad al viajar: {getAgeAtTravel(passengers[0].fecha_nacimiento)} anios
+                                  Edad al viajar: {getAgeAtTravel(passengers[0].fecha_nacimiento)} años
                                 </div>
                               )}
                               {passengers[0]?.fecha_nacimiento && !isTitularAdult() && (
                                 <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
                                   <AlertCircle className="w-3 h-3" />
-                                  El titular debe ser mayor de 18 anios (tiene {getTitularAge()} anios)
+                                  El titular debe ser mayor de 18 años (tiene {getTitularAge()} años)
                                 </p>
                               )}
                             </div>
@@ -1181,12 +1311,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                               />
                               {passengers[0]?.email && !isValidEmail(passengers[0].email) && (
                                 <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                  <AlertCircle className="w-3 h-3" /> Email invalido
+                                  <AlertCircle className="w-3 h-3" /> Email inválido
                                 </p>
                               )}
                             </div>
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Telefono *</label>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono *</label>
                               <Input
                                 type="tel"
                                 value={passengers[0]?.telefono || ''}
@@ -1196,7 +1326,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                               />
                               {passengers[0]?.telefono && !isValidPhone(passengers[0].telefono) && (
                                 <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                  <AlertCircle className="w-3 h-3" /> Telefono muy corto (min. 8 digitos)
+                                  <AlertCircle className="w-3 h-3" /> Teléfono muy corto (mín. 8 dígitos)
                                 </p>
                               )}
                             </div>
@@ -1206,11 +1336,11 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                         <Button
                           onClick={() => {
                             if (!isTitularAdult()) {
-                              toast({ title: `El titular debe ser mayor de 18 anios (tiene ${getTitularAge()} anios)`, variant: "destructive" })
+                              toast({ title: `El titular debe ser mayor de 18 años (tiene ${getTitularAge()} años)`, variant: "destructive" })
                               return
                             }
                             if (!isTitularComplete()) {
-                              toast({ title: "Revisa los campos del titular", description: "Hay campos incompletos o con formato invalido", variant: "destructive" })
+                              toast({ title: "Revisá los campos del titular", description: "Hay campos incompletos o con formato inválido", variant: "destructive" })
                               return
                             }
                             setTitularConfirmado(true)
@@ -1241,7 +1371,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                         <div className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center">
                           <span className="text-gray-600 text-xs font-bold">+</span>
                         </div>
-                        <h3 className="font-semibold text-base">Acompanantes</h3>
+                        <h3 className="font-semibold text-base">Acompañantes</h3>
                         <span className="text-xs text-gray-400">Opcional</span>
                       </div>
                       {passengers.length < getTotalCapacity() && (
@@ -1317,9 +1447,9 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                     className="pointer-events-none mt-0.5"
                                   />
                                   <div>
-                                    <span className="text-sm font-medium text-gray-700">Lo completo despues</span>
+                                    <span className="text-sm font-medium text-gray-700">Lo completo después</span>
                                     <p className="text-xs text-gray-500 mt-0.5">
-                                      Marca esta opcion si te falta algun documento
+                                      Marcá esta opción si te falta algún documento
                                     </p>
                                   </div>
                                 </div>
@@ -1350,14 +1480,14 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                       onSelect={(date) => {
                                         if (date) updatePassenger(index, 'fecha_nacimiento', toISODateLocal(date))
                                       }}
-                                      placeholder="Selecciona fecha"
+                                      placeholder="Seleccioná fecha"
                                       maxYear={new Date().getFullYear()}
                                       minYear={1920}
                                     />
                                     {passenger.fecha_nacimiento && selectedDate && (
                                       <div className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600">
                                         <Info className="w-3 h-3" />
-                                        Edad al viajar: {ageAtTravel} anios
+                                        Edad al viajar: {ageAtTravel} años
                                       </div>
                                     )}
                                   </div>
@@ -1374,12 +1504,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                         />
                                         {passenger.dni && !isValidDni(passenger.dni) && (
                                           <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> DNI invalido (7 u 8 digitos)
+                                            <AlertCircle className="w-3 h-3" /> DNI inválido (7 u 8 dígitos)
                                           </p>
                                         )}
                                         {passenger.dni && isValidDni(passenger.dni) && duplicates.has(normalizeDni(passenger.dni)) && (
                                           <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> Este DNI ya esta en otro pasajero
+                                            <AlertCircle className="w-3 h-3" /> Este DNI ya está en otro pasajero
                                           </p>
                                         )}
                                       </div>
@@ -1394,12 +1524,12 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                         />
                                         {passenger.email && !isValidEmail(passenger.email) && (
                                           <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> Email invalido
+                                            <AlertCircle className="w-3 h-3" /> Email inválido
                                           </p>
                                         )}
                                       </div>
                                       <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Telefono *</label>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono *</label>
                                         <Input
                                           type="tel"
                                           value={passenger.telefono || ''}
@@ -1409,7 +1539,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                                         />
                                         {passenger.telefono && !isValidPhone(passenger.telefono) && (
                                           <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> Telefono muy corto (min. 8 digitos)
+                                            <AlertCircle className="w-3 h-3" /> Teléfono muy corto (mín. 8 dígitos)
                                           </p>
                                         )}
                                       </div>
@@ -1425,7 +1555,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                       <div className="text-center py-6 border-2 border-dashed border-gray-200 rounded-xl">
                         <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                         <p className="text-sm text-gray-400">
-                          Sin acompanantes. Toca "Agregar" si viajas con mas personas.
+                          Sin acompañantes. Tocá "Agregar" si viajás con más personas.
                         </p>
                       </div>
                     )}
@@ -1435,12 +1565,21 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                 <div className={NAV_BAR}>
                   <Button variant="ghost" onClick={prevStep} className="text-gray-500">
                     <ChevronLeft className="w-4 h-4 mr-1" />
-                    Atras
+                    Atrás
                   </Button>
                   <Button
                     onClick={() => {
+                      const excedente = getExcessPassengers()
+                      if (excedente > 0) {
+                        toast({
+                          title: "Hay más pasajeros que lugares",
+                          description: `Quitá ${excedente} ${excedente === 1 ? 'acompañante' : 'acompañantes'} o sumá lugar en Habitaciones`,
+                          variant: "destructive"
+                        })
+                        return
+                      }
                       if (!canSubmit()) {
-                        toast({ title: "Completa todos los campos requeridos", variant: "destructive" })
+                        toast({ title: "Completá todos los campos requeridos", variant: "destructive" })
                         return
                       }
                       nextStep()
@@ -1460,8 +1599,8 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
             {step === 5 && (
               <div className="space-y-4 sm:space-y-6">
                 <div className="text-center mb-2">
-                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Revisa tu reserva</h2>
-                  <p className="text-sm text-gray-500 mt-1">Verifica que todo este correcto antes de confirmar</p>
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Revisá tu reserva</h2>
+                  <p className="text-sm text-gray-500 mt-1">Verificá que todo esté correcto antes de confirmar</p>
                 </div>
 
                 {/* Summary Cards */}
@@ -1510,11 +1649,17 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                         <div className="space-y-0.5 mt-0.5">
                           {roomsData.map((room, i) => (
                             <p key={i} className="text-sm text-gray-800">
-                              {getRoomTypeName(room.tipo_habitacion)} - {room.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Camas separadas'}
+                              {[
+                                getRoomTypeName(room.tipo_habitacion),
+                                room.tipo_habitacion === 'sgl' || !room.subtipo_habitacion
+                                  ? null
+                                  : room.subtipo_habitacion === 'matrimonial' ? 'Matrimonial' : 'Camas separadas',
+                                room.menores ? `+ ${formatMenores(room.menores)}` : null,
+                              ].filter(Boolean).join(' · ')}
                             </p>
                           ))}
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Capacidad total: {getTotalCapacity()} personas</p>
+                        <p className="text-xs text-gray-500 mt-1">Capacidad total: {contar(getTotalCapacity(), 'persona', 'personas')}</p>
                       </div>
                     </div>
                     <button onClick={() => goToStep(3)} className="text-xs text-primary hover:underline font-medium">Editar</button>
@@ -1536,7 +1681,7 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                               </Badge>
                               <span className="text-sm text-gray-800">{p.nombre} {p.apellido}</span>
                               {p.fecha_nacimiento && selectedDate && (
-                                <span className="text-xs text-gray-500">({getAgeAtTravel(p.fecha_nacimiento)} anios)</span>
+                                <span className="text-xs text-gray-500">({getAgeAtTravel(p.fecha_nacimiento)} años)</span>
                               )}
                               {p.datos_pendientes && (
                                 <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-300">Datos pendientes</Badge>
@@ -1550,13 +1695,31 @@ export function ReservationForm({ packageId, packageName, onSuccess, onClose }: 
                   </div>
                 </div>
 
+                {/* Aviso suave de menores: no bloquea, el asesor lo confirma al cotizar */}
+                {(() => {
+                  const aviso = getMenoresWarning()
+                  if (!aviso) return null
+                  return (
+                    <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                      <Info className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                      <p className="text-xs sm:text-sm text-amber-900">
+                        Declaraste {formatMenores(aviso.declarados)} en las habitaciones, pero{' '}
+                        {aviso.cargados === 0
+                          ? 'ningún pasajero cargado tiene'
+                          : `solo ${aviso.cargados} ${aviso.cargados === 1 ? 'pasajero cargado tiene' : 'pasajeros cargados tienen'}`}{' '}
+                        menos de 18 años al viajar. Revisá los pasajeros y sus fechas de nacimiento. Igual podés confirmar: el asesor lo revisa al cotizar.
+                      </p>
+                    </div>
+                  )
+                })()}
+
                 {/* Comments */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Comentarios adicionales</label>
                   <Textarea
                     value={comentarios}
                     onChange={(e) => setComentarios(e.target.value)}
-                    placeholder="Informacion adicional sobre la reserva (opcional)..."
+                    placeholder="Información adicional sobre la reserva (opcional)..."
                     rows={3}
                     className="resize-none"
                   />

@@ -44,7 +44,7 @@ supabase db execute --file scripts/supabase/migrations/20251030_modify_reservati
 **Cambios:**
 - ✅ RPC `create_reservation_atomic` — inserta reserva + detalles + pasajeros en una sola transacción, con `SELECT FOR UPDATE` sobre `package_stock` para evitar overbooking.
 - ✅ RPC `cancel_reservation_atomic` — cancela reserva y repone stock si aplica. Idempotente.
-- ✅ **Cambio de semántica:** el stock ahora se descuenta **al crear** la reserva, no al confirmarla.
+- ✅ **Cupo:** hoy se descuenta **al confirmar** la reserva (`confirm_reservation_atomic`, desde `20260420_stock_on_confirm.sql`), no al crearla.
 
 **⚠️ REQUISITO:** El código TypeScript (`lib/supabase.ts`) ya llama a estas RPCs. Sin ejecutar esta migración, **el flujo de creación de reservas desde el cliente deja de funcionar**.
 
@@ -60,6 +60,24 @@ supabase db execute --file scripts/supabase/migrations/20251030_modify_reservati
 - ✅ Agrega índices sobre `reservation_id`, `estado`, `fecha_salida`, y lookup compuesto de `package_stock`.
 
 **⚠️ IMPORTANTE:** Ejecutar **después** de `20260420_atomic_reservations.sql`. Si se corre antes, los clientes se quedan sin forma de crear reservas (la RPC `create_reservation_atomic` es el único camino desde `anon`).
+
+### `20261112_tarifas_por_salida_y_habitaciones.sql`
+
+**Descripción:** Tarifas por salida (además de la del mes) y habitaciones single / quíntuple / menores en la reserva.
+
+**Cambios:**
+- ✅ `accommodation_rates`: `fecha_salida` (NULL = tarifa del mes), `tarifa_sgl`, `tarifa_qpl`. El UNIQUE `(accommodation_id, mes, anio)` pasa a dos únicos parciales (fila del mes / fila de la salida).
+- ✅ `package_stock`: `stock_sgl`, `stock_qpl` (NULL = no se controla cupo de ese tipo).
+- ✅ `reservation_details`: `menores` (0 a 2 por habitación, sólo dbl/tpl/cpl) y tipos `sgl` y `qpl`.
+- ✅ RPCs de reserva (crear, confirmar, cancelar) y `validate_reservation_capacity` con los tipos nuevos y los menores; crear rechaza `cantidad <= 0`.
+- ✅ Vista `travel_packages_bot`: tarifa efectiva por salida, single/quíntuple, y una tarifa en 0 ya no sale como «USD 0».
+- ✅ Borra el trigger viejo `restore_stock_on_cancel_trigger`, que reponía cupo de más al cancelar (además de lo que repone `cancel_reservation_atomic`). La función queda.
+
+**⚠️ IMPORTANTE — orden:** primero la migración, y enseguida el deploy del código nuevo.
+- Entre una cosa y la otra, con el código viejo sólo falla «Agregar tarifa» en el panel (su `upsert(..., { onConflict: "accommodation_id,mes,anio" })` deja de existir). La web, el bot, las reservas y el cupo siguen andando.
+- Al revés (deploy antes que la migración) se rompe más: el panel de tarifas no guarda y la reserva rechaza single, quíntuple y menores.
+- **Volver al código viejo** (rollback del deploy) con tarifas por salida ya cargadas: borrar antes esas filas (`delete from accommodation_rates where fecha_salida is not null`). El código viejo toma cualquier fila del mes y puede mostrar el precio de una salida en todo el mes.
+- Rollback de la base comentado al final del archivo.
 
 ## Backup antes de ejecutar
 

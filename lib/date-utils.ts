@@ -6,17 +6,24 @@ const SPANISH_MONTHS: Record<string, number> = {
 }
 
 export function parseSpanishDate(dateStr: string): Date | null {
+  // Tiene que leer lo mismo que `parse_departure_date` en la base (la que usa la vista del bot): exactamente
+  // día, mes y año, sin texto de más, y un día que exista. Si la web leyera una salida que el bot no,
+  // una tarifa cargada para esa salida la vería sólo la web.
   const parts = dateStr.trim().split(/\s+/)
-  if (parts.length < 3) return null
+  if (parts.length !== 3 || !/^\d{1,2}$/.test(parts[0]) || !/^\d{2,4}$/.test(parts[2])) return null
 
-  const day = parseInt(parts[0])
+  const day = parseInt(parts[0], 10)
   const month = SPANISH_MONTHS[parts[1]]
-  let year = parseInt(parts[2])
+  let year = parseInt(parts[2], 10)
 
-  if (isNaN(day) || month === undefined || isNaN(year)) return null
+  if (month === undefined) return null
   if (year < 100) year = year <= 50 ? 2000 + year : 1900 + year
+  if (year < 1900 || year > 2100) return null
 
-  return new Date(year, month, day)
+  // «31 Feb 2027» no existe: Date lo corre al 3 de marzo. Se rechaza.
+  const date = new Date(year, month, day)
+  if (date.getMonth() !== month || date.getDate() !== day) return null
+  return date
 }
 
 /**

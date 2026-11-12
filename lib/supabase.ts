@@ -1,5 +1,14 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { sortPackagesForDisplay } from "./date-utils"
+import { RATE_FIELDS, monthYearOfDeparture, rateValue, toDepartureISO, type RateField } from "./rates"
+import {
+  getRoomStock,
+  getRoomTypeName,
+  roomsCapacity,
+  validateRoomDetails,
+  type RoomDetailInput,
+  type RoomType,
+} from "./room-utils"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
@@ -74,13 +83,31 @@ export interface AccommodationRate {
   accommodation_id: number
   mes: number
   anio: number
-  tarifa_dbl: number
-  tarifa_tpl: number
-  tarifa_cpl: number
-  tarifa_menor: number
+  /** 'YYYY-MM-DD' → tarifa de esa salida (mes/anio son los de la fecha). null → tarifa del mes. */
+  fecha_salida: string | null
+  // null o 0 = sin tarifa (las columnas viejas tienen default 0; sgl/qpl, NULL)
+  tarifa_sgl: number | null
+  tarifa_dbl: number | null
+  tarifa_tpl: number | null
+  tarifa_cpl: number | null
+  tarifa_qpl: number | null
+  tarifa_menor: number | null
   currency?: string | null
   created_at: string
   updated_at: string
+}
+
+/** Montos y moneda que se guardan en una tarifa. Lo que no viene (undefined) no se toca al actualizar. */
+export type AccommodationRateValues = Partial<Pick<AccommodationRate, RateField>> & { currency?: string | null }
+
+/** Fila para insertar a mano (createMultipleRates). sgl/qpl/fecha_salida opcionales para los llamados viejos. */
+export type AccommodationRateInput = Omit<
+  AccommodationRate,
+  "id" | "created_at" | "updated_at" | "fecha_salida" | "tarifa_sgl" | "tarifa_qpl"
+> & {
+  fecha_salida?: string | null
+  tarifa_sgl?: number | null
+  tarifa_qpl?: number | null
 }
 
 export interface TravelPackageWithAccommodations extends TravelPackage {
@@ -667,10 +694,30 @@ export const accommodationService = {
   },
 }
 
-// Servicio para tarifas de alojamientos
+// Servicio para tarifas de alojamientos.
+// Desde las tarifas por salida (contrato §2.1) ya no hay UNIQUE (accommodation_id, mes, anio): hay dos índices
+// únicos parciales (mes/año con fecha_salida NULL, y accommodation_id + fecha_salida). Por eso no se usa
+// upsert(onConflict): guardar = buscar la fila por su clave y hacer update o insert.
+// Las escrituras aceptan un cliente opcional (p. ej. `supabaseAdmin`); por defecto usan `supabase`.
+
+/** Montos normalizados para escribir: sólo las claves presentes; 0 y NaN → null. */
+function rateValuesPayload(values: AccommodationRateValues): Record<string, number | string | null> {
+  const payload: Record<string, number | string | null> = {}
+  for (const f of RATE_FIELDS) {
+    const value = values[f.field]
+    if (value !== undefined) payload[f.field] = rateValue(value)
+  }
+  if (values.currency) payload.currency = values.currency.toUpperCase()
+  return payload
+}
+
+/** La base filtró las filas en vez de dar error: pasa cuando la sesión de administrador venció. */
+const RATE_WRITE_BLOCKED =
+  "La base no guardó el cambio: puede que la sesión de administrador haya vencido. Volvé a iniciar sesión e intentá de nuevo."
+
 export const accommodationRateService = {
-  // Obtener tarifas por alojamiento
-  async getRatesByAccommodation(accommodationId: number) {
+  // Obtener tarifas por alojamiento (las del mes y las por salida)
+  async getRatesByAccommodation(accommodationId: number): Promise<AccommodationRate[]> {
     const { data, error } = await supabase
       .from("accommodation_rates")
       .select("*")
@@ -679,10 +726,10 @@ export const accommodationRateService = {
       .order("mes", { ascending: true })
 
     if (error) throw error
-    return data
+    return (data || []) as AccommodationRate[]
   },
 
-  // Obtener tarifas por mes y año
+  // Obtener la tarifa DEL MES (fecha_salida NULL) de un mes y año
   async getRatesByMonthYear(accommodationId: number, mes: number, anio: number) {
     const { data, error } = await supabase
       .from("accommodation_rates")
@@ -690,49 +737,183 @@ export const accommodationRateService = {
       .eq("accommodation_id", accommodationId)
       .eq("mes", mes)
       .eq("anio", anio)
+      .is("fecha_salida", null)
       .single()
 
     if (error) throw error
-    return data
+    return data as AccommodationRate
   },
 
-  // Crear o actualizar tarifas
-  async upsertRate(rateData: Omit<AccommodationRate, "id" | "created_at" | "updated_at">) {
-    const { data, error } = await supabase
+  /**
+   * Guarda la tarifa DEL MES de un hotel (fecha_salida NULL): update si ya existe la del mes/año, insert si no.
+   * `replaceId`: al editar una fila y cambiarle el mes, se borra la fila original si no es la que quedó guardada.
+   */
+  async saveMonthlyRate(
+    accommodationId: number,
+    mes: number,
+    anio: number,
+    values: AccommodationRateValues,
+    options: { replaceId?: number | null; client?: SupabaseClient } = {},
+  ): Promise<AccommodationRate> {
+    const db = options.client ?? supabase
+    if (!Number.isInteger(mes) || mes < 1 || mes > 12) throw new Error("Seleccioná un mes válido.")
+    if (!Number.isInteger(anio)) throw new Error("Seleccioná un año válido.")
+
+    const { data: found, error: findError } = await db
       .from("accommodation_rates")
-      .upsert([rateData], { 
-        onConflict: "accommodation_id,mes,anio" 
-      })
-      .select()
+      .select("id")
+      .eq("accommodation_id", accommodationId)
+      .eq("mes", mes)
+      .eq("anio", anio)
+      .is("fecha_salida", null)
+      .limit(1)
+    if (findError) throw findError
+
+    const payload = rateValuesPayload(values)
+    const existingId = (found as { id: number }[] | null)?.[0]?.id
+    const { data, error } = existingId
+      ? await db
+          .from("accommodation_rates")
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq("id", existingId)
+          .select()
+          .single()
+      : await db
+          .from("accommodation_rates")
+          .insert([{ accommodation_id: accommodationId, mes, anio, fecha_salida: null, ...payload }])
+          .select()
+          .single()
+    if (error) throw error
+
+    const saved = data as AccommodationRate
+    if (options.replaceId != null && options.replaceId !== saved.id) {
+      await this.deleteRates([options.replaceId], { client: db })
+    }
+    return saved
+  },
+
+  /**
+   * Guarda la MISMA tarifa para varias salidas de un hotel: una fila por fecha, con mes/anio de la fecha.
+   * Update si ya existe la fila de esa salida, insert si no. `fechas`: 'YYYY-MM-DD', «3 Ene 2027» o Date.
+   * Devuelve las filas guardadas, ordenadas por fecha.
+   */
+  async saveDepartureRates(
+    accommodationId: number,
+    fechas: ReadonlyArray<string | Date>,
+    values: AccommodationRateValues,
+    options: { client?: SupabaseClient } = {},
+  ): Promise<AccommodationRate[]> {
+    const db = options.client ?? supabase
+    const isos: string[] = []
+    for (const fecha of fechas) {
+      const iso = toDepartureISO(fecha)
+      if (!iso) throw new Error(`Fecha de salida inválida: ${String(fecha)}`)
+      if (!isos.includes(iso)) isos.push(iso)
+    }
+    if (isos.length === 0) throw new Error("Seleccioná al menos una salida.")
+
+    const { data: found, error: findError } = await db
+      .from("accommodation_rates")
+      .select("id, fecha_salida")
+      .eq("accommodation_id", accommodationId)
+      .in("fecha_salida", isos)
+    if (findError) throw findError
+
+    const existing = (found || []) as { id: number; fecha_salida: string }[]
+    const existingDates = new Set(existing.map((r) => toDepartureISO(r.fecha_salida)))
+    const payload = rateValuesPayload(values)
+    const saved: AccommodationRate[] = []
+
+    if (existing.length > 0) {
+      const { data, error } = await db
+        .from("accommodation_rates")
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .in("id", existing.map((r) => r.id))
+        .select()
+      if (error) throw error
+      // Sin sesión de admin, la base no da error: filtra las filas y no cambia nada.
+      if ((data || []).length !== existing.length) throw new Error(RATE_WRITE_BLOCKED)
+      saved.push(...((data || []) as AccommodationRate[]))
+    }
+
+    const toInsert = isos
+      .filter((iso) => !existingDates.has(iso))
+      .map((iso) => ({ accommodation_id: accommodationId, fecha_salida: iso, ...monthYearOfDeparture(iso)!, ...payload }))
+    if (toInsert.length > 0) {
+      const { data, error } = await db.from("accommodation_rates").insert(toInsert).select()
+      if (error) throw error
+      saved.push(...((data || []) as AccommodationRate[]))
+    }
+
+    return saved.sort((a, b) => (a.fecha_salida ?? "").localeCompare(b.fecha_salida ?? ""))
+  },
+
+  /**
+   * Edita un grupo de tarifas por salida: guarda `values` para `fechas` (como saveDepartureRates) y borra las
+   * filas de `previousIds` que no quedaron entre las guardadas (salidas que se sacaron del grupo).
+   */
+  async replaceDepartureRates(
+    accommodationId: number,
+    previousIds: ReadonlyArray<number>,
+    fechas: ReadonlyArray<string | Date>,
+    values: AccommodationRateValues,
+    options: { client?: SupabaseClient } = {},
+  ): Promise<AccommodationRate[]> {
+    const saved = await this.saveDepartureRates(accommodationId, fechas, values, options)
+    const keep = new Set(saved.map((r) => r.id))
+    await this.deleteRates(previousIds.filter((id) => !keep.has(id)), options)
+    return saved
+  },
+
+  /** Borra un conjunto de filas por id (p. ej. un grupo entero). Sin ids no hace nada. */
+  async deleteRates(ids: ReadonlyArray<number>, options: { client?: SupabaseClient } = {}): Promise<void> {
+    if (ids.length === 0) return
+    const db = options.client ?? supabase
+    const { data, error } = await db
+      .from("accommodation_rates")
+      .delete()
+      .in("id", [...ids])
+      .select("id")
 
     if (error) throw error
-    return data[0]
+    // Sin sesión de admin, la base no da error: filtra las filas y no borra nada.
+    if ((data || []).length !== new Set(ids).size) throw new Error(RATE_WRITE_BLOCKED)
   },
 
-  // Crear múltiples tarifas
-  async createMultipleRates(rates: Omit<AccommodationRate, "id" | "created_at" | "updated_at">[]) {
-    const { data, error } = await supabase
+  /**
+   * Compatibilidad: guarda una tarifa. Con `fecha_salida` → tarifa de esa salida; sin → tarifa del mes.
+   * Ya no usa upsert(onConflict: "accommodation_id,mes,anio"), que dejó de existir.
+   */
+  async upsertRate(rateData: AccommodationRateInput, options: { client?: SupabaseClient } = {}): Promise<AccommodationRate> {
+    const { accommodation_id, mes, anio, fecha_salida, ...values } = rateData
+    if (fecha_salida) {
+      const [saved] = await this.saveDepartureRates(accommodation_id, [fecha_salida], values, options)
+      return saved
+    }
+    return this.saveMonthlyRate(accommodation_id, mes, anio, values, options)
+  },
+
+  // Crear múltiples tarifas (insert directo: no pisa nada; falla si ya existe la del mes o la de la salida)
+  async createMultipleRates(rates: AccommodationRateInput[], options: { client?: SupabaseClient } = {}) {
+    const db = options.client ?? supabase
+    const { data, error } = await db
       .from("accommodation_rates")
       .insert(rates)
       .select()
 
     if (error) throw error
-    return data
+    return data as AccommodationRate[]
   },
 
   // Eliminar tarifa
-  async deleteRate(id: number) {
-    const { error } = await supabase
-      .from("accommodation_rates")
-      .delete()
-      .eq("id", id)
-
-    if (error) throw error
+  async deleteRate(id: number, options: { client?: SupabaseClient } = {}) {
+    await this.deleteRates([id], options)
   },
 
   // Eliminar todas las tarifas de un alojamiento
-  async deleteRatesByAccommodation(accommodationId: number) {
-    const { error } = await supabase
+  async deleteRatesByAccommodation(accommodationId: number, options: { client?: SupabaseClient } = {}) {
+    const db = options.client ?? supabase
+    const { error } = await db
       .from("accommodation_rates")
       .delete()
       .eq("accommodation_id", accommodationId)
@@ -1222,14 +1403,24 @@ export interface PackageStock {
   package_id: number
   accommodation_id: number
   fecha_salida: string | null // ISO date string, null para fechas flexibles
+  // Cupo por tipo. sgl/qpl en NULL = no se controla ese tipo (se reserva «a confirmar»); número = cupo (0 = sin cupo).
+  // Las filas leídas antes de la migración no traen sgl/qpl: tratar undefined como null (getRoomStock lo hace).
+  stock_sgl: number | null
   stock_dbl: number
   stock_tpl: number
   stock_cpl: number
+  stock_qpl: number | null
   is_available: boolean
   flexible_dates?: boolean // Indica si el stock tiene fechas flexibles
   is_unlimited?: boolean // Si true, la RPC no valida ni decrementa cupos
   created_at: string
   updated_at: string
+}
+
+/** Fila para crear/actualizar stock: sgl/qpl opcionales (si no vienen, no se tocan; en un insert quedan NULL). */
+export type PackageStockInput = Omit<PackageStock, 'id' | 'created_at' | 'updated_at' | 'stock_sgl' | 'stock_qpl'> & {
+  stock_sgl?: number | null
+  stock_qpl?: number | null
 }
 
 export type PackageStockStatus = 'none' | 'loaded' | 'unlimited'
@@ -1256,9 +1447,11 @@ export interface Reservation {
 export interface ReservationDetail {
   id: number
   reservation_id: number
-  tipo_habitacion: 'dbl' | 'tpl' | 'cpl'
+  tipo_habitacion: RoomType
   cantidad: number
   subtipo_habitacion?: 'matrimonial' | 'twin' | null
+  /** Menores que comparten la habitación pagando tarifa de menor (además de la base). En la base: NOT NULL DEFAULT 0. */
+  menores?: number
   created_at: string
 }
 
@@ -1294,11 +1487,8 @@ export interface CreateReservationData {
   cliente_email: string
   cliente_telefono: string
   comentarios?: string
-  details: {
-    tipo_habitacion: 'dbl' | 'tpl' | 'cpl' | 'qpl'
-    cantidad: number
-    subtipo_habitacion?: 'matrimonial' | 'twin' | null
-  }[]
+  /** Una fila por habitación (el formulario usa cantidad = 1). `menores` 0 a 2 en dbl/tpl/cpl; 0 en sgl/qpl. */
+  details: RoomDetailInput[]
   passengers: {
     tipo_pasajero: 'titular' | 'acompañante'
     nombre: string
@@ -1349,7 +1539,7 @@ export const stockService = {
   },
 
   // Crear o actualizar stock
-  async upsertStock(stockData: Omit<PackageStock, 'id' | 'created_at' | 'updated_at'>) {
+  async upsertStock(stockData: PackageStockInput) {
     const { data, error } = await supabase
       .from('package_stock')
       .upsert([stockData], {
@@ -1362,7 +1552,7 @@ export const stockService = {
   },
 
   // Actualizar stock existente
-  async updateStock(id: number, updates: Partial<PackageStock>) {
+  async updateStock(id: number, updates: Partial<PackageStockInput>) {
     const { data, error } = await supabase
       .from('package_stock')
       .update(updates)
@@ -1485,7 +1675,7 @@ export const stockService = {
     packageId: number,
     accommodationId: number,
     fechaSalida: string,
-    details: { tipo_habitacion: 'dbl' | 'tpl' | 'cpl', cantidad: number }[]
+    details: { tipo_habitacion: RoomType, cantidad: number }[]
   ): Promise<{ available: boolean, message?: string }> {
     console.log('🔍 Buscando stock para:', { packageId, accommodationId, fechaSalida })
 
@@ -1523,18 +1713,17 @@ export const stockService = {
       return { available: false, message: 'No hay stock configurado para esta fecha' }
     }
 
-    console.log('📊 Verificando disponibilidad por tipo de habitación...')
+    // Misma regla que la reserva: ilimitado o columna en NULL no se controla (queda «a confirmar»)
+    const requested = new Map<RoomType, number>()
     for (const detail of details) {
-      const stockField = `stock_${detail.tipo_habitacion}` as keyof PackageStock
-      const availableStock = stock[stockField] as number
-
-      console.log(`  - ${detail.tipo_habitacion.toUpperCase()}: Disponible=${availableStock}, Solicitado=${detail.cantidad}`)
-
-      if (availableStock < detail.cantidad) {
-        console.error(`❌ Stock insuficiente para ${detail.tipo_habitacion}`)
+      requested.set(detail.tipo_habitacion, (requested.get(detail.tipo_habitacion) || 0) + detail.cantidad)
+    }
+    for (const [tipo, cantidad] of requested) {
+      const availableStock = getRoomStock(stock, tipo)
+      if (availableStock !== null && availableStock < cantidad) {
         return {
           available: false,
-          message: `Stock insuficiente para habitaciones ${detail.tipo_habitacion.toUpperCase()}. Disponible: ${availableStock}, Solicitado: ${detail.cantidad}`
+          message: `Cupo insuficiente para habitaciones ${getRoomTypeName(tipo)}. Disponible: ${availableStock}, solicitado: ${cantidad}`
         }
       }
     }
@@ -1548,6 +1737,20 @@ export const stockService = {
 export const reservationService = {
   // Crear una reserva de forma atómica (vía RPC con lock de stock)
   async createReservation(reservationData: CreateReservationData) {
+    // Validaciones del cliente (la RPC vuelve a validar capacidad y cupo)
+    const roomsError = validateRoomDetails(reservationData.details)
+    if (roomsError) return { success: false, error: roomsError }
+    if (!reservationData.passengers.some(p => p.tipo_pasajero === 'titular')) {
+      return { success: false, error: 'Debe incluir al menos un pasajero titular.' }
+    }
+    const capacity = roomsCapacity(reservationData.details)
+    if (reservationData.passengers.length > capacity) {
+      return {
+        success: false,
+        error: `La cantidad de pasajeros (${reservationData.passengers.length}) excede la capacidad de las habitaciones (${capacity}).`
+      }
+    }
+
     try {
       const { data, error } = await supabase.rpc('create_reservation_atomic', {
         p_package_id: reservationData.package_id,
@@ -1557,7 +1760,13 @@ export const reservationService = {
         p_cliente_email: reservationData.cliente_email,
         p_cliente_telefono: reservationData.cliente_telefono,
         p_comentarios: reservationData.comentarios || null,
-        p_details: reservationData.details,
+        // `menores` viaja dentro del JSON de cada detalle (la firma de la RPC no cambia)
+        p_details: reservationData.details.map(d => ({
+          tipo_habitacion: d.tipo_habitacion,
+          cantidad: d.cantidad,
+          subtipo_habitacion: d.subtipo_habitacion ?? null,
+          menores: d.menores ?? 0,
+        })),
         p_passengers: reservationData.passengers.map(p => ({
           ...p,
           datos_pendientes: p.datos_pendientes || false
