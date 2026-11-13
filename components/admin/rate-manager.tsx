@@ -282,8 +282,9 @@ export function RateManager({ accommodation, availableDates, draftRates, onDraft
   // --- Derivados -----------------------------------------------------------
 
   const grouped = useMemo(() => groupRates(rates), [rates])
-  // rateCoverage acepta las salidas ya normalizadas ('YYYY-MM-DD').
-  const coverage = useMemo(() => rateCoverage(departures, rates), [departures, rates])
+  // rateCoverage lee las fechas como están escritas en el paquete («3 Ene 2027»), no las ya normalizadas:
+  // con 'YYYY-MM-DD' no lee ninguna y toda tarifa por salida le parece de una fecha que ya no existe.
+  const coverage = useMemo(() => rateCoverage(datesKey ? datesKey.split("|") : [], rates), [datesKey, rates])
   const departureSet = useMemo(() => new Set(departures), [departures])
 
   const ownByDate = useMemo(() => {
